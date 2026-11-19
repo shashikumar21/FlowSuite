@@ -14,6 +14,21 @@ type Table<Row, Insert, Update> = {
 export type TenantRole = 'owner' | 'admin' | 'manager' | 'employee'
 export type MemberStatus = 'invited' | 'active' | 'suspended'
 
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted'
+export type ContactStatus = 'lead' | 'customer' | 'inactive'
+export type DealStatus = 'open' | 'won' | 'lost'
+export type ActivityType =
+  | 'note'
+  | 'call'
+  | 'email'
+  | 'meeting'
+  | 'task'
+  | 'status_change'
+  | 'stage_change'
+  | 'assignment'
+  | 'lead_created'
+  | 'deal_created'
+
 export type ProfileRow = {
   id: string
   full_name: string | null
@@ -103,32 +118,48 @@ export type ContactRow = {
   last_name: string | null
   email: string | null
   phone: string | null
+  company: string | null
+  notes: string | null
   source: string | null
-  status: 'lead' | 'customer' | 'inactive'
+  source_id: string | null
+  status: ContactStatus
+  lead_status: LeadStatus
+  lead_score: number
   assigned_to: string | null
+  follow_up_at: string | null
+  last_contacted_at: string | null
+  converted_at: string | null
   custom_data: Json
   created_at: string
   updated_at: string
 }
 
-type PipelineRow = {
+export type PipelineRow = {
   id: string
   tenant_id: string
   name: string
   is_default: boolean
+  description: string | null
+  color: string | null
+  position: number
+  is_active: boolean
   created_at: string
 }
 
-type StageRow = {
+export type StageRow = {
   id: string
   tenant_id: string
   pipeline_id: string
   name: string
   position: number
   probability: number
+  is_closed: boolean
+  is_won: boolean
+  color: string | null
+  slug: string | null
 }
 
-type DealRow = {
+export type DealRow = {
   id: string
   tenant_id: string
   contact_id: string
@@ -138,9 +169,119 @@ type DealRow = {
   value: number
   currency: string
   assigned_to: string | null
-  status: 'open' | 'won' | 'lost'
+  status: DealStatus
+  expected_close_date: string | null
+  description: string | null
+  probability: number
+  custom_data: Json
+  won_at: string | null
+  lost_at: string | null
+  lost_reason: string | null
   created_at: string
   updated_at: string
+}
+
+export type LeadSourceRow = {
+  id: string
+  tenant_id: string
+  name: string
+  type: 'website' | 'whatsapp' | 'referral' | 'walk_in' | 'advertisement' | 'manual' | 'other'
+  active: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+export type TagRow = {
+  id: string
+  tenant_id: string
+  name: string
+  color: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ContactTagRow = {
+  tenant_id: string
+  contact_id: string
+  tag_id: string
+  created_at: string
+}
+
+export type ContactActivityRow = {
+  id: string
+  tenant_id: string
+  contact_id: string
+  deal_id: string | null
+  type: ActivityType
+  subject: string | null
+  body: string | null
+  occurred_at: string
+  created_by: string | null
+  metadata: Json
+  created_at: string
+}
+
+export type DealAssignmentRow = {
+  id: string
+  tenant_id: string
+  deal_id: string
+  user_id: string
+  assigned_by: string | null
+  created_at: string
+}
+
+export type CustomFieldRow = {
+  id: string
+  tenant_id: string
+  entity_type: 'contact' | 'lead' | 'deal'
+  key: string
+  label: string
+  type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'multiselect' | 'boolean'
+  options: Json
+  required: boolean
+  active: boolean
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+/** Row returned by the tenant-scoped `crm_search_contacts` RPC. */
+export type ContactSearchRow = {
+  id: string
+  first_name: string
+  last_name: string | null
+  email: string | null
+  phone: string | null
+  company: string | null
+  status: ContactStatus
+  lead_status: LeadStatus
+  source_id: string | null
+  assigned_to: string | null
+  created_at: string
+  total_count: number
+}
+
+/** Shape returned by the tenant-scoped `crm_dashboard_metrics` RPC. */
+export type CrmMetrics = {
+  total_contacts: number
+  new_leads: number
+  qualified_leads: number
+  open_deals: number
+  won_deals: number
+  open_pipeline_value: number
+  leads_by_source: Array<{ label: string; count: number }>
+  deals_by_stage: Array<{ stage: string; count: number; value: number; position: number }>
+  recent_activities: Array<{
+    id: string
+    type: ActivityType
+    subject: string | null
+    body: string | null
+    contact_id: string
+    deal_id: string | null
+    occurred_at: string
+    created_at: string
+  }>
 }
 
 type AppointmentRow = {
@@ -321,6 +462,32 @@ export interface Database {
         { tenant_id: string; template_id: string; overrides_json?: Json; applied_at?: string },
         { template_id?: string; overrides_json?: Json; applied_at?: string }
       >
+      lead_sources: Table<
+        LeadSourceRow,
+        Pick<LeadSourceRow, 'tenant_id' | 'name'> & Partial<LeadSourceRow>,
+        Partial<LeadSourceRow>
+      >
+      tags: Table<TagRow, Pick<TagRow, 'tenant_id' | 'name'> & Partial<TagRow>, Partial<TagRow>>
+      contact_tags: Table<
+        ContactTagRow,
+        Pick<ContactTagRow, 'tenant_id' | 'contact_id' | 'tag_id'> & Partial<ContactTagRow>,
+        Partial<ContactTagRow>
+      >
+      contact_activities: Table<
+        ContactActivityRow,
+        Pick<ContactActivityRow, 'tenant_id' | 'contact_id' | 'type'> & Partial<ContactActivityRow>,
+        Partial<ContactActivityRow>
+      >
+      deal_assignments: Table<
+        DealAssignmentRow,
+        Pick<DealAssignmentRow, 'tenant_id' | 'deal_id' | 'user_id'> & Partial<DealAssignmentRow>,
+        Partial<DealAssignmentRow>
+      >
+      custom_fields: Table<
+        CustomFieldRow,
+        Pick<CustomFieldRow, 'tenant_id' | 'entity_type' | 'key' | 'label' | 'type'> & Partial<CustomFieldRow>,
+        Partial<CustomFieldRow>
+      >
     }
     Views: Record<string, never>
     Functions: {
@@ -345,6 +512,133 @@ export interface Database {
       has_tenant_access: { Args: { target_tenant: string }; Returns: boolean }
       has_tenant_role: { Args: { target_tenant: string; allowed_roles: string[] }; Returns: boolean }
       is_platform_admin: { Args: { allowed_roles?: string[] }; Returns: boolean }
+
+      /* Milestone 2 — trusted CRM RPCs. RLS remains authoritative for direct
+         table access; these functions re-check membership and permissions. */
+      create_contact: {
+        Args: {
+          p_tenant: string
+          p_first_name: string
+          p_last_name?: string | null
+          p_email?: string | null
+          p_phone?: string | null
+          p_company?: string | null
+          p_source?: string | null
+          p_source_id?: string | null
+          p_notes?: string | null
+          p_assigned_to?: string | null
+          p_lead_status?: LeadStatus
+        }
+        Returns: string
+      }
+      update_contact: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_first_name: string
+          p_last_name?: string | null
+          p_email?: string | null
+          p_phone?: string | null
+          p_company?: string | null
+          p_notes?: string | null
+          p_lead_status?: LeadStatus | null
+          p_follow_up_at?: string | null
+          p_status?: ContactStatus | null
+        }
+        Returns: undefined
+      }
+      archive_contact: { Args: { p_tenant: string; p_contact: string }; Returns: undefined }
+      claim_lead: { Args: { p_tenant: string; p_contact: string }; Returns: undefined }
+      assign_contact: {
+        Args: { p_tenant: string; p_contact: string; p_user_id: string }
+        Returns: undefined
+      }
+      create_deal: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_pipeline_id: string
+          p_stage_id: string
+          p_title: string
+          p_value?: number
+          p_currency?: string
+          p_assigned_to?: string | null
+          p_expected_close_date?: string | null
+          p_description?: string | null
+        }
+        Returns: string
+      }
+      move_deal_stage: {
+        Args: { p_tenant: string; p_deal: string; p_stage_id: string }
+        Returns: undefined
+      }
+      assign_deal: {
+        Args: { p_tenant: string; p_deal: string; p_user_id: string | null }
+        Returns: undefined
+      }
+      convert_lead_to_deal: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_pipeline_id: string
+          p_stage_id: string
+          p_title: string
+          p_value?: number
+          p_currency?: string
+          p_assigned_to?: string | null
+          p_expected_close_date?: string | null
+        }
+        Returns: string
+      }
+      add_contact_activity: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_type: ActivityType
+          p_subject?: string | null
+          p_body?: string | null
+          p_deal_id?: string | null
+          p_occurred_at?: string
+        }
+        Returns: string
+      }
+      create_pipeline: {
+        Args: {
+          p_tenant: string
+          p_name: string
+          p_description?: string | null
+          p_color?: string | null
+        }
+        Returns: string
+      }
+      create_pipeline_stage: {
+        Args: {
+          p_tenant: string
+          p_pipeline_id: string
+          p_name: string
+          p_probability?: number
+          p_is_closed?: boolean
+          p_is_won?: boolean
+          p_color?: string | null
+        }
+        Returns: string
+      }
+      crm_search_contacts: {
+        Args: {
+          p_tenant: string
+          p_query?: string | null
+          p_status?: string | null
+          p_lead_status?: string | null
+          p_source_id?: string | null
+          p_assigned_to?: string | null
+          p_tag_id?: string | null
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: ContactSearchRow[]
+      }
+      crm_dashboard_metrics: { Args: { p_tenant: string }; Returns: CrmMetrics }
+
       admin_list_businesses: {
         Args: Record<string, never>
         Returns: Array<{

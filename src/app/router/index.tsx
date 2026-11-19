@@ -9,6 +9,10 @@ import { ForgotPasswordPage } from '@/modules/auth/pages/ForgotPasswordPage'
 import { LoginPage } from '@/modules/auth/pages/LoginPage'
 import { ResetPasswordPage } from '@/modules/auth/pages/ResetPasswordPage'
 import { SignupPage } from '@/modules/auth/pages/SignupPage'
+import { ContactsPage } from '@/modules/crm/pages/ContactsPage'
+import { CrmOverviewPage } from '@/modules/crm/pages/CrmOverviewPage'
+import { CrmSettingsPage } from '@/modules/crm/pages/CrmSettingsPage'
+import { DealsPage } from '@/modules/crm/pages/DealsPage'
 import { DashboardPage } from '@/modules/dashboard/pages/DashboardPage'
 import { ModulePlaceholderPage } from '@/modules/dashboard/pages/ModulePlaceholderPage'
 import { CreateBusinessPage } from '@/modules/onboarding/pages/CreateBusinessPage'
@@ -36,6 +40,10 @@ export function AppRouter() {
 
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="crm" element={<CrmOverviewPage />} />
+          <Route path="contacts" element={<ContactsPage />} />
+          <Route path="deals" element={<DealsPage />} />
+          <Route path="crm/settings" element={<CrmSettingsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />

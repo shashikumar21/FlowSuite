@@ -47,9 +47,10 @@ export const navigation: NavGroup[] = [
   {
     label: 'Customers',
     items: [
-      planned('CRM', 'crm', Users),
-      planned('Contacts', 'contacts', UserCog),
-      planned('Deals', 'deals', Target),
+      { label: 'CRM', to: '/app/crm', icon: Users, available: true },
+      { label: 'Contacts', to: '/app/contacts', icon: UserCog, available: true },
+      { label: 'Deals', to: '/app/deals', icon: Target, available: true },
+      { label: 'CRM setup', to: '/app/crm/settings', icon: Settings2, available: true },
       planned('Conversations', 'conversations', MessageSquare),
       planned('Appointments', 'appointments', CalendarDays),
     ],
@@ -88,9 +89,6 @@ export const navigation: NavGroup[] = [
 ]
 
 export const moduleTitles: Record<string, { title: string; description: string; icon: LucideIcon; phase: string }> = {
-  crm: { title: 'CRM', description: 'Contacts, lead scoring, assignments and customer history.', icon: Users, phase: 'Next milestone' },
-  contacts: { title: 'Contacts', description: 'Search, filter and manage every lead and customer.', icon: UserCog, phase: 'Next milestone' },
-  deals: { title: 'Deals', description: 'Drag-and-drop pipelines with values and owners.', icon: Target, phase: 'Next milestone' },
   conversations: { title: 'Conversations', description: 'WhatsApp, web chat and email in one inbox.', icon: MessageSquare, phase: 'Phase 2' },
   appointments: { title: 'Appointments', description: 'Calendars, services, reminders and rescheduling.', icon: CalendarDays, phase: 'Phase 2' },
   marketing: { title: 'Marketing', description: 'Campaigns, WhatsApp broadcasts and ad creatives.', icon: Megaphone, phase: 'Phase 3' },

@@ -26,6 +26,21 @@ describe('tenant permissions (UX layer only)', () => {
     expect(hasPermission('employee', 'view_reports')).toBe(false)
   })
 
+  it('lets every active role use the CRM and work with contacts and deals', () => {
+    for (const role of ['owner', 'admin', 'manager', 'employee'] as const) {
+      expect(hasPermission(role, 'view_crm')).toBe(true)
+      expect(hasPermission(role, 'manage_contacts')).toBe(true)
+      expect(hasPermission(role, 'manage_deals')).toBe(true)
+    }
+  })
+
+  it('reserves pipeline configuration, assignment and archiving for managers and above', () => {
+    expect(hasPermission('owner', 'manage_pipeline')).toBe(true)
+    expect(hasPermission('admin', 'manage_pipeline')).toBe(true)
+    expect(hasPermission('manager', 'manage_pipeline')).toBe(true)
+    expect(hasPermission('employee', 'manage_pipeline')).toBe(false)
+  })
+
   it('identifies owners', () => {
     expect(isOwner('owner')).toBe(true)
     expect(isOwner('admin')).toBe(false)

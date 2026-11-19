@@ -9,6 +9,9 @@ export type Permission =
   | 'manage_team'
   | 'view_team'
   | 'manage_contacts'
+  | 'view_crm'
+  | 'manage_deals'
+  | 'manage_pipeline'
   | 'manage_appointments'
   | 'view_reports'
   | 'manage_integrations'
@@ -22,6 +25,11 @@ const MATRIX: Record<Permission, TenantRole[]> = {
   manage_team: ['owner', 'admin'],
   view_team: ALL,
   manage_contacts: ['owner', 'admin', 'manager', 'employee'],
+  view_crm: ALL,
+  manage_deals: ['owner', 'admin', 'manager', 'employee'],
+  // Pipeline configuration, assignment and archiving are manager+ in the DB
+  // (public.can_manage_crm). Employees only work on their own records.
+  manage_pipeline: ['owner', 'admin', 'manager'],
   manage_appointments: ['owner', 'admin', 'manager', 'employee'],
   view_reports: ['owner', 'admin', 'manager'],
   manage_integrations: ['owner', 'admin'],

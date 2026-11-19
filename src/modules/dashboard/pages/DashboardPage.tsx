@@ -18,6 +18,7 @@ import { Avatar, EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedba
 import { requireSupabase } from '@/integrations/supabase/client'
 import { formatCurrency, formatNumber } from '@/lib/format'
 import { getErrorMessage } from '@/lib/errors'
+import { EMPTY_METRICS } from '@/modules/crm/utils'
 import type { ContactRow } from '@/types/database'
 
 type DashboardData = {
@@ -43,8 +44,9 @@ export function DashboardPage() {
     queryFn: async (): Promise<DashboardData> => {
       const supabase = requireSupabase()
       const id = tenantId as string
-      const [contacts, appointments, conversations, deals, recent, members, subscription] = await Promise.all([
-        supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('tenant_id', id),
+      const [metrics, appointments, conversations, recent, members, subscription] = await Promise.all([
+        // Trusted RPC: the same tenant-scoped figures used by the CRM overview.
+        supabase.rpc('crm_dashboard_metrics', { p_tenant: id }),
         supabase
           .from('appointments')
           .select('*', { count: 'exact', head: true })
@@ -56,7 +58,6 @@ export function DashboardPage() {
           .select('*', { count: 'exact', head: true })
           .eq('tenant_id', id)
           .eq('status', 'open'),
-        supabase.from('deals').select('value').eq('tenant_id', id).eq('status', 'open'),
         supabase.from('contacts').select('*').eq('tenant_id', id).order('created_at', { ascending: false }).limit(5).returns<ContactRow[]>(),
         supabase.from('business_members').select('id', { count: 'exact', head: true }).eq('tenant_id', id).eq('status', 'active'),
         supabase
@@ -68,20 +69,20 @@ export function DashboardPage() {
           .returns<Array<{ status: string; plans: { name: string; features: Record<string, boolean> } | null }>>(),
       ])
 
-      const firstError = [contacts, appointments, conversations, deals, recent, members, subscription].find(
+      const firstError = [metrics, appointments, conversations, recent, members, subscription].find(
         (result) => result.error,
       )?.error
       if (firstError) throw firstError
 
-      const activeDeals = deals.data ?? []
+      const crm = metrics.data ?? EMPTY_METRICS
       const plan = subscription.data?.[0]
 
       return {
-        contacts: contacts.count ?? 0,
+        contacts: Number(crm.total_contacts),
         upcomingAppointments: appointments.count ?? 0,
         openConversations: conversations.count ?? 0,
-        openDeals: activeDeals.length,
-        dealValue: activeDeals.reduce((total, deal) => total + Number(deal.value), 0),
+        openDeals: Number(crm.open_deals),
+        dealValue: Number(crm.open_pipeline_value),
         teamSize: members.count ?? 0,
         recentContacts: recent.data ?? [],
         planName: plan?.plans?.name ?? null,
@@ -148,8 +149,8 @@ export function DashboardPage() {
               <CardTitle>Recent contacts</CardTitle>
               <CardDescription>Newest leads and customers in this workspace.</CardDescription>
             </div>
-            <Link to="/app/module/contacts" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
-              View CRM <ArrowRight className="size-3.5" />
+            <Link to="/app/contacts" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+              View contacts <ArrowRight className="size-3.5" />
             </Link>
           </CardHeader>
           <CardContent className="px-0 py-0">
@@ -174,7 +175,7 @@ export function DashboardPage() {
               <EmptyState
                 icon={<UserPlus className="size-5" />}
                 title="No contacts yet"
-                description="Once leads start arriving, they'll appear here. Contact management is the next milestone."
+                description="Once leads start arriving, they'll appear here. Add one from the Contacts screen."
               />
             )}
           </CardContent>
@@ -195,9 +196,17 @@ export function DashboardPage() {
                   </li>
                 ))}
               </ul>
-              <Link to="/app/team" className="mt-5 flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
-                Manage your team <ArrowRight className="size-3.5" />
-              </Link>
+              <div className="mt-5 flex flex-wrap gap-4">
+                <Link to="/app/crm" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  CRM overview <ArrowRight className="size-3.5" />
+                </Link>
+                <Link to="/app/contacts" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  Add a contact <ArrowRight className="size-3.5" />
+                </Link>
+                <Link to="/app/team" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  Manage your team <ArrowRight className="size-3.5" />
+                </Link>
+              </div>
             </CardContent>
           </Card>
 

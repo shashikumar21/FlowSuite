@@ -177,8 +177,8 @@ export function AppLayout() {
             <input
               type="search"
               disabled
-              placeholder="Global search (coming in a later milestone)"
-              title="Global search will be enabled when CRM data is available"
+              placeholder="Search contacts on the Contacts screen"
+              title="Contact search is available on the Contacts screen"
               className="h-10 w-full cursor-not-allowed rounded-lg border border-ink-200 bg-ink-50 pl-9 pr-3 text-sm text-ink-400"
             />
           </div>
