@@ -46,6 +46,13 @@ This repository contains **Milestone 1 — secure multi-tenant foundation** plus
 | Employees cannot reassign other records or write CRM configuration | Done (DB + UI) |
 | Tenant-aware composite FKs, indexes, RLS and trusted RPCs | Done |
 | CRM security/workflow regression suite (37 checks) | Done (executed on hosted project, rolled back) |
+| Contact/lead import from `.xlsx`, `.xls` and `.csv` (5 MB / 5,000 rows) | Done |
+| Upload → worksheet select → column/custom-field mapping → duplicates → preview → batches → summary | Done |
+| Duplicate strategies: skip, update, import-as-new (with explicit confirmation) | Done |
+| Per-row validation, server-side revalidation, error report CSV, import history | Done |
+| Filtered CSV export with formula-injection protection and visibility-scoped rows | Done |
+| Sample Excel template download, manager-only import controls | Done |
+| Import/export security + workflow regression suite (33 checks) | Done (executed on hosted project, rolled back) |
 
 **Still not built:** booking pages, WhatsApp/AI integrations, workflow builder, campaigns, reputation, website builder, Razorpay billing and advanced analytics. See `src/app/config/navigation.ts` for the planned module map.
 
@@ -56,6 +63,7 @@ This repository contains **Milestone 1 — secure multi-tenant foundation** plus
 - **Frontend:** React 19, TypeScript (strict), Vite 8, Tailwind CSS 4, React Router 7
 - **Data/state:** TanStack Query 5, React Hook Form, Zod
 - **CRM board:** `@dnd-kit/core`, `@dnd-kit/sortable`
+- **Spreadsheet import:** SheetJS Community Edition `xlsx@0.20.3` (vendored tarball)
 - **Charts:** semantic CSS bars (no chart dependency added)
 - **Backend:** Supabase (PostgreSQL, Auth, Storage, Realtime, Edge Functions)
 - **Icons:** Lucide React
@@ -97,8 +105,12 @@ For the hosted project already configured in `.env.local`, the SQL files were ru
 4. `supabase/seed.sql`
 5. `0004_milestone2_crm.sql`
 6. `0005_fix_crm_visibility.sql`
+7. `0006_contact_import_export.sql`
+8. `0007_fix_import_idempotency.sql`
+9. `0008_confirmed_duplicate_imports.sql`
+10. `0009_fix_import_tag_cast.sql`
 
-`0004` already contains the `0005` visibility fix for fresh installs; `0005` exists so an already-migrated database can be patched on its own. There is no `supabase/config.toml`, so hosted migrations were applied manually through the SQL Editor.
+`0004` already contains the `0005` visibility fix for fresh installs; `0005` exists so an already-migrated database can be patched on its own. `0007`–`0009` are hotfixes that replace earlier import definitions; fresh installs must apply the whole sequence in order. There is no `supabase/config.toml`, so hosted migrations were applied manually through the SQL Editor.
 
 Email auth is enabled. Redirect URLs allow `http://localhost:5173/**` and `http://127.0.0.1:5173/**`, and the Site URL is `http://localhost:5173`. Add your production origin before deploying.
 
@@ -155,11 +167,12 @@ src/
     settings/        business and profile settings
     admin/           super admin screens
     crm/             api, hooks, schemas, utils, pages, board, tests
+      data-exchange/   CSV/XLSX parsing, mapping, validation, import/export API
   types/             hand-written Supabase Database type
 supabase/
-  migrations/        0001–0005
+  migrations/        0001–0009
   seed.sql           plans only — no fake businesses or contacts
-  tests/             foundation_rls.sql, milestone2_crm.sql
+  tests/             foundation_rls.sql, milestone2_crm.sql, contact_import_export.sql
 ```
 
 Regenerate types once a real project exists:
@@ -198,6 +211,10 @@ npx supabase gen types typescript --local > src/types/database.ts
 | `0003_fix_invitation_token.sql` | invitation tokens use built-in `gen_random_uuid()` under the RPC's pinned `search_path` |
 | `0004_milestone2_crm.sql` | CRM extension tables, tenant-aware FKs/indexes, RLS, CRM RPCs, metrics, M1 hardening fixes |
 | `0005_fix_crm_visibility.sql` | fix cross-tenant visibility of unassigned leads; already folded into `0004` |
+| `0006_contact_import_export.sql` | import jobs/batches, duplicate preview, batched writes, filtered CSV export, audit |
+| `0007_fix_import_idempotency.sql` | only open import jobs participate in re-upload idempotency |
+| `0008_confirmed_duplicate_imports.sql` | `contacts.import_allow_duplicate` allows explicit import-as-new |
+| `0009_fix_import_tag_cast.sql` | fix tagged-row import by casting the JSON text value to `uuid` |
 | `supabase/seed.sql` | illustrative plan/entitlement reference data only |
 
 ---
@@ -214,11 +231,12 @@ npm run build       # production build
 ### Tests actually executed
 
 - `npm run typecheck` — passed.
-- `npm test` — **21/21 passed** across 4 files.
+- `npm test` — **45/45 passed** across 7 files.
 - `npm run lint` — passed with warnings only (no errors).
 - `npm run build` — passed; Vite warns that the JS chunk exceeds 500 kB.
 - `supabase/tests/foundation_rls.sql` — executed in hosted SQL Editor; passed and rolled back.
 - `supabase/tests/milestone2_crm.sql` — executed in hosted SQL Editor with the psql-only `\set` line removed: **37 checks, 37 passed, 0 failed**; transaction rolled back.
+- `supabase/tests/contact_import_export.sql` — executed in hosted SQL Editor: **33 checks, 33 passed, 0 failed**, including a tagged-row regression case; transaction rolled back.
 - Hosted schema probe after `0004`: 6 new CRM tables, 25 CRM policies, 6 key CRM functions and 4 extended contact columns.
 
 ### CRM UI smoke test
@@ -236,6 +254,18 @@ Verified:
 
 Cleanup result: `businesses=0`, `profiles=0`, `users=0`, `temp_admins=0`. Temporary `public/__m2_smoke_*` loader files were removed. No hardcoded tenant IDs or fake production numbers remain in the app.
 
+### Import/export UI smoke test
+
+A second temporary tenant (`m2-import-smoke`) with owner, manager and employee accounts was used to exercise the import/export flow through the real app against migrations `0006`–`0009`:
+
+- Re-importing a previously failed 2-row CSV after `0009`: **2 created, 0 failed**, with `VIP` on Asha Sharma and `VIP` + `Follow-up` on Ravi Verma.
+- Filtered CSV export (manager-owned filter) contained only the matching contact row.
+- Sample Excel template downloaded as `flowsuite-import-template.xlsx`.
+- Import History showed both the successful `2 / 2` job and the earlier failed `2 / 2` job with its downloadable error report (`Could not import this row (22P02)`).
+- Employee login: Import buttons disabled with `Only managers can import records`, History hidden, and CSV export containing only the header.
+
+Temporary SQL loader files and the smoke CSV under `public/` were removed. The smoke tenant still needs manual cleanup in the hosted database once dashboard access is restored.
+
 ---
 
 ## Remaining risks / before production
@@ -248,9 +278,12 @@ Cleanup result: `businesses=0`, `profiles=0`, `users=0`, `temp_admins=0`. Tempor
 - Review DPDP-related consent, retention, deletion and WhatsApp policy requirements before launch.
 - Consider code-splitting the CRM routes; the production build reports one JS chunk over 500 kB.
 - Pricing in `supabase/seed.sql` is illustrative and must be validated with real pilot customers.
+- SheetJS CE is vendored at `xlsx@0.20.3`, the patched release for the older prototype-pollution/ReDoS advisories. It is not distributed on npm, so `npm audit` does not scan it; re-check upstream advisories before upgrading and keep the vendored SHA256 pinned.
+- Import size limits (5 MB / 5,000 rows) are enforced server-side; the wizard's checks are UX only. Large sheets are parsed on the main thread before upload, so a Web Worker is worth considering for heavier files.
+- The `m2-import-smoke` hosted tenant and its users are still present and should be deleted manually when Supabase dashboard access is restored.
 
 ---
 
 ## Next milestone
 
-Milestone 3 has **not** been started. The next planned work is bookings/appointments and integrations, followed by workflows and campaigns. Do not begin it until Milestone 2 has been reviewed and accepted.
+Milestone 2 is complete and committed. Milestone 3 (booking system + communication foundation) is the next planned work, followed by AI/WhatsApp automation, workflows and campaigns.

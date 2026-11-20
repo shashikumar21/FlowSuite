@@ -130,6 +130,8 @@ export type ContactRow = {
   last_contacted_at: string | null
   converted_at: string | null
   custom_data: Json
+  /** Set only on records created by a confirmed import-as-new job. */
+  import_allow_duplicate: boolean
   created_at: string
   updated_at: string
 }
@@ -366,6 +368,54 @@ type BranchRow = {
   updated_at: string
 }
 
+export type ContactImportJobRow = {
+  id: string
+  tenant_id: string
+  created_by: string | null
+  kind: 'contacts' | 'leads'
+  file_name: string
+  file_size: number
+  file_hash: string
+  duplicate_mode: 'skip' | 'update' | 'new'
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  total_rows: number
+  processed_rows: number
+  created_count: number
+  updated_count: number
+  skipped_count: number
+  failed_count: number
+  confirmed_new_duplicates: boolean
+  error_report: Json
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+export type ContactImportBatchRow = {
+  job_id: string
+  batch_index: number
+  row_count: number
+  results: Json
+  created_at: string
+}
+
+export type CrmExportRow = {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  company: string
+  status: ContactStatus
+  lead_status: LeadStatus
+  source_name: string
+  owner_name: string
+  tags: string
+  notes: string
+  custom_data: Json
+  created_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -487,6 +537,20 @@ export interface Database {
         CustomFieldRow,
         Pick<CustomFieldRow, 'tenant_id' | 'entity_type' | 'key' | 'label' | 'type'> & Partial<CustomFieldRow>,
         Partial<CustomFieldRow>
+      >
+      contact_import_jobs: Table<
+        ContactImportJobRow,
+        Pick<
+          ContactImportJobRow,
+          'tenant_id' | 'kind' | 'file_name' | 'file_size' | 'file_hash' | 'duplicate_mode' | 'total_rows'
+        > &
+          Partial<ContactImportJobRow>,
+        Partial<ContactImportJobRow>
+      >
+      contact_import_batches: Table<
+        ContactImportBatchRow,
+        Pick<ContactImportBatchRow, 'job_id' | 'batch_index'> & Partial<ContactImportBatchRow>,
+        Partial<ContactImportBatchRow>
       >
     }
     Views: Record<string, never>
@@ -638,6 +702,47 @@ export interface Database {
         Returns: ContactSearchRow[]
       }
       crm_dashboard_metrics: { Args: { p_tenant: string }; Returns: CrmMetrics }
+
+      /* Milestone 2 data exchange — tenant is always derived from membership. */
+      crm_start_import: {
+        Args: {
+          p_tenant: string
+          p_kind: string
+          p_file_name: string
+          p_file_size: number
+          p_file_hash: string
+          p_duplicate_mode: string
+          p_total_rows: number
+        }
+        Returns: string
+      }
+      crm_check_import_duplicates: {
+        Args: { p_tenant: string; p_rows: Json }
+        Returns: Json
+      }
+      crm_confirm_import_duplicates: { Args: { p_job_id: string }; Returns: undefined }
+      crm_process_import_batch: {
+        Args: { p_job_id: string; p_batch_index: number; p_rows: Json }
+        Returns: Json
+      }
+      crm_complete_import: {
+        Args: { p_job_id: string; p_failed?: boolean }
+        Returns: Json
+      }
+      crm_export_rows: {
+        Args: {
+          p_tenant: string
+          p_kind: string
+          p_query?: string | null
+          p_status?: string | null
+          p_lead_status?: string | null
+          p_source_id?: string | null
+          p_assigned_to?: string | null
+          p_tag_id?: string | null
+          p_limit?: number
+        }
+        Returns: CrmExportRow[]
+      }
 
       admin_list_businesses: {
         Args: Record<string, never>

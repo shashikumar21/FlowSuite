@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { Download, FileSpreadsheet, History, Upload } from 'lucide-react'
 import { useAuth } from '@/app/providers/AuthProvider'
 import { useTenant } from '@/app/providers/TenantProvider'
+import { useToast } from '@/app/providers/ToastProvider'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -15,6 +18,11 @@ import { ContactFormModal } from '../components/ContactFormModal'
 import { ContactDetailModal } from '../components/ContactDetailModal'
 import { DealFormModal } from '../components/DealFormModal'
 import { contactStatuses, leadStatuses } from '../schemas'
+import { ImportWizard } from '../components/ImportWizard'
+import { exportRows, fetchImportOptions } from '../data-exchange/api'
+import { downloadCsv } from '../data-exchange/csv'
+import { downloadSampleTemplate } from '../data-exchange/parse'
+import type { ImportKind } from '../data-exchange/types'
 import { formatDate } from '@/lib/format'
 import type { ContactRow } from '@/types/database'
 
@@ -23,6 +31,7 @@ const PAGE_SIZE = 20
 export function ContactsPage() {
   const { user } = useAuth()
   const { activeTenant, can } = useTenant()
+  const { toast } = useToast()
   const tenantId = activeTenant?.tenant_id
   const currency = activeTenant?.businesses?.currency ?? 'INR'
   const invalidate = useCrmInvalidate(tenantId)
@@ -42,6 +51,9 @@ export function ContactsPage() {
   const [editing, setEditing] = useState<ContactRow | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [convertId, setConvertId] = useState<string | null>(null)
+  const [wizardKind, setWizardKind] = useState<ImportKind | null>(null)
+  const [exportKind, setExportKind] = useState<ImportKind>('contacts')
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -86,9 +98,81 @@ export function ContactsPage() {
     setPage(0)
   }
 
+  const handleTemplate = async () => {
+    if (!tenantId) return
+    try {
+      const importOptions = await fetchImportOptions(tenantId)
+      await downloadSampleTemplate(importOptions.customFields)
+    } catch (cause) {
+      toast({
+        title: 'Template unavailable',
+        description: cause instanceof Error ? cause.message : 'Could not build the template.',
+        variant: 'error',
+      })
+    }
+  }
+
+  /** Export uses the same filters as the list, and only rows RLS lets us see. */
+  const handleExport = async () => {
+    if (!tenantId || exporting) return
+    setExporting(true)
+    try {
+      const [rows, importOptions] = await Promise.all([
+        exportRows(tenantId, exportKind, {
+          query,
+          status: status || undefined,
+          leadStatus: leadStatus || undefined,
+          sourceId: sourceId || undefined,
+          assignedTo: assignedTo || undefined,
+          tagId: tagId || undefined,
+        }),
+        fetchImportOptions(tenantId),
+      ])
+      const customFields = importOptions.customFields.filter(
+        (field) => field.entity_type === 'contact',
+      )
+      const headers = [
+        'First name', 'Last name', 'Email', 'Phone', 'Company', 'Status',
+        'Lead status', 'Source', 'Owner', 'Tags', 'Notes', 'Created at',
+        ...customFields.map((field) => `Custom: ${field.label}`),
+      ]
+      const csvRows = rows.map((row) => [
+        row.first_name,
+        row.last_name,
+        row.email,
+        row.phone,
+        row.company,
+        row.status,
+        row.lead_status,
+        row.source_name,
+        row.owner_name,
+        row.tags,
+        row.notes,
+        row.created_at,
+        ...customFields.map((field) => {
+          const value = row.custom_data?.[field.key]
+          return value === null || value === undefined ? '' : String(value)
+        }),
+      ])
+      downloadCsv(`flowsuite-${exportKind}-${new Date().toISOString().slice(0, 10)}.csv`, [
+        headers,
+        ...csvRows,
+      ])
+      toast({ title: 'Export ready', description: `${rows.length} row(s) exported.` })
+    } catch (cause) {
+      toast({
+        title: 'Export failed',
+        description: cause instanceof Error ? cause.message : 'Could not export rows.',
+        variant: 'error',
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Customers</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Contacts & leads</h1>
@@ -96,9 +180,49 @@ export function ContactsPage() {
             Every record is tenant-scoped. Employees see their assigned contacts and unassigned leads.
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setFormOpen(true) }}>
-          <UserPlus className="size-4" /> Add lead
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canManagePipeline}
+            title={canManagePipeline ? 'Import contacts from Excel or CSV' : 'Only managers can import records'}
+            onClick={() => setWizardKind('contacts')}
+          >
+            <Upload className="size-4" /> Import contacts
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canManagePipeline}
+            title={canManagePipeline ? 'Import leads from Excel or CSV' : 'Only managers can import records'}
+            onClick={() => setWizardKind('leads')}
+          >
+            <Upload className="size-4" /> Import leads
+          </Button>
+          <Select
+            aria-label="Export record type"
+            className="h-8 w-auto text-xs"
+            value={exportKind}
+            onChange={(event) => setExportKind(event.target.value as ImportKind)}
+          >
+            <option value="contacts">Contacts</option>
+            <option value="leads">Leads</option>
+          </Select>
+          <Button size="sm" variant="outline" loading={exporting} onClick={() => { void handleExport() }}>
+            <Download className="size-4" /> Export
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => { void handleTemplate() }}>
+            <FileSpreadsheet className="size-4" /> Sample template
+          </Button>
+          {canManagePipeline ? (
+            <Link to="/app/crm/imports" className="inline-flex h-8 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-ink-700 hover:bg-ink-100">
+              <History className="size-4" /> History
+            </Link>
+          ) : null}
+          <Button onClick={() => { setEditing(null); setFormOpen(true) }}>
+            <UserPlus className="size-4" /> Add lead
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -296,6 +420,14 @@ export function ContactsPage() {
         mode="convert"
         convertContactId={convertId ?? undefined}
         onSaved={invalidate}
+      />
+
+      <ImportWizard
+        open={wizardKind !== null}
+        onClose={() => setWizardKind(null)}
+        tenantId={tenantId ?? ''}
+        kind={wizardKind ?? 'contacts'}
+        onComplete={invalidate}
       />
     </div>
   )

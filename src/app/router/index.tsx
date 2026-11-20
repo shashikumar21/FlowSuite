@@ -13,6 +13,7 @@ import { ContactsPage } from '@/modules/crm/pages/ContactsPage'
 import { CrmOverviewPage } from '@/modules/crm/pages/CrmOverviewPage'
 import { CrmSettingsPage } from '@/modules/crm/pages/CrmSettingsPage'
 import { DealsPage } from '@/modules/crm/pages/DealsPage'
+import { ImportHistoryPage } from '@/modules/crm/pages/ImportHistoryPage'
 import { DashboardPage } from '@/modules/dashboard/pages/DashboardPage'
 import { ModulePlaceholderPage } from '@/modules/dashboard/pages/ModulePlaceholderPage'
 import { CreateBusinessPage } from '@/modules/onboarding/pages/CreateBusinessPage'
@@ -44,6 +45,7 @@ export function AppRouter() {
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="deals" element={<DealsPage />} />
           <Route path="crm/settings" element={<CrmSettingsPage />} />
+          <Route path="crm/imports" element={<ImportHistoryPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />
