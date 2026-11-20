@@ -16,6 +16,7 @@ These options only render after authentication and tenant selection. The login s
 
 All reads and writes use the RPCs and tables in migration `0014`, which is applied to the hosted project. No new migration or deployment is needed for the console itself.
 
+- The embed snippet is self-contained: paste it into any website's HTML before `</body>`. It renders a floating chat button, uses `window.FLOW_SUITE_CHAT` with your public key and endpoint, and never embeds a token. It does not depend on a separate widget script file.
 - Agent config writes via `ai_upsert_agent`, `ai_set_agent_status`, `ai_set_tool`.
 - Knowledge writes via `ai_upsert_knowledge`; inactive entries are never served to the public widget.
 - Handoff and automation status via `ai_handoff_conversation` and `ai_set_conversation_ai_status`.

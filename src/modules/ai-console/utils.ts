@@ -7,6 +7,7 @@ import type {
   ConversationRow,
 } from '@/types/database'
 import { classificationLabels } from './schemas'
+import { WIDGET_SCRIPT } from './widget-source'
 
 type BadgeVariant = 'neutral' | 'brand' | 'success' | 'warning' | 'danger'
 
@@ -15,18 +16,21 @@ export function chatEndpointUrl(): string {
   return base ? `${base}/functions/v1/ai-chat` : ''
 }
 
-/** HTML a business can paste into its own site. The public key is not a secret. */
-export function buildEmbedSnippet(publicKey: string): string {
+/** Self-contained HTML a business can paste into its own site. The public key is not a secret. */
+export function buildEmbedSnippet(publicKey: string, agentName = 'AI assistant'): string {
   const endpoint = chatEndpointUrl()
   if (!publicKey || !endpoint) return ''
   return `<!-- FlowSuite AI website chat -->
 <script>
   window.FLOW_SUITE_CHAT = {
     endpoint: ${JSON.stringify(endpoint)},
-    publicKey: ${JSON.stringify(publicKey)}
+    publicKey: ${JSON.stringify(publicKey)},
+    agentName: ${JSON.stringify(agentName)}
   };
 </script>
-<script src="${endpoint.replace(/\/ai-chat$/, '/ai-chat-widget.js')}" async></script>`
+<script>
+${WIDGET_SCRIPT}
+</script>`
 }
 
 export function agentStatusVariant(status: AiAgentStatus): BadgeVariant {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classificationLabel, formatCost, statusMessage, summarizeUsage } from './utils'
+import { buildEmbedSnippet, classificationLabel, formatCost, statusMessage, summarizeUsage } from './utils'
 
 describe('AI console utilities', () => {
   it('summarises usage from real log rows only', () => {
@@ -18,6 +18,14 @@ describe('AI console utilities', () => {
     expect(statusMessage('not_configured')).toMatch(/provider is not configured/i)
     expect(statusMessage('service_unavailable')).toMatch(/deployed/i)
     expect(statusMessage('clinical_escalation')).toMatch(/handed to your team/i)
+  })
+
+  it('builds a self-contained embed snippet without a missing widget script', () => {
+    const snippet = buildEmbedSnippet('a'.repeat(64), 'Clinic assistant')
+    expect(snippet).toContain('a'.repeat(64))
+    expect(snippet).toContain('Clinic assistant')
+    expect(snippet).toContain('fetch(config.endpoint')
+    expect(snippet).not.toContain('ai-chat-widget.js')
   })
 
   it('uses readable classification labels', () => {

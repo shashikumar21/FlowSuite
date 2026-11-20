@@ -317,13 +317,13 @@ export function AiAgentsPage() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => void copy(buildEmbedSnippet(selected.public_key), 'Snippet')}
+                        onClick={() => void copy(buildEmbedSnippet(selected.public_key, selected.name), 'Snippet')}
                       >
                         <Copy className="size-4" /> Copy
                       </Button>
                     </div>
                     <pre className="mt-2 overflow-x-auto rounded-lg bg-ink-950 p-3 text-xs text-ink-100">
-                      {buildEmbedSnippet(selected.public_key)}
+                      {buildEmbedSnippet(selected.public_key, selected.name)}
                     </pre>
                     <p className="mt-2 text-xs text-ink-500">
                       The widget script and Edge Function must be deployed before this can run on a live site. The preview below
