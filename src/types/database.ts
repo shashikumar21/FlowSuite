@@ -356,6 +356,8 @@ export type ConversationRow = {
   assigned_to: string | null
   customer_name: string | null
   customer_email: string | null
+  ai_status: 'active' | 'paused' | 'handed_off' | 'closed'
+  ai_handed_off_at: string | null
   last_message_at: string | null
   created_at: string
   updated_at: string
@@ -372,6 +374,7 @@ export type MessageRow = {
   delivery_status: string
   author_id: string | null
   author_type: 'staff' | 'customer' | 'system' | 'bot'
+  ai_generated: boolean
   is_internal: boolean
   delivered_at: string | null
   read_at: string | null
@@ -521,8 +524,323 @@ export type WebhookEventRow = {
   payload: Json
   status: 'received' | 'processed' | 'failed' | 'ignored'
   error: string | null
+  signature_verified: boolean
+  attempts: number
+  last_attempt_at: string | null
   received_at: string
   processed_at: string | null
+}
+
+/* Milestone 4 — AI communication. Provider-facing rows are written by
+   service-role Edge Functions only; browser code uses the trusted RPCs. */
+export type AiLanguage = 'en' | 'hi' | 'te'
+export type AiTone = 'friendly' | 'professional' | 'conversational'
+export type AiResponseStyle = 'short' | 'detailed'
+export type AiAgentStatus = 'draft' | 'active' | 'paused'
+export type AiToolKey =
+  | 'answer_faq'
+  | 'qualify_lead'
+  | 'lookup_services'
+  | 'lookup_hours'
+  | 'lookup_availability'
+  | 'create_booking'
+  | 'create_lead'
+  | 'check_consent'
+  | 'send_reply'
+  | 'handoff'
+export type AiClassification =
+  | 'information_request'
+  | 'high_intent'
+  | 'future_follow_up'
+  | 'not_interested'
+  | 'unknown'
+export type AiChannel = 'website_chat' | 'whatsapp' | 'voice' | 'internal'
+export type AiOperation = 'chat' | 'qualify' | 'embed' | 'tts' | 'stt' | 'tool'
+export type AiConsentStatus = 'opt_in' | 'opt_out'
+export type AiConsentChannel = 'whatsapp' | 'sms' | 'email' | 'voice'
+export type AiFollowUpChannel = 'whatsapp' | 'sms' | 'email'
+export type AiFollowUpJobStatus =
+  | 'pending'
+  | 'processing'
+  | 'sent'
+  | 'skipped'
+  | 'failed'
+  | 'cancelled'
+export type AiCallStatus = 'ringing' | 'in_progress' | 'completed' | 'failed' | 'no_answer'
+
+export type AiAgentRow = {
+  id: string
+  tenant_id: string
+  name: string
+  language: AiLanguage
+  tone: AiTone
+  business_info: string | null
+  working_hours: Json
+  permissions: Json
+  booking_permission: boolean
+  handoff_user_id: string | null
+  response_style: AiResponseStyle
+  monthly_token_limit: number | null
+  status: AiAgentStatus
+  public_key: string
+  created_at: string
+  updated_at: string
+}
+
+export type AiKnowledgeRow = {
+  id: string
+  tenant_id: string
+  agent_id: string
+  category:
+    | 'business_profile'
+    | 'service'
+    | 'faq'
+    | 'opening_hours'
+    | 'booking_policy'
+    | 'contact'
+    | 'other'
+  title: string
+  content: string
+  language: AiLanguage
+  active: boolean
+  approved_by: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AiAgentToolRow = {
+  id: string
+  tenant_id: string
+  agent_id: string
+  tool_key: AiToolKey
+  enabled: boolean
+  requires_confirmation: boolean
+  config: Json
+  created_at: string
+  updated_at: string
+}
+
+export type ChannelCredentialRow = {
+  id: string
+  tenant_id: string
+  channel_id: string
+  provider: 'whatsapp' | 'openai' | 'resend' | 'exotel' | 'other'
+  /** Server-side secret reference name only; never a raw token. */
+  secret_ref: string
+  external_identifier: string | null
+  status: 'active' | 'disconnected' | 'error'
+  scopes: Json
+  last_verified_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type MessageTemplateRow = {
+  id: string
+  tenant_id: string
+  provider: 'whatsapp' | 'sms' | 'email' | 'other'
+  template_key: string
+  provider_template_name: string | null
+  language: AiLanguage
+  category:
+    | 'acknowledgement'
+    | 'appointment_confirmation'
+    | 'reminder'
+    | 'follow_up'
+    | 'utility'
+    | 'marketing'
+  content: string
+  status: 'draft' | 'approved' | 'rejected'
+  approved_by: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CommunicationConsentRow = {
+  id: string
+  tenant_id: string
+  contact_id: string
+  channel: AiConsentChannel
+  status: AiConsentStatus
+  source: 'website_chat' | 'whatsapp' | 'manual' | 'import' | 'staff' | 'booking'
+  proof: Json
+  consented_at: string
+  revoked_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ConversationHandoffRow = {
+  id: string
+  tenant_id: string
+  conversation_id: string
+  from_user_id: string | null
+  to_user_id: string
+  reason: string | null
+  note: string | null
+  status: 'pending' | 'accepted' | 'completed' | 'reverted'
+  created_at: string
+  accepted_at: string | null
+  completed_at: string | null
+}
+
+export type AiLeadAssessmentRow = {
+  id: string
+  tenant_id: string
+  contact_id: string
+  conversation_id: string | null
+  message_id: string | null
+  classification: AiClassification
+  intent: string | null
+  summary: string
+  service_interest: string | null
+  follow_up_recommendation: string | null
+  provider: string
+  model: string | null
+  created_at: string
+}
+
+export type AiUsageLogRow = {
+  id: string
+  tenant_id: string
+  agent_id: string | null
+  conversation_id: string | null
+  channel: AiChannel
+  provider: string
+  model: string | null
+  operation: AiOperation
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  estimated_cost: number
+  latency_ms: number | null
+  success: boolean
+  error_code: string | null
+  request_id: string | null
+  created_at: string
+}
+
+export type AiFollowUpSequenceRow = {
+  id: string
+  tenant_id: string
+  name: string
+  channel: AiFollowUpChannel
+  status: 'draft' | 'active' | 'paused'
+  created_at: string
+  updated_at: string
+}
+
+export type AiFollowUpStepRow = {
+  id: string
+  tenant_id: string
+  sequence_id: string
+  step_index: number
+  delay_minutes: number
+  template_key: string
+  condition: 'no_reply' | 'always' | 'unqualified_only'
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type AiFollowUpJobRow = {
+  id: string
+  tenant_id: string
+  contact_id: string
+  conversation_id: string | null
+  sequence_id: string
+  step_id: string
+  channel: AiFollowUpChannel
+  status: AiFollowUpJobStatus
+  due_at: string
+  attempts: number
+  idempotency_key: string
+  consent_status: AiConsentStatus | null
+  provider_message_id: string | null
+  last_error: string | null
+  processed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AiCallSessionRow = {
+  id: string
+  tenant_id: string
+  provider: string
+  provider_call_id: string
+  direction: 'inbound' | 'outbound'
+  from_number: string | null
+  to_number: string | null
+  status: AiCallStatus
+  contact_id: string | null
+  conversation_id: string | null
+  started_at: string
+  ended_at: string | null
+  duration_seconds: number | null
+  metadata: Json
+  created_at: string
+  updated_at: string
+}
+
+export type AiCallLogRow = {
+  id: string
+  tenant_id: string
+  session_id: string
+  outcome: string | null
+  summary: string | null
+  duration_seconds: number | null
+  usage: Json
+  error: string | null
+  created_at: string
+}
+
+export type PublicAiAgent = {
+  agent_id: string
+  name: string
+  language: AiLanguage
+  tone: AiTone
+  response_style: AiResponseStyle
+  business_info: string | null
+  business_name: string | null
+  booking_permission: boolean
+  booking_slug: string | null
+  knowledge: Array<{ category: string; title: string; content: string }>
+  tools: AiToolKey[]
+}
+
+export type AiWebhookEventResult = { id: string; is_duplicate: boolean }
+export type AiLatestAssessment = {
+  id?: string
+  classification?: AiClassification
+  intent?: string | null
+  summary?: string
+  service_interest?: string | null
+  follow_up_recommendation?: string | null
+  provider?: string
+  model?: string | null
+  created_at?: string
+}
+
+export type AiFollowUpJobPayload = {
+  job_id: string
+  tenant_id: string
+  contact_id: string
+  conversation_id: string | null
+  channel: AiFollowUpChannel
+  idempotency_key: string
+  attempt: number
+  contact_name: string | null
+  contact_phone: string | null
+  contact_mobile: string | null
+  contact_email: string | null
+  template: {
+    key: string
+    provider_name: string | null
+    content: string
+    language: AiLanguage
+  } | null
 }
 
 export type NotificationRow = {
@@ -922,6 +1240,89 @@ export interface Database {
         Pick<NotificationRow, 'tenant_id' | 'user_id' | 'notification_type' | 'title'> &
           Partial<NotificationRow>,
         Partial<NotificationRow>
+      >
+
+      /* Milestone 4 — AI communication. Direct writes are RLS-scoped; use the
+         trusted RPCs below for configuration and provider ingestion. */
+      ai_agents: Table<
+        AiAgentRow,
+        Pick<AiAgentRow, 'tenant_id' | 'name'> & Partial<AiAgentRow>,
+        Partial<AiAgentRow>
+      >
+      ai_agent_knowledge: Table<
+        AiKnowledgeRow,
+        Pick<AiKnowledgeRow, 'tenant_id' | 'agent_id' | 'category' | 'title' | 'content'> &
+          Partial<AiKnowledgeRow>,
+        Partial<AiKnowledgeRow>
+      >
+      ai_agent_tools: Table<
+        AiAgentToolRow,
+        Pick<AiAgentToolRow, 'tenant_id' | 'agent_id' | 'tool_key'> & Partial<AiAgentToolRow>,
+        Partial<AiAgentToolRow>
+      >
+      channel_credentials: Table<
+        ChannelCredentialRow,
+        Pick<ChannelCredentialRow, 'tenant_id' | 'channel_id' | 'provider' | 'secret_ref'> &
+          Partial<ChannelCredentialRow>,
+        Partial<ChannelCredentialRow>
+      >
+      message_templates: Table<
+        MessageTemplateRow,
+        Pick<MessageTemplateRow, 'tenant_id' | 'template_key' | 'content'> & Partial<MessageTemplateRow>,
+        Partial<MessageTemplateRow>
+      >
+      communication_consents: Table<
+        CommunicationConsentRow,
+        Pick<CommunicationConsentRow, 'tenant_id' | 'contact_id' | 'channel' | 'status' | 'source'> &
+          Partial<CommunicationConsentRow>,
+        Partial<CommunicationConsentRow>
+      >
+      conversation_handoffs: Table<
+        ConversationHandoffRow,
+        Pick<ConversationHandoffRow, 'tenant_id' | 'conversation_id' | 'to_user_id'> &
+          Partial<ConversationHandoffRow>,
+        Partial<ConversationHandoffRow>
+      >
+      ai_lead_assessments: Table<
+        AiLeadAssessmentRow,
+        Pick<AiLeadAssessmentRow, 'tenant_id' | 'contact_id' | 'classification' | 'summary'> &
+          Partial<AiLeadAssessmentRow>,
+        Partial<AiLeadAssessmentRow>
+      >
+      ai_usage_logs: Table<
+        AiUsageLogRow,
+        Pick<AiUsageLogRow, 'tenant_id' | 'channel' | 'provider' | 'operation'> & Partial<AiUsageLogRow>,
+        Partial<AiUsageLogRow>
+      >
+      ai_follow_up_sequences: Table<
+        AiFollowUpSequenceRow,
+        Pick<AiFollowUpSequenceRow, 'tenant_id' | 'name' | 'channel'> & Partial<AiFollowUpSequenceRow>,
+        Partial<AiFollowUpSequenceRow>
+      >
+      ai_follow_up_steps: Table<
+        AiFollowUpStepRow,
+        Pick<AiFollowUpStepRow, 'tenant_id' | 'sequence_id' | 'step_index' | 'template_key'> &
+          Partial<AiFollowUpStepRow>,
+        Partial<AiFollowUpStepRow>
+      >
+      ai_follow_up_jobs: Table<
+        AiFollowUpJobRow,
+        Pick<
+          AiFollowUpJobRow,
+          'tenant_id' | 'contact_id' | 'sequence_id' | 'step_id' | 'channel' | 'due_at' | 'idempotency_key'
+        > &
+          Partial<AiFollowUpJobRow>,
+        Partial<AiFollowUpJobRow>
+      >
+      ai_call_sessions: Table<
+        AiCallSessionRow,
+        Pick<AiCallSessionRow, 'tenant_id' | 'provider' | 'provider_call_id'> & Partial<AiCallSessionRow>,
+        Partial<AiCallSessionRow>
+      >
+      ai_call_logs: Table<
+        AiCallLogRow,
+        Pick<AiCallLogRow, 'tenant_id' | 'session_id'> & Partial<AiCallLogRow>,
+        Partial<AiCallLogRow>
       >
     }
     Views: Record<string, never>
@@ -1400,6 +1801,251 @@ export interface Database {
       }
       notifications_mark_all_read: { Args: { p_tenant: string }; Returns: undefined }
       notifications_unread_count: { Args: { p_tenant: string }; Returns: number }
+
+      /* Milestone 4 — AI communication. Member-facing configuration RPCs
+         re-check membership/role in the database; provider-facing RPCs are
+         service-role only and are called from Edge Functions, never the browser. */
+      can_manage_ai: { Args: { p_tenant: string }; Returns: boolean }
+      has_consent: {
+        Args: { p_tenant: string; p_contact: string; p_channel: string }
+        Returns: boolean
+      }
+      ai_upsert_agent: {
+        Args: {
+          p_tenant: string
+          p_name: string
+          p_language?: AiLanguage
+          p_tone?: AiTone
+          p_business_info?: string | null
+          p_working_hours?: Json
+          p_permissions?: Json
+          p_booking_permission?: boolean
+          p_handoff_user_id?: string | null
+          p_response_style?: AiResponseStyle
+          p_monthly_token_limit?: number | null
+          p_status?: AiAgentStatus
+          p_agent_id?: string | null
+        }
+        Returns: string
+      }
+      ai_set_agent_status: {
+        Args: { p_tenant: string; p_agent: string; p_status: AiAgentStatus }
+        Returns: undefined
+      }
+      ai_upsert_knowledge: {
+        Args: {
+          p_tenant: string
+          p_agent: string
+          p_category:
+            | 'business_profile'
+            | 'service'
+            | 'faq'
+            | 'opening_hours'
+            | 'booking_policy'
+            | 'contact'
+            | 'other'
+          p_title: string
+          p_content: string
+          p_language?: AiLanguage
+          p_active?: boolean
+          p_knowledge_id?: string | null
+        }
+        Returns: string
+      }
+      ai_set_tool: {
+        Args: {
+          p_tenant: string
+          p_agent: string
+          p_tool_key: AiToolKey
+          p_enabled: boolean
+          p_requires_confirmation?: boolean
+          p_config?: Json
+        }
+        Returns: undefined
+      }
+      ai_upsert_credential: {
+        Args: {
+          p_tenant: string
+          p_channel: string
+          p_provider: 'whatsapp' | 'openai' | 'resend' | 'exotel' | 'other'
+          /** Server-side secret reference name only; never a raw token. */
+          p_secret_ref: string
+          p_external_identifier?: string | null
+          p_scopes?: Json
+        }
+        Returns: string
+      }
+      ai_upsert_template: {
+        Args: {
+          p_tenant: string
+          p_template_key: string
+          p_content: string
+          p_provider?: 'whatsapp' | 'sms' | 'email' | 'other'
+          p_provider_template_name?: string | null
+          p_language?: AiLanguage
+          p_category?:
+            | 'acknowledgement'
+            | 'appointment_confirmation'
+            | 'reminder'
+            | 'follow_up'
+            | 'utility'
+            | 'marketing'
+          p_status?: 'draft' | 'approved' | 'rejected'
+        }
+        Returns: string
+      }
+      ai_set_consent: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_channel: AiConsentChannel
+          p_status: AiConsentStatus
+          p_source: 'website_chat' | 'whatsapp' | 'manual' | 'import' | 'staff' | 'booking'
+          p_proof?: Json
+        }
+        Returns: string
+      }
+      ai_record_assessment: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_classification: AiClassification
+          p_summary: string
+          p_intent?: string | null
+          p_service_interest?: string | null
+          p_follow_up_recommendation?: string | null
+          p_conversation?: string | null
+          p_message?: string | null
+          p_provider?: string
+          p_model?: string | null
+        }
+        Returns: string
+      }
+      ai_latest_assessment: {
+        Args: { p_tenant: string; p_contact: string }
+        Returns: AiLatestAssessment
+      }
+      ai_handoff_conversation: {
+        Args: {
+          p_tenant: string
+          p_conversation: string
+          p_to_user: string
+          p_reason?: string | null
+          p_note?: string | null
+        }
+        Returns: string
+      }
+      ai_set_conversation_ai_status: {
+        Args: { p_tenant: string; p_conversation: string; p_status: 'active' | 'paused' | 'closed' }
+        Returns: undefined
+      }
+      ai_enqueue_follow_up: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_sequence: string
+          p_channel: AiFollowUpChannel
+          p_conversation?: string | null
+        }
+        Returns: string
+      }
+      ai_check_usage_limit: {
+        Args: { p_tenant: string; p_agent: string }
+        Returns: boolean
+      }
+
+      /* The only anon-callable AI RPC; returns approved public-safe config. */
+      ai_get_public_agent: {
+        Args: { p_public_key: string }
+        Returns: PublicAiAgent | Record<string, never>
+      }
+
+      /* Service-role-only provider/worker RPCs. */
+      ai_record_webhook_event: {
+        Args: {
+          p_tenant: string
+          p_provider: string
+          p_event_type: string
+          p_external_id: string
+          p_payload: Json
+          p_signature_verified?: boolean
+        }
+        Returns: AiWebhookEventResult
+      }
+      ai_upsert_contact_from_channel: {
+        Args: {
+          p_tenant: string
+          p_channel: string
+          p_full_name?: string | null
+          p_phone?: string | null
+          p_email?: string | null
+        }
+        Returns: string
+      }
+      ai_find_or_create_conversation: {
+        Args: { p_tenant: string; p_contact: string; p_channel: string }
+        Returns: string
+      }
+      ai_append_message: {
+        Args: {
+          p_tenant: string
+          p_conversation: string
+          p_direction: 'inbound' | 'outbound'
+          p_content: string
+          p_author_type: 'staff' | 'customer' | 'system' | 'bot'
+          p_external_id?: string | null
+          p_ai_generated?: boolean
+          p_metadata?: Json
+        }
+        Returns: string
+      }
+      ai_record_usage: {
+        Args: {
+          p_tenant: string
+          p_agent: string | null
+          p_conversation: string | null
+          p_channel: AiChannel
+          p_provider: string
+          p_model: string | null
+          p_operation: AiOperation
+          p_prompt_tokens: number | null
+          p_completion_tokens: number | null
+          p_estimated_cost: number | null
+          p_latency_ms: number | null
+          p_success: boolean | null
+          p_error_code: string | null
+          p_request_id: string | null
+        }
+        Returns: string
+      }
+      ai_claim_follow_up_job: {
+        Args: { p_job: string }
+        Returns: AiFollowUpJobPayload | Record<string, never>
+      }
+      ai_complete_follow_up_job: {
+        Args: {
+          p_job: string
+          p_status: 'sent' | 'skipped' | 'failed' | 'cancelled'
+          p_provider_message_id?: string | null
+          p_error?: string | null
+        }
+        Returns: undefined
+      }
+      ai_upsert_call_session: {
+        Args: {
+          p_tenant: string
+          p_provider: string
+          p_provider_call_id: string
+          p_direction?: 'inbound' | 'outbound'
+          p_from_number?: string | null
+          p_to_number?: string | null
+          p_status?: AiCallStatus
+          p_contact_id?: string | null
+          p_conversation_id?: string | null
+          p_metadata?: Json
+        }
+        Returns: string
+      }
 
       admin_list_businesses: {
         Args: Record<string, never>

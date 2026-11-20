@@ -16,6 +16,8 @@ function conversation(overrides: Partial<ConversationRow> = {}): ConversationRow
     assigned_to: null,
     customer_name: 'Asha Sharma',
     customer_email: 'asha@example.test',
+    ai_status: 'active',
+    ai_handed_off_at: null,
     last_message_at: '2026-01-01T10:00:00Z',
     created_at: '2026-01-01T09:00:00Z',
     updated_at: '2026-01-01T10:00:00Z',
