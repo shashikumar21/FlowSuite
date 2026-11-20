@@ -5,6 +5,13 @@ import { NotFoundPage } from '@/app/pages/NotFoundPage'
 import { AdminBusinessesPage } from '@/modules/admin/pages/AdminBusinessesPage'
 import { AdminOverviewPage } from '@/modules/admin/pages/AdminOverviewPage'
 import { AdminPlansPage } from '@/modules/admin/pages/AdminPlansPage'
+import { AppointmentsPage } from '@/modules/booking/pages/AppointmentsPage'
+import { AvailabilityPage } from '@/modules/booking/pages/AvailabilityPage'
+import { BookingOverviewPage } from '@/modules/booking/pages/BookingOverviewPage'
+import { BookingPageSettingsPage } from '@/modules/booking/pages/BookingPageSettingsPage'
+import { PublicBookingPage } from '@/modules/booking/pages/PublicBookingPage'
+import { ResourcesPage } from '@/modules/booking/pages/ResourcesPage'
+import { ServicesPage } from '@/modules/booking/pages/ServicesPage'
 import { ForgotPasswordPage } from '@/modules/auth/pages/ForgotPasswordPage'
 import { LoginPage } from '@/modules/auth/pages/LoginPage'
 import { ResetPasswordPage } from '@/modules/auth/pages/ResetPasswordPage'
@@ -15,6 +22,8 @@ import { CrmSettingsPage } from '@/modules/crm/pages/CrmSettingsPage'
 import { DealsPage } from '@/modules/crm/pages/DealsPage'
 import { ImportHistoryPage } from '@/modules/crm/pages/ImportHistoryPage'
 import { DashboardPage } from '@/modules/dashboard/pages/DashboardPage'
+import { InboxPage } from '@/modules/inbox/pages/InboxPage'
+import { NotificationsPage } from '@/modules/notifications/pages/NotificationsPage'
 import { ModulePlaceholderPage } from '@/modules/dashboard/pages/ModulePlaceholderPage'
 import { CreateBusinessPage } from '@/modules/onboarding/pages/CreateBusinessPage'
 import { BusinessSettingsPage } from '@/modules/settings/pages/BusinessSettingsPage'
@@ -31,6 +40,8 @@ export function AppRouter() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/invite/:token" element={<AcceptInvitationPage />} />
+      {/* Anonymous, slug-scoped booking page. All validation happens server-side. */}
+      <Route path="/book/:slug" element={<PublicBookingPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<HomeRedirect />} />
@@ -46,6 +57,14 @@ export function AppRouter() {
           <Route path="deals" element={<DealsPage />} />
           <Route path="crm/settings" element={<CrmSettingsPage />} />
           <Route path="crm/imports" element={<ImportHistoryPage />} />
+          <Route path="conversations" element={<InboxPage />} />
+          <Route path="booking" element={<BookingOverviewPage />} />
+          <Route path="appointments" element={<AppointmentsPage />} />
+          <Route path="booking/services" element={<ServicesPage />} />
+          <Route path="booking/availability" element={<AvailabilityPage />} />
+          <Route path="booking/resources" element={<ResourcesPage />} />
+          <Route path="booking/page" element={<BookingPageSettingsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="team" element={<TeamPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />

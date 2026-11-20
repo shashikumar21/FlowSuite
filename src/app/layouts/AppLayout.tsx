@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  Bell,
   Check,
   ChevronDown,
   ChevronsUpDown,
@@ -19,13 +18,14 @@ import { navigation } from '@/app/config/navigation'
 import { Avatar } from '@/components/ui/Feedback'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
+import { NotificationsBell } from '@/modules/notifications/components/NotificationsBell'
 
 export function AppLayout() {
   const { profile, user, isPlatformAdmin, signOut } = useAuth()
   const { tenants, activeTenant, switchTenant } = useTenant()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [openMenu, setOpenMenu] = useState<'tenant' | 'notifications' | 'profile' | 'ai' | null>(null)
+  const [openMenu, setOpenMenu] = useState<'tenant' | 'profile' | 'ai' | null>(null)
 
   const closeMenus = () => setOpenMenu(null)
 
@@ -203,21 +203,7 @@ export function AppLayout() {
               ) : null}
             </div>
 
-            <div className="relative">
-              <button
-                type="button"
-                aria-label="Notifications"
-                onClick={() => setOpenMenu(openMenu === 'notifications' ? null : 'notifications')}
-                className="relative flex size-9 items-center justify-center rounded-lg text-ink-600 hover:bg-ink-100"
-              >
-                <Bell className="size-4" />
-              </button>
-              {openMenu === 'notifications' ? (
-                <Popover title="Notifications" onClose={closeMenus}>
-                  <p className="py-4 text-center text-sm text-ink-500">You're all caught up.</p>
-                </Popover>
-              ) : null}
-            </div>
+            <NotificationsBell />
 
             <div className="relative">
               <button

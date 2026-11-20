@@ -1,7 +1,9 @@
 import {
   BarChart3,
+  Bell,
   Bot,
   CalendarDays,
+  Clock,
   CreditCard,
   FileText,
   Gauge,
@@ -43,7 +45,10 @@ const planned = (label: string, to: string, icon: LucideIcon): NavItem => ({
 export const navigation: NavGroup[] = [
   {
     label: 'Overview',
-    items: [{ label: 'Dashboard', to: '/app', icon: LayoutDashboard, available: true }],
+    items: [
+      { label: 'Dashboard', to: '/app', icon: LayoutDashboard, available: true },
+      { label: 'Notifications', to: '/app/notifications', icon: Bell, available: true },
+    ],
   },
   {
     label: 'Customers',
@@ -53,8 +58,18 @@ export const navigation: NavGroup[] = [
       { label: 'Deals', to: '/app/deals', icon: Target, available: true },
       { label: 'Import history', to: '/app/crm/imports', icon: History, available: true },
       { label: 'CRM setup', to: '/app/crm/settings', icon: Settings2, available: true },
-      planned('Conversations', 'conversations', MessageSquare),
-      planned('Appointments', 'appointments', CalendarDays),
+      { label: 'Conversations', to: '/app/conversations', icon: MessageSquare, available: true },
+    ],
+  },
+  {
+    label: 'Booking',
+    items: [
+      { label: 'Overview', to: '/app/booking', icon: CalendarDays, available: true },
+      { label: 'Appointments', to: '/app/appointments', icon: Clock, available: true },
+      { label: 'Services', to: '/app/booking/services', icon: FileText, available: true },
+      { label: 'Availability', to: '/app/booking/availability', icon: CalendarDays, available: true },
+      { label: 'Resources', to: '/app/booking/resources', icon: UserCog, available: true },
+      { label: 'Booking page', to: '/app/booking/page', icon: Globe, available: true },
     ],
   },
   {
@@ -91,8 +106,6 @@ export const navigation: NavGroup[] = [
 ]
 
 export const moduleTitles: Record<string, { title: string; description: string; icon: LucideIcon; phase: string }> = {
-  conversations: { title: 'Conversations', description: 'WhatsApp, web chat and email in one inbox.', icon: MessageSquare, phase: 'Phase 2' },
-  appointments: { title: 'Appointments', description: 'Calendars, services, reminders and rescheduling.', icon: CalendarDays, phase: 'Phase 2' },
   marketing: { title: 'Marketing', description: 'Campaigns, WhatsApp broadcasts and ad creatives.', icon: Megaphone, phase: 'Phase 3' },
   campaigns: { title: 'Campaigns', description: 'Create and measure multi-channel campaigns.', icon: Inbox, phase: 'Phase 3' },
   websites: { title: 'Websites', description: 'Landing pages, forms and custom domains.', icon: Globe, phase: 'Phase 3' },

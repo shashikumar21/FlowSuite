@@ -4,7 +4,7 @@ One platform. Every business. Smarter growth.
 
 FlowSuite is an original, India-first, multi-tenant SaaS business operating system inspired by the **feature categories** of Grexa.ai and GoHighLevel. One business = one tenant; each tenant can have multiple employees; super admins are a completely separate platform role.
 
-This repository contains **Milestone 1 — secure multi-tenant foundation** plus **Milestone 2 — core CRM**. Booking, AI, workflow, marketing, billing and advanced reporting modules are still intentionally planned screens rather than fake implementations.
+This repository contains **Milestone 1 — secure multi-tenant foundation**, **Milestone 2 — core CRM** and **Milestone 3 — booking system + communication foundation**. AI, workflow, marketing, website, billing and advanced reporting modules remain intentionally planned screens rather than fake implementations.
 
 ---
 
@@ -54,7 +54,25 @@ This repository contains **Milestone 1 — secure multi-tenant foundation** plus
 | Sample Excel template download, manager-only import controls | Done |
 | Import/export security + workflow regression suite (33 checks) | Done (executed on hosted project, rolled back) |
 
-**Still not built:** booking pages, WhatsApp/AI integrations, workflow builder, campaigns, reputation, website builder, Razorpay billing and advanced analytics. See `src/app/config/navigation.ts` for the planned module map.
+### Milestone 3 — booking & communication foundation
+
+| Area | Status |
+| --- | --- |
+| Services, booking resources, service→resource links | Done |
+| Weekly availability rules, date ranges and exceptions (blocked/available/break) | Done |
+| Server-side slot engine in the business timezone (rules, breaks, lead time, live appointments) | Done |
+| Anonymous, slug-scoped booking page at `/book/:slug` — services, slots, customer details, confirmation | Done |
+| Token-scoped customer self-service (reschedule/cancel) with policy checks | Done |
+| Staff appointment creation, rescheduling, status history and assignment via trusted RPCs | Done |
+| GiST exclusion constraint preventing overlapping appointments on every write path | Done |
+| Booking page settings (branding, horizon, lead time, slot interval, required fields, policies) | Done |
+| Real booking overview metrics from `booking_dashboard_metrics` (no mock numbers) | Done |
+| Inbox conversations/messages with assignment, status, internal notes and read state | Done |
+| In-app notifications with bell, unread count, mark-read and list screen | Done |
+| Server-only email adapter seam (`notify-email` Edge Function), no keys in the browser | Foundation only |
+| Booking/inbox regression suite (38 checks) | Done (executed on hosted project, rolled back) |
+
+**Still not built:** WhatsApp/AI integrations, workflow builder, campaigns, reputation, website builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred: Milestone 3 ships in-app notifications plus the server-only adapter seam. See `src/app/config/navigation.ts` for the planned module map.
 
 ---
 
@@ -109,8 +127,11 @@ For the hosted project already configured in `.env.local`, the SQL files were ru
 8. `0007_fix_import_idempotency.sql`
 9. `0008_confirmed_duplicate_imports.sql`
 10. `0009_fix_import_tag_cast.sql`
+11. `0010_milestone3_booking_communication.sql`
+12. `0011_fix_booking_notifications.sql`
+13. `0012_prevent_appointment_overlaps.sql`
 
-`0004` already contains the `0005` visibility fix for fresh installs; `0005` exists so an already-migrated database can be patched on its own. `0007`–`0009` are hotfixes that replace earlier import definitions; fresh installs must apply the whole sequence in order. There is no `supabase/config.toml`, so hosted migrations were applied manually through the SQL Editor.
+`0004` already contains the `0005` visibility fix for fresh installs; `0005` exists so an already-migrated database can be patched on its own. `0007`–`0009` are hotfixes that replace earlier import definitions. `0010` already contains the `0011` and `0012` fixes for fresh installs; `0011` only replaces three RPCs and `0012` adds one exclusion constraint on databases that already ran `0010`. Fresh installs must apply the whole sequence in order. There is no `supabase/config.toml`, so hosted migrations were applied manually through the SQL Editor.
 
 Email auth is enabled. Redirect URLs allow `http://localhost:5173/**` and `http://127.0.0.1:5173/**`, and the Site URL is `http://localhost:5173`. Add your production origin before deploying.
 
@@ -170,9 +191,9 @@ src/
       data-exchange/   CSV/XLSX parsing, mapping, validation, import/export API
   types/             hand-written Supabase Database type
 supabase/
-  migrations/        0001–0009
+  migrations/        0001–0012
   seed.sql           plans only — no fake businesses or contacts
-  tests/             foundation_rls.sql, milestone2_crm.sql, contact_import_export.sql
+  tests/             foundation_rls.sql, milestone2_crm.sql, contact_import_export.sql, milestone3_booking.sql
 ```
 
 Regenerate types once a real project exists:
@@ -215,6 +236,9 @@ npx supabase gen types typescript --local > src/types/database.ts
 | `0007_fix_import_idempotency.sql` | only open import jobs participate in re-upload idempotency |
 | `0008_confirmed_duplicate_imports.sql` | `contacts.import_allow_duplicate` allows explicit import-as-new |
 | `0009_fix_import_tag_cast.sql` | fix tagged-row import by casting the JSON text value to `uuid` |
+| `0010_milestone3_booking_communication.sql` | services/resources/availability/booking pages, appointment events, channels/webhooks/notifications, slot engine, staff and public booking RPCs, inbox/notification RPCs, RLS and grants |
+| `0011_fix_booking_notifications.sql` | fix anonymous-booking notifications, legacy `conversations.channel`, and channel-less conversation messages (folded into `0010`) |
+| `0012_prevent_appointment_overlaps.sql` | add a GiST exclusion constraint so overlapping appointments are impossible on every write path (folded into `0010`) |
 | `supabase/seed.sql` | illustrative plan/entitlement reference data only |
 
 ---
@@ -237,7 +261,9 @@ npm run build       # production build
 - `supabase/tests/foundation_rls.sql` — executed in hosted SQL Editor; passed and rolled back.
 - `supabase/tests/milestone2_crm.sql` — executed in hosted SQL Editor with the psql-only `\set` line removed: **37 checks, 37 passed, 0 failed**; transaction rolled back.
 - `supabase/tests/contact_import_export.sql` — executed in hosted SQL Editor: **33 checks, 33 passed, 0 failed**, including a tagged-row regression case; transaction rolled back.
+- `supabase/tests/milestone3_booking.sql` — executed in hosted SQL Editor: **38 checks, 38 passed, 0 failed**, covering anonymous slot lookup/booking/idempotency/overlap/token self-service, staff transitions, the database-level overlap constraint, cross-tenant denial, inbox and notification scoping; transaction rolled back.
 - Hosted schema probe after `0004`: 6 new CRM tables, 25 CRM policies, 6 key CRM functions and 4 extended contact columns.
+- Hosted schema probe after `0010`: 11 new tables, 10 key functions and 16 sampled RLS policies.
 
 ### CRM UI smoke test
 
@@ -264,26 +290,25 @@ A second temporary tenant (`m2-import-smoke`) with owner, manager and employee a
 - Import History showed both the successful `2 / 2` job and the earlier failed `2 / 2` job with its downloadable error report (`Could not import this row (22P02)`).
 - Employee login: Import buttons disabled with `Only managers can import records`, History hidden, and CSV export containing only the header.
 
-Temporary SQL loader files and the smoke CSV under `public/` were removed. The smoke tenant still needs manual cleanup in the hosted database once dashboard access is restored.
+Temporary SQL loader files and the smoke CSV under `public/` were removed. The smoke tenant and its three users were subsequently deleted from the hosted database (final counts: businesses=0, users=0, profiles=0).
 
 ---
 
 ## Remaining risks / before production
 
-- Wide desktop breakpoints were checked in source/Tailwind classes and the M1 shell, but the in-app browser used for M2 smoke testing pins a 912px viewport; a separate wide-viewport visual pass is still worthwhile.
+- Wide desktop breakpoints were checked in source/Tailwind classes and the M1 shell, but the in-app browser used for smoke testing pins a 912px viewport; a separate wide-viewport visual pass is still worthwhile.
 - Replace the hand-written `src/types/database.ts` with generated types now that the project exists (`npx supabase gen types typescript --project-id grkzontnyjnhijmphypo`).
 - Add plan entitlement enforcement (server-side) before exposing billing.
 - Add Storage bucket policies, webhook verification and idempotency when integrations are introduced.
 - Add audit-log writes for all important future actions, not just provisioning/invitations/templates and the current CRM mutations.
 - Review DPDP-related consent, retention, deletion and WhatsApp policy requirements before launch.
-- Consider code-splitting the CRM routes; the production build reports one JS chunk over 500 kB.
+- Consider code-splitting the app routes; the production build reports one JS chunk over 500 kB.
 - Pricing in `supabase/seed.sql` is illustrative and must be validated with real pilot customers.
 - SheetJS CE is vendored at `xlsx@0.20.3`, the patched release for the older prototype-pollution/ReDoS advisories. It is not distributed on npm, so `npm audit` does not scan it; re-check upstream advisories before upgrading and keep the vendored SHA256 pinned.
 - Import size limits (5 MB / 5,000 rows) are enforced server-side; the wizard's checks are UX only. Large sheets are parsed on the main thread before upload, so a Web Worker is worth considering for heavier files.
-- The `m2-import-smoke` hosted tenant and its users are still present and should be deleted manually when Supabase dashboard access is restored.
 
 ---
 
 ## Next milestone
 
-Milestone 2 is complete and committed. Milestone 3 (booking system + communication foundation) is the next planned work, followed by AI/WhatsApp automation, workflows and campaigns.
+Milestone 3 is complete and committed. The next milestone is AI/WhatsApp automation, followed by workflows and campaigns. CRM lead enrichment fields (Clinic, Area, mobile with country code, rating/reviews, why-included, Google Maps link, sent/reply tracking) are deferred to a follow-up change so this milestone stays scoped to booking and communication.

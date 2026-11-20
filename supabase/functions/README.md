@@ -1,6 +1,15 @@
 # Edge Functions
 
-This directory is reserved for trusted server-side code. No function is deployed in Milestone 1.
+This directory is reserved for trusted server-side code. No function is deployed in Milestone 1 or 2.
+
+## `notify-email` (Milestone 3 foundation)
+
+`notify-email/` plus `_shared/email.ts` provide the email **seam** only. Milestone 3 ships working in-app notifications; this function is not yet wired to an automatic dispatcher. A later milestone will add an outbox over `public.notifications` rows with `delivery_channel = 'email'` and `delivery_status = 'pending'`, then invoke this function from that dispatcher.
+
+- `createEmailProvider()` selects a provider from Supabase secrets. With no credentials it uses a console adapter that makes **no external request**, so a partially configured deployment cannot send mail by accident.
+- `EMAIL_PROVIDER=resend` requires `EMAIL_PROVIDER_API_KEY` and `EMAIL_FROM_ADDRESS`; both are server-only.
+- Calls require `x-flowsuite-secret` matching `NOTIFY_EMAIL_SECRET`. A missing secret fails closed with HTTP 503.
+- The browser bundle never imports these files. No `VITE_*` variable holds a provider key or the internal secret.
 
 Planned functions (each gets its own folder and test):
 

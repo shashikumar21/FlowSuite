@@ -19,7 +19,7 @@ import { requireSupabase } from '@/integrations/supabase/client'
 import { formatCurrency, formatNumber } from '@/lib/format'
 import { getErrorMessage } from '@/lib/errors'
 import { EMPTY_METRICS } from '@/modules/crm/utils'
-import type { ContactRow } from '@/types/database'
+import type { BookingMetrics, ContactRow, InboxMetrics } from '@/types/database'
 
 type DashboardData = {
   contacts: number
@@ -44,20 +44,11 @@ export function DashboardPage() {
     queryFn: async (): Promise<DashboardData> => {
       const supabase = requireSupabase()
       const id = tenantId as string
-      const [metrics, appointments, conversations, recent, members, subscription] = await Promise.all([
-        // Trusted RPC: the same tenant-scoped figures used by the CRM overview.
+      const [metrics, bookingMetrics, inboxMetrics, recent, members, subscription] = await Promise.all([
+        // Trusted RPCs: the same tenant-scoped figures used by each module.
         supabase.rpc('crm_dashboard_metrics', { p_tenant: id }),
-        supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', id)
-          .in('status', ['scheduled', 'confirmed'])
-          .gte('start_at', new Date().toISOString()),
-        supabase
-          .from('conversations')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', id)
-          .eq('status', 'open'),
+        supabase.rpc('booking_dashboard_metrics', { p_tenant: id }),
+        supabase.rpc('inbox_metrics', { p_tenant: id }),
         supabase.from('contacts').select('*').eq('tenant_id', id).order('created_at', { ascending: false }).limit(5).returns<ContactRow[]>(),
         supabase.from('business_members').select('id', { count: 'exact', head: true }).eq('tenant_id', id).eq('status', 'active'),
         supabase
@@ -69,18 +60,33 @@ export function DashboardPage() {
           .returns<Array<{ status: string; plans: { name: string; features: Record<string, boolean> } | null }>>(),
       ])
 
-      const firstError = [metrics, appointments, conversations, recent, members, subscription].find(
+      const firstError = [metrics, bookingMetrics, inboxMetrics, recent, members, subscription].find(
         (result) => result.error,
       )?.error
       if (firstError) throw firstError
 
       const crm = metrics.data ?? EMPTY_METRICS
+      const bookings: BookingMetrics = bookingMetrics.data ?? {
+        today_count: 0,
+        upcoming_count: 0,
+        pending_count: 0,
+        completed_count: 0,
+        cancelled_count: 0,
+        no_show_count: 0,
+        week_count: 0,
+      }
+      const inbox: InboxMetrics = inboxMetrics.data ?? {
+        open_count: 0,
+        pending_count: 0,
+        closed_count: 0,
+        unassigned_count: 0,
+      }
       const plan = subscription.data?.[0]
 
       return {
         contacts: Number(crm.total_contacts),
-        upcomingAppointments: appointments.count ?? 0,
-        openConversations: conversations.count ?? 0,
+        upcomingAppointments: Number(bookings.upcoming_count),
+        openConversations: Number(inbox.open_count),
         openDeals: Number(crm.open_deals),
         dealValue: Number(crm.open_pipeline_value),
         teamSize: members.count ?? 0,
@@ -202,6 +208,12 @@ export function DashboardPage() {
                 </Link>
                 <Link to="/app/contacts" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
                   Add a contact <ArrowRight className="size-3.5" />
+                </Link>
+                <Link to="/app/appointments" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  Appointments <ArrowRight className="size-3.5" />
+                </Link>
+                <Link to="/app/conversations" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  Inbox <ArrowRight className="size-3.5" />
                 </Link>
                 <Link to="/app/team" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
                   Manage your team <ArrowRight className="size-3.5" />

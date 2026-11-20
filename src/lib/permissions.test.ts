@@ -21,6 +21,13 @@ describe('tenant permissions (UX layer only)', () => {
     expect(hasPermission('employee', 'view_team')).toBe(true)
   })
 
+  it('reserves booking configuration for managers and above', () => {
+    expect(hasPermission('owner', 'manage_booking_config')).toBe(true)
+    expect(hasPermission('admin', 'manage_booking_config')).toBe(true)
+    expect(hasPermission('manager', 'manage_booking_config')).toBe(true)
+    expect(hasPermission('employee', 'manage_booking_config')).toBe(false)
+  })
+
   it('restricts reports to manager level and above', () => {
     expect(hasPermission('manager', 'view_reports')).toBe(true)
     expect(hasPermission('employee', 'view_reports')).toBe(false)

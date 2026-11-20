@@ -13,6 +13,7 @@ export type Permission =
   | 'manage_deals'
   | 'manage_pipeline'
   | 'manage_appointments'
+  | 'manage_booking_config'
   | 'view_reports'
   | 'manage_integrations'
   | 'manage_billing'
@@ -31,6 +32,9 @@ const MATRIX: Record<Permission, TenantRole[]> = {
   // (public.can_manage_crm). Employees only work on their own records.
   manage_pipeline: ['owner', 'admin', 'manager'],
   manage_appointments: ['owner', 'admin', 'manager', 'employee'],
+  // Mirrors public.can_manage_bookings(): employees can work appointments but
+  // cannot change services, availability, resources or the booking page.
+  manage_booking_config: ['owner', 'admin', 'manager'],
   view_reports: ['owner', 'admin', 'manager'],
   manage_integrations: ['owner', 'admin'],
   manage_billing: ['owner'],

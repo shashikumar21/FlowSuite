@@ -1,0 +1,7 @@
+export { AppointmentsPage } from './AppointmentsPage'
+export { AvailabilityPage } from './AvailabilityPage'
+export { BookingOverviewPage } from './BookingOverviewPage'
+export { BookingPageSettingsPage } from './BookingPageSettingsPage'
+export { PublicBookingPage } from './PublicBookingPage'
+export { ResourcesPage } from './ResourcesPage'
+export { ServicesPage } from './ServicesPage'
