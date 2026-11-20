@@ -8,6 +8,9 @@ const srcDir = fileURLToPath(new URL('./src', import.meta.url))
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    host: '0.0.0.0',
+  },
   resolve: {
     alias: {
       '@': srcDir,
