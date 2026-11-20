@@ -83,7 +83,11 @@ export const navigation: NavGroup[] = [
   },
   {
     label: 'Automation',
-    items: [planned('Workflows', 'workflows', Workflow), planned('AI Agents', 'ai-agents', Bot)],
+    items: [
+      { label: 'AI Agents', to: '/app/ai/agents', icon: Bot, available: true },
+      { label: 'AI Conversations', to: '/app/ai/conversations', icon: MessageSquare, available: true },
+      planned('Workflows', 'workflows', Workflow),
+    ],
   },
   {
     label: 'Operations',
@@ -99,7 +103,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Business Profile', to: '/app/settings/business', icon: Gauge, available: true },
       { label: 'Profile & Security', to: '/app/settings/profile', icon: Settings2, available: true },
-      planned('Integrations', 'integrations', Plug),
+      { label: 'Integrations', to: '/app/settings/integrations', icon: Plug, available: true },
       planned('Subscription', 'subscription', CreditCard),
     ],
   },
@@ -111,8 +115,6 @@ export const moduleTitles: Record<string, { title: string; description: string; 
   websites: { title: 'Websites', description: 'Landing pages, forms and custom domains.', icon: Globe, phase: 'Phase 3' },
   reputation: { title: 'Reputation', description: 'Reviews, AI replies and feedback collection.', icon: Star, phase: 'Phase 3' },
   workflows: { title: 'Workflows', description: 'Triggers, conditions, actions and delays.', icon: Workflow, phase: 'Phase 3' },
-  'ai-agents': { title: 'AI Agents', description: 'Chatbots, lead qualification and handover.', icon: Bot, phase: 'Phase 3' },
   tasks: { title: 'Tasks', description: 'Assignments, due dates and team activity.', icon: FileText, phase: 'Phase 2' },
-  integrations: { title: 'Integrations', description: 'WhatsApp, Google, Razorpay and telephony.', icon: Plug, phase: 'Phase 3' },
   subscription: { title: 'Subscription', description: 'Plans, entitlements and usage.', icon: CreditCard, phase: 'Phase 4' },
 }

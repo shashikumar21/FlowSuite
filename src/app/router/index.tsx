@@ -5,6 +5,9 @@ import { NotFoundPage } from '@/app/pages/NotFoundPage'
 import { AdminBusinessesPage } from '@/modules/admin/pages/AdminBusinessesPage'
 import { AdminOverviewPage } from '@/modules/admin/pages/AdminOverviewPage'
 import { AdminPlansPage } from '@/modules/admin/pages/AdminPlansPage'
+import { AiAgentsPage } from '@/modules/ai-console/pages/AiAgentsPage'
+import { AiConversationsPage } from '@/modules/ai-console/pages/AiConversationsPage'
+import { IntegrationsPage } from '@/modules/ai-console/pages/IntegrationsPage'
 import { AppointmentsPage } from '@/modules/booking/pages/AppointmentsPage'
 import { AvailabilityPage } from '@/modules/booking/pages/AvailabilityPage'
 import { BookingOverviewPage } from '@/modules/booking/pages/BookingOverviewPage'
@@ -66,7 +69,10 @@ export function AppRouter() {
           <Route path="booking/page" element={<BookingPageSettingsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="ai/agents" element={<AiAgentsPage />} />
+          <Route path="ai/conversations" element={<AiConversationsPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
+          <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />
           <Route path="module/:moduleKey" element={<ModulePlaceholderPage />} />
         </Route>

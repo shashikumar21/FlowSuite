@@ -166,6 +166,8 @@ npm run dev
 
 If the environment variables are missing, the app shows a setup screen instead of silently rendering an unauthenticated UI.
 
+After signing in, the AI console is under **Automation → AI Agents / AI Conversations** and **Settings → Integrations**. See [docs/AI_CONSOLE_UI.md](docs/AI_CONSOLE_UI.md) for what works and what still needs deployment.
+
 ---
 
 ## Project structure
@@ -193,9 +195,11 @@ src/
     admin/           super admin screens
     crm/             api, hooks, schemas, utils, pages, board, tests
       data-exchange/   CSV/XLSX parsing, mapping, validation, import/export API
+    ai/              server-only provider, safety, tools, usage and tests
+    ai-console/      browser UI for agents, integrations and AI conversations
   types/             hand-written Supabase Database type
 supabase/
-  migrations/        0001–0013
+  migrations/        0001–0016
   seed.sql           plans only — no fake businesses or contacts
   tests/             foundation_rls.sql, milestone2_crm.sql, contact_import_export.sql, milestone3_booking.sql, crm_lead_enrichment.sql
 ```
