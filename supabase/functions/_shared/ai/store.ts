@@ -10,10 +10,20 @@ import type {
   ChatChannel,
   ChatIdentity,
 } from './chat.ts';
+import type {
+  FollowUpJob,
+  FollowUpStore,
+} from './follow_up.ts';
+import type {
+  Classification,
+  FollowUpChannel,
+  QualificationStore,
+} from './qualification.ts';
 import type { WhatsAppInboundStore } from './whatsapp_inbound.ts';
 import type { WhatsAppMessagingState } from './whatsapp_send.ts';
 
 type StoreClient = SupabaseClient;
+export type AiStore = WhatsAppInboundStore & QualificationStore & FollowUpStore;
 
 export function createServiceClient(url: string, serviceRoleKey: string): StoreClient {
   if (!url?.trim() || !serviceRoleKey?.trim()) {
@@ -40,6 +50,37 @@ function toAgentContext(value: unknown): AgentContext | null {
   const record = value as Record<string, unknown>;
   if (typeof record.agent_id !== 'string' || typeof record.tenant_id !== 'string') return null;
   return record as unknown as AgentContext;
+}
+
+function toFollowUpJob(value: unknown): FollowUpJob | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.job_id !== 'string' || typeof record.tenant_id !== 'string') return null;
+  const rawTemplate = record.template;
+  let template: FollowUpJob['template'] = null;
+  if (rawTemplate && typeof rawTemplate === 'object') {
+    const value = rawTemplate as Record<string, unknown>;
+    if (typeof value.key === 'string' && typeof value.content === 'string') {
+      template = {
+        key: value.key,
+        providerName: typeof value.provider_name === 'string' ? value.provider_name : null,
+        content: value.content,
+        language: typeof value.language === 'string' ? value.language : 'en',
+      };
+    }
+  }
+  return {
+    jobId: record.job_id,
+    tenantId: record.tenant_id,
+    contactId: String(record.contact_id ?? ''),
+    conversationId: typeof record.conversation_id === 'string' ? record.conversation_id : null,
+    channel: typeof record.channel === 'string' ? record.channel : '',
+    idempotencyKey: typeof record.idempotency_key === 'string' ? record.idempotency_key : '',
+    contactName: typeof record.contact_name === 'string' ? record.contact_name.trim() : null,
+    contactPhone: typeof record.contact_phone === 'string' ? record.contact_phone : null,
+    contactMobile: typeof record.contact_mobile === 'string' ? record.contact_mobile : null,
+    template,
+  };
 }
 
 async function hasOpenWhatsAppSession(
@@ -85,7 +126,7 @@ async function getActiveHandoffUser(client: StoreClient, tenantId: string): Prom
 }
 
 /** Builds the injected store used by chat.ts and whatsapp_inbound.ts. */
-export function createAiStore(client: StoreClient): WhatsAppInboundStore {
+export function createAiStore(client: StoreClient): AiStore {
   return {
     resolveChannelId: async (tenantId: string, channelType: ChatChannel): Promise<string | null> => {
       const { data, error } = await client
@@ -246,6 +287,113 @@ export function createAiStore(client: StoreClient): WhatsAppInboundStore {
       const consented = consent?.status === 'opt_in' && consent?.revoked_at == null;
       const sessionOpen = await hasOpenWhatsAppSession(client, tenantId, contactId);
       return { sessionOpen, optedOut, consented };
+    },
+
+    recordAssessment: async (input: {
+      tenantId: string;
+      contactId: string;
+      conversationId: string | null;
+      classification: Classification;
+      summary: string;
+      intent: string | null;
+      serviceInterest: string | null;
+      provider: string;
+      model: string | null;
+    }): Promise<string> => {
+      return rpc<string>(client, 'ai_service_record_assessment', {
+        p_tenant: input.tenantId,
+        p_contact: input.contactId,
+        p_classification: input.classification,
+        p_summary: input.summary,
+        p_intent: input.intent,
+        p_service_interest: input.serviceInterest,
+        p_follow_up_recommendation: null,
+        p_conversation: input.conversationId,
+        p_message: null,
+        p_provider: input.provider,
+        p_model: input.model,
+      });
+    },
+
+    getActiveFollowUpSequence: async (tenantId: string): Promise<string | null> => {
+      const { data, error } = await client
+        .from('ai_follow_up_sequences')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'active')
+        .order('created_at')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return typeof data?.id === 'string' ? data.id : null;
+    },
+
+    enqueueFollowUp: async (input: {
+      tenantId: string;
+      contactId: string;
+      sequenceId: string;
+      channel: FollowUpChannel;
+      conversationId: string | null;
+    }): Promise<string | null> => {
+      try {
+        return await rpc<string>(client, 'ai_service_enqueue_follow_up', {
+          p_tenant: input.tenantId,
+          p_contact: input.contactId,
+          p_sequence: input.sequenceId,
+          p_channel: input.channel,
+          p_conversation: input.conversationId,
+        });
+      } catch {
+        // Consent and automation pauses are enforced by the RPC. A skipped
+        // enqueue is not a qualification failure.
+        return null;
+      }
+    },
+
+    claimJob: async (jobId: string): Promise<FollowUpJob | null> => {
+      const value = await rpc<unknown>(client, 'ai_claim_follow_up_job', { p_job: jobId });
+      return toFollowUpJob(value);
+    },
+
+    completeJob: async (input: {
+      jobId: string;
+      status: 'sent' | 'skipped' | 'failed';
+      providerMessageId?: string | null;
+      error?: string | null;
+    }): Promise<void> => {
+      await rpc<void>(client, 'ai_complete_follow_up_job', {
+        p_job: input.jobId,
+        p_status: input.status,
+        p_provider_message_id: input.providerMessageId ?? null,
+        p_error: input.error ?? null,
+      });
+    },
+
+    getWhatsappCredentialForTenant: async (
+      tenantId: string
+    ): Promise<{ phoneNumberId: string; secretRef: string } | null> => {
+      const { data: credentials, error } = await client
+        .from('channel_credentials')
+        .select('channel_id, secret_ref, external_identifier')
+        .eq('tenant_id', tenantId)
+        .eq('provider', 'whatsapp')
+        .eq('status', 'active');
+      if (error) throw new Error(error.message);
+      for (const credential of credentials ?? []) {
+        const { data: channel, error: channelError } = await client
+          .from('channels')
+          .select('id')
+          .eq('id', credential.channel_id as string)
+          .eq('tenant_id', tenantId)
+          .eq('channel_type', 'whatsapp')
+          .eq('active', true)
+          .maybeSingle();
+        if (channelError) throw new Error(channelError.message);
+        if (channel && typeof credential.secret_ref === 'string' && typeof credential.external_identifier === 'string') {
+          return { phoneNumberId: credential.external_identifier, secretRef: credential.secret_ref };
+        }
+      }
+      return null;
     },
   };
 }

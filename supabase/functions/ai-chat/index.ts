@@ -4,6 +4,7 @@
 
 import { ChatError, runAgentReply } from '../_shared/ai/chat.ts';
 import { createAiProvider } from '../_shared/ai/provider.ts';
+import { qualifyLead, type Classification } from '../_shared/ai/qualification.ts';
 import { createServiceClient, createAiStore, getWebsiteAgent } from '../_shared/ai/store.ts';
 import { normalizeIdempotencyKey } from '../_shared/http.ts';
 
@@ -157,12 +158,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
       consentToWhatsapp: payload.consentToWhatsapp,
     });
 
+    // Qualification enriches the CRM after the reply is already stored. It is
+    // non-fatal: a provider or schema failure must not lose a working chat.
+    let classification: Classification | null = null;
+    let qualificationError: string | undefined;
+    try {
+      const qualified = await qualifyLead({
+        agent,
+        contactId: result.contactId,
+        conversationId: result.conversationId,
+        customerMessage: payload.message,
+        assistantReply: result.reply,
+        provider,
+        store,
+        // A WhatsApp follow-up is only eligible when the visitor opted in.
+        followUpChannel: payload.consentToWhatsapp ? 'whatsapp' : null,
+        requestId: `qualify:${payload.requestId}`,
+      });
+      classification = qualified.classification;
+    } catch (error) {
+      qualificationError = error instanceof Error ? error.message.slice(0, 200) : 'unknown_error';
+      console.warn('ai-chat: qualification failed; keeping the delivered reply', {
+        requestId: payload.requestId,
+        reason: qualificationError,
+      });
+    }
+
     return json({
       ok: true,
       reply: result.reply,
       needsHandoff: result.needsHandoff,
       escalatedForSafety: result.escalatedForSafety,
       conversationId: result.conversationId,
+      classification,
+      ...(qualificationError ? { qualificationError } : {}),
     }, 200, req);
   } catch (error) {
     const code = error instanceof ChatError ? error.code

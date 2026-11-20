@@ -18,8 +18,11 @@ This directory is reserved for trusted server-side code. No function is deployed
 | `ai-chat` | Anonymous website widget endpoint. Resolves a 64-hex public key to an active agent, enforces the DB token limit, uses the vendor-neutral provider adapter and stores messages via service-role RPCs. | Local code + unit tests |
 | `whatsapp-webhook` | Meta GET handshake and HMAC-verified POST ingestion. Maps WABA phone-number IDs to tenants via `channel_credentials`, dedupes by Meta message ID, stores inbound rows and sends one AI reply when allowed. | Local code + unit tests |
 | `whatsapp-send` | Internal sender for trusted callers. Requires the shared internal secret, verifies the contact belongs to the tenant, resolves that tenant's secret reference and enforces opt-out/consent/template rules before calling the Graph API. | Local code + unit tests |
+| `ai-follow-up-worker` | Small internal worker that claims due follow-up jobs, re-checks consent and sends one approved WhatsApp template per job via the official Graph API. Not the Milestone 5 automation engine. | Local code + unit tests |
 
-Migration `0015_milestone4_ai_service_rpcs.sql` adds service-role equivalents for agent lookup, usage-limit checks, consent writes and handoff. It must be applied to the hosted database before these functions are deployed. Website chat and provider webhooks have no end-user JWT, so the member-facing RPCs in migration 0014 cannot be used for those paths.
+Both chat entry points also run lead qualification after the reply is stored. `qualification.ts` uses strict structured output and the validated `qualifyLeadSchema`, never invents a lead score, and records an assessment through a service-role RPC. A follow-up is queued only for `future_follow_up` classification with an eligible channel, an active tenant sequence and an existing opt-in (the RPC re-checks consent). Qualification is non-fatal: a provider, schema or store failure never removes an already delivered reply.
+
+Migrations `0015_milestone4_ai_service_rpcs.sql` (agent lookup, usage-limit checks, consent writes, handoff) and `0016_milestone4_ai_qualification_rpcs.sql` (service-role assessment recording and consent-gated follow-up enqueue) must be applied to the hosted database before these functions are deployed. Website chat and provider webhooks have no end-user JWT, so the member-facing RPCs in migration 0014 cannot be used for those paths.
 
 Required Supabase secrets (never `VITE_*`):
 
@@ -28,6 +31,7 @@ Required Supabase secrets (never `VITE_*`):
 - `AI_CHAT_ALLOWED_ORIGINS` (comma-separated; omit for same-origin/dev)
 - `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, optional `WHATSAPP_ACCESS_TOKEN` fallback
 - `WHATSAPP_SEND_SECRET` (shared secret for the internal sender)
+- `AI_FOLLOW_UP_WORKER_SECRET` (shared secret for the follow-up worker)
 - Per-tenant WhatsApp token secret names must match `channel_credentials.secret_ref`
 
 With no provider key the functions fail closed with HTTP 503 and make no live provider call. No Edge Function has been deployed.
@@ -37,7 +41,6 @@ Planned functions (each gets its own folder and test):
 | Function | Responsibility |
 | --- | --- |
 | `razorpay-webhook` | Verify signature, enforce idempotency, update subscription entitlements |
-| `whatsapp-webhook` | Verify signature, deduplicate by provider message ID, route to conversations |
 | `ai-tool-executor` | Validate tenant scope and permissions before running an approved AI tool; log usage |
 | `send-campaign` | Check consent and plan limits before dispatching messages |
 | `telephony-webhook` | Verify provider signature and manage inbound call state |

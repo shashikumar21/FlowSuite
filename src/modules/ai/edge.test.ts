@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AiCompletion, AiProvider } from './providers/types.ts'
+import type { AiCompletion, AiCompletionRequest, AiProvider } from './providers/types.ts'
 import {
   runAgentReply,
   type AgentContext,
@@ -46,6 +46,30 @@ function fakeProvider(result: AiCompletion = completion('We are open 9am to 6pm.
     id: 'test-provider',
     model: 'test-model',
     complete: vi.fn(async () => result),
+  }
+}
+
+/** Returns a chat reply for the chat schema and a real classification payload
+ * for the qualification schema, so both provider calls can be asserted. */
+function qualifyingProvider(qualification: Record<string, unknown>): AiProvider & {
+  complete: ReturnType<typeof vi.fn>
+} {
+  const qualCompletion: AiCompletion = {
+    content: JSON.stringify(qualification),
+    parsed: qualification,
+    model: 'test-model',
+    usage: { promptTokens: 8, completionTokens: 4, totalTokens: 12, estimatedCostUsd: 0.0001 },
+    latencyMs: 10,
+    requestId: 'qual-req-1',
+    finishReason: 'stop',
+  }
+  return {
+    id: 'test-provider',
+    model: 'test-model',
+    complete: vi.fn(async (request: AiCompletionRequest) =>
+      request.responseFormat?.name === 'lead_classification'
+        ? qualCompletion
+        : completion('We are open 9am to 6pm.')),
   }
 }
 
@@ -190,6 +214,9 @@ function makeWhatsAppStore(overrides: Partial<WhatsAppInboundStore> = {}): Whats
     getMessagingState: vi.fn(async () => ({ sessionOpen: true, optedOut: false, consented: false })),
     getCredentialSecretRef: vi.fn(async () => 'WHATSAPP_ACCESS_TOKEN'),
     findContactId: vi.fn(async () => 'contact-1'),
+    recordAssessment: vi.fn(async () => 'assessment-1'),
+    getActiveFollowUpSequence: vi.fn(async () => 'sequence-1'),
+    enqueueFollowUp: vi.fn(async () => 'job-1'),
   }
   return { ...base, ...overrides }
 }
@@ -255,11 +282,47 @@ describe('WhatsApp inbound processing', () => {
     expect(outcomes[0]).toMatchObject({
       status: 'replied',
       providerMessageId: 'wamid.out.1',
+      // The generic fake provider returns chat-shaped output, so qualification
+      // fails validation, but the delivered reply remains a success.
+      classification: null,
     })
+    expect(outcomes[0]?.qualificationError).toBeDefined()
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     expect(store.appendMessage).toHaveBeenCalledWith(expect.objectContaining({
       externalId: 'wamid.in.1',
       direction: 'inbound',
+    }))
+  })
+
+  it('qualifies the lead after a successful reply without blocking delivery', async () => {
+    const store = makeWhatsAppStore()
+    const fetchImpl = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => new Response(
+      JSON.stringify({ messages: [{ id: 'wamid.out.1' }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ))
+    const outcomes = await processWhatsAppInbound({
+      messages: [inboundMessage()],
+      store,
+      provider: qualifyingProvider({
+        classification: 'future_follow_up',
+        summary: 'Customer asked about cleaning services.',
+        intent: 'cleaning',
+        serviceInterest: 'cleaning',
+      }),
+      resolveAccessToken: () => 'token',
+      fetchImpl,
+    })
+
+    expect(outcomes[0]).toMatchObject({
+      status: 'replied',
+      providerMessageId: 'wamid.out.1',
+      classification: 'future_follow_up',
+    })
+    expect(store.recordAssessment).toHaveBeenCalledWith(expect.objectContaining({
+      classification: 'future_follow_up',
+    }))
+    expect(store.enqueueFollowUp).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'whatsapp',
     }))
   })
 })

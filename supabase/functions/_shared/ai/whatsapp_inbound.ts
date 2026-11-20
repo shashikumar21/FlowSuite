@@ -3,10 +3,11 @@
 
 import type { AiWebhookEventResult } from '../../../../src/types/database.ts';
 import { runAgentReply, type AgentContext, type ChatStore } from './chat.ts';
+import { qualifyLead, type Classification, type QualificationStore } from './qualification.ts';
 import { sendWhatsAppMessage, WhatsAppSendError, type WhatsAppMessagingState } from './whatsapp_send.ts';
 import type { WhatsAppInboundMessage } from './whatsapp.ts';
 
-export interface WhatsAppInboundStore extends ChatStore {
+export interface WhatsAppInboundStore extends ChatStore, QualificationStore {
   resolveTenantForPhoneNumber(phoneNumberId: string): Promise<string | null>;
   getActiveAgent(tenantId: string): Promise<AgentContext | null>;
   recordWebhookEvent(input: {
@@ -36,6 +37,8 @@ export interface WhatsAppInboundOutcome {
   reason?: string;
   conversationId?: string;
   providerMessageId?: string | null;
+  classification?: Classification | null;
+  qualificationError?: string;
 }
 
 function reasonFor(error: unknown): string {
@@ -174,11 +177,39 @@ export async function processWhatsAppInbound(
         fetchImpl,
       });
 
+      // Qualification is a best-effort enrichment after the customer already
+      // received their reply. A provider/schema/store failure must never turn
+      // a delivered reply into a reported failure or trigger a Meta retry.
+      let classification: Classification | null = null;
+      let qualificationError: string | undefined;
+      try {
+        const qualified = await qualifyLead({
+          agent,
+          contactId: contactId ?? reply.contactId,
+          conversationId: reply.conversationId,
+          customerMessage: message.text,
+          assistantReply: reply.reply,
+          provider,
+          store,
+          followUpChannel: 'whatsapp',
+          requestId: `qualify:${externalId}`,
+        });
+        classification = qualified.classification;
+      } catch (error) {
+        qualificationError = reasonFor(error);
+        console.warn('whatsapp-webhook: qualification failed; keeping the delivered reply', {
+          externalMessageId: externalId,
+          reason: qualificationError,
+        });
+      }
+
       outcomes.push({
         externalMessageId: externalId,
         status: 'replied',
         conversationId: reply.conversationId,
         providerMessageId: sent.providerMessageId,
+        classification,
+        ...(qualificationError ? { qualificationError } : {}),
       });
     } catch (error) {
       outcomes.push({ externalMessageId: externalId, status: 'failed', reason: reasonFor(error) });

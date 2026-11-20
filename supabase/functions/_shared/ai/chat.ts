@@ -75,6 +75,7 @@ export interface AgentReplyResult {
   reply: string;
   needsHandoff: boolean;
   escalatedForSafety: boolean;
+  contactId: string;
   conversationId: string;
   inboundMessageId: string;
   outboundMessageId: string;
@@ -266,6 +267,7 @@ export async function runAgentReply(input: AgentReplyInput): Promise<AgentReplyR
     reply,
     needsHandoff,
     escalatedForSafety: safetyEscalation,
+    contactId,
     conversationId,
     inboundMessageId,
     outboundMessageId,
