@@ -11,6 +11,27 @@ This directory is reserved for trusted server-side code. No function is deployed
 - Calls require `x-flowsuite-secret` matching `NOTIFY_EMAIL_SECRET`. A missing secret fails closed with HTTP 503.
 - The browser bundle never imports these files. No `VITE_*` variable holds a provider key or the internal secret.
 
+## Milestone 4 (local code only — nothing here is deployed)
+
+| Function | Responsibility | Status |
+| --- | --- | --- |
+| `ai-chat` | Anonymous website widget endpoint. Resolves a 64-hex public key to an active agent, enforces the DB token limit, uses the vendor-neutral provider adapter and stores messages via service-role RPCs. | Local code + unit tests |
+| `whatsapp-webhook` | Meta GET handshake and HMAC-verified POST ingestion. Maps WABA phone-number IDs to tenants via `channel_credentials`, dedupes by Meta message ID, stores inbound rows and sends one AI reply when allowed. | Local code + unit tests |
+| `whatsapp-send` | Internal sender for trusted callers. Requires the shared internal secret, verifies the contact belongs to the tenant, resolves that tenant's secret reference and enforces opt-out/consent/template rules before calling the Graph API. | Local code + unit tests |
+
+Migration `0015_milestone4_ai_service_rpcs.sql` adds service-role equivalents for agent lookup, usage-limit checks, consent writes and handoff. It must be applied to the hosted database before these functions are deployed. Website chat and provider webhooks have no end-user JWT, so the member-facing RPCs in migration 0014 cannot be used for those paths.
+
+Required Supabase secrets (never `VITE_*`):
+
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- `AI_PROVIDER=openai`, `OPENAI_API_KEY`, optional `OPENAI_MODEL`, `OPENAI_BASE_URL`, `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`
+- `AI_CHAT_ALLOWED_ORIGINS` (comma-separated; omit for same-origin/dev)
+- `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, optional `WHATSAPP_ACCESS_TOKEN` fallback
+- `WHATSAPP_SEND_SECRET` (shared secret for the internal sender)
+- Per-tenant WhatsApp token secret names must match `channel_credentials.secret_ref`
+
+With no provider key the functions fail closed with HTTP 503 and make no live provider call. No Edge Function has been deployed.
+
 Planned functions (each gets its own folder and test):
 
 | Function | Responsibility |
