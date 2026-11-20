@@ -77,6 +77,8 @@ export function ContactDetailModal({
 
   const detail = detailQuery.data
   const contact = detail?.contact
+  const mapsUrl = contact?.google_maps_url?.trim()
+  const safeMapsUrl = mapsUrl && /^https?:\/\//i.test(mapsUrl) ? mapsUrl : null
   const isUnassignedLead = Boolean(contact && contact.status === 'lead' && !contact.assigned_to)
   const assignedToMe = Boolean(contact?.assigned_to === currentUserId)
 
@@ -143,6 +145,32 @@ export function ContactDetailModal({
             <div><dt className="text-xs text-ink-500">Phone</dt><dd className="text-ink-900">{contact.phone ?? '—'}</dd></div>
             <div><dt className="text-xs text-ink-500">Source</dt><dd className="text-ink-900">{options.sources.find((source) => source.id === contact.source_id)?.name ?? contact.source ?? '—'}</dd></div>
             <div><dt className="text-xs text-ink-500">Next follow-up</dt><dd className="text-ink-900">{formatDateTime(contact.follow_up_at)}</dd></div>
+            <div><dt className="text-xs text-ink-500">Clinic</dt><dd className="text-ink-900">{contact.clinic ?? '—'}</dd></div>
+            <div><dt className="text-xs text-ink-500">Area</dt><dd className="text-ink-900">{contact.area ?? '—'}</dd></div>
+            <div><dt className="text-xs text-ink-500">Mobile (+91)</dt><dd className="text-ink-900">{contact.mobile ?? '—'}</dd></div>
+            <div><dt className="text-xs text-ink-500">Rating</dt><dd className="text-ink-900">{contact.rating == null ? '—' : `${contact.rating.toFixed(1)} / 5`}</dd></div>
+            <div><dt className="text-xs text-ink-500">Reviews</dt><dd className="text-ink-900">{contact.reviews ?? '—'}</dd></div>
+            <div><dt className="text-xs text-ink-500">Sent?</dt><dd className="text-ink-900">{contact.sent ? 'Yes' : 'No'}</dd></div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs text-ink-500">Why included</dt>
+              <dd className="whitespace-pre-wrap text-ink-700">{contact.why_included ?? '—'}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs text-ink-500">Google Maps link</dt>
+              <dd className="break-all text-ink-700">
+                {safeMapsUrl ? (
+                  <a href={safeMapsUrl} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+                    View on Google Maps
+                  </a>
+                ) : (
+                  mapsUrl ?? '—'
+                )}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs text-ink-500">Reply 1</dt>
+              <dd className="whitespace-pre-wrap text-ink-700">{contact.reply_1 ?? '—'}</dd>
+            </div>
             {contact.notes ? (
               <div className="sm:col-span-2"><dt className="text-xs text-ink-500">Notes</dt><dd className="whitespace-pre-wrap text-ink-700">{contact.notes}</dd></div>
             ) : null}

@@ -22,7 +22,29 @@ export const BUILTIN_FIELDS = [
   { key: 'assigned_to', label: 'Owner' },
   { key: 'tags', label: 'Tags' },
   { key: 'notes', label: 'Notes' },
+  { key: 'clinic', label: 'Clinic' },
+  { key: 'area', label: 'Area' },
+  { key: 'mobile', label: 'Mobile (+91)' },
+  { key: 'rating', label: 'Rating' },
+  { key: 'reviews', label: 'Reviews' },
+  { key: 'why_included', label: 'Why included' },
+  { key: 'google_maps_url', label: 'Google Maps link' },
+  { key: 'sent', label: 'Sent? (Y/N)' },
+  { key: 'reply_1', label: 'Reply 1' },
 ] as const
+
+/** Lead-enrichment columns are plain strings in CSV, like the built-in text fields. */
+const ENRICHMENT_FIELDS: ReadonlySet<string> = new Set([
+  'clinic',
+  'area',
+  'mobile',
+  'rating',
+  'reviews',
+  'why_included',
+  'google_maps_url',
+  'sent',
+  'reply_1',
+])
 
 export function availableFields(options: ImportOptions): Array<{ key: string; label: string }> {
   return [
@@ -104,6 +126,15 @@ export function buildMappedRows(
       assigned_to: '',
       tag_ids: [],
       custom_data: {},
+      clinic: '',
+      area: '',
+      mobile: '',
+      rating: '',
+      reviews: '',
+      why_included: '',
+      google_maps_url: '',
+      sent: '',
+      reply_1: '',
     }
 
     cells.forEach((cell, columnIndex) => {
@@ -120,6 +151,9 @@ export function buildMappedRows(
         row.status = value || 'lead'
       } else if (field === 'lead_status') {
         row.lead_status = value || 'new'
+      } else if (ENRICHMENT_FIELDS.has(field)) {
+        const target = row as unknown as Record<string, string>
+        target[field] = value
       } else {
         const customKey = fieldKeyToCustomKey(field)
         if (customKey) {
@@ -142,6 +176,15 @@ export function buildMappedRows(
       row.source_id ||
       row.assigned_to ||
       row.tag_ids.length > 0 ||
+      row.clinic ||
+      row.area ||
+      row.mobile ||
+      row.rating ||
+      row.reviews ||
+      row.why_included ||
+      row.google_maps_url ||
+      row.sent ||
+      row.reply_1 ||
       Object.keys(row.custom_data).length > 0,
   ).map((row, index) => ({ ...row, rowNumber: index + 1 }))
 }

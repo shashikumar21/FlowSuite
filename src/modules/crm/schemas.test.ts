@@ -13,6 +13,15 @@ const validContact = {
   status: 'lead' as const,
   assigned_to: '',
   follow_up_at: '',
+  clinic: 'Smile Dental Clinic',
+  area: 'Andheri West',
+  mobile: '+919876543210',
+  rating: '4.5',
+  reviews: '128',
+  why_included: 'High-intent enquiry from Google Maps',
+  google_maps_url: 'https://maps.google.com/?q=Smile+Dental',
+  sent: false,
+  reply_1: '',
 }
 
 const validDeal = {
@@ -38,6 +47,33 @@ describe('CRM form schemas', () => {
     expect(contactSchema.safeParse({ ...validContact, email: '', phone: '' }).success).toBe(true)
     expect(contactSchema.safeParse({ ...validContact, email: 'not-an-email' }).success).toBe(false)
     expect(contactSchema.safeParse({ ...validContact, first_name: '   ' }).success).toBe(false)
+  })
+
+  it('validates enrichment ratings, reviews and mobile numbers', () => {
+    expect(contactSchema.parse({ ...validContact, clinic: '  Smile Dental  ' }).clinic).toBe('Smile Dental')
+    expect(contactSchema.safeParse({ ...validContact, rating: '', reviews: '', mobile: '' }).success).toBe(true)
+    for (const rating of ['0', '5', '4.7', '5.0']) {
+      expect(contactSchema.safeParse({ ...validContact, rating }).success).toBe(true)
+    }
+    for (const rating of ['-1', '5.1', '4.56', '6', 'abc']) {
+      expect(contactSchema.safeParse({ ...validContact, rating }).success).toBe(false)
+    }
+    expect(contactSchema.safeParse({ ...validContact, reviews: '0' }).success).toBe(true)
+    expect(contactSchema.safeParse({ ...validContact, reviews: '-1' }).success).toBe(false)
+    expect(contactSchema.safeParse({ ...validContact, reviews: '1.5' }).success).toBe(false)
+    expect(contactSchema.safeParse({ ...validContact, mobile: '+91 98765 43210' }).success).toBe(true)
+    expect(contactSchema.safeParse({ ...validContact, mobile: '(022) 1234-5678' }).success).toBe(true)
+    expect(contactSchema.safeParse({ ...validContact, mobile: '9876543210 ext 4' }).success).toBe(false)
+  })
+
+  it('accepts blank or valid Google Maps URLs and keeps sent as a boolean', () => {
+    expect(contactSchema.parse(validContact).sent).toBe(false)
+    expect(contactSchema.safeParse({ ...validContact, google_maps_url: '' }).success).toBe(true)
+    expect(contactSchema.safeParse({ ...validContact, google_maps_url: 'https://maps.google.com/?q=test' }).success).toBe(true)
+    expect(contactSchema.safeParse({ ...validContact, google_maps_url: 'not-a-url' }).success).toBe(false)
+    expect(contactSchema.safeParse({ ...validContact, google_maps_url: `https://maps.google.com/?q=${'x'.repeat(2000)}` }).success).toBe(false)
+    expect(contactSchema.safeParse({ ...validContact, sent: true }).success).toBe(true)
+    expect(contactSchema.safeParse({ ...validContact, sent: 'yes' }).success).toBe(false)
   })
 
   it('coerces deal values to numbers and rejects negative amounts', () => {

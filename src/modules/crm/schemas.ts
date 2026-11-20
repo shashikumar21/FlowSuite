@@ -21,6 +21,18 @@ export const contactSchema = z.object({
   status: z.enum(contactStatuses),
   assigned_to: z.string(),
   follow_up_at: z.string(),
+  clinic: z.string().trim().max(200),
+  area: z.string().trim().max(200),
+  mobile: z.string().trim().max(30).regex(/^[+\d\s()-]*$/, 'Use digits, spaces, +, - or parentheses only'),
+  rating: z
+    .string()
+    .trim()
+    .regex(/^(?:[0-4](?:\.\d)?|5(?:\.0)?|)$/, 'Enter a rating from 0 to 5 with at most one decimal place'),
+  reviews: z.string().trim().regex(/^\d*$/, 'Enter a whole number of 0 or more'),
+  why_included: z.string().trim().max(2000),
+  google_maps_url: z.union([z.string().trim().url('Enter a valid URL').max(2000), z.literal('')]),
+  sent: z.boolean(),
+  reply_1: z.string().trim().max(4000),
 })
 export type ContactFormValues = z.infer<typeof contactSchema>
 

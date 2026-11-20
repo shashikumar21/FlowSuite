@@ -175,7 +175,9 @@ export async function fetchDeals(tenantId: string): Promise<DealWithContact[]> {
 export async function fetchMetrics(tenantId: string): Promise<CrmMetrics> {
   const { data, error } = await requireSupabase().rpc('crm_dashboard_metrics', { p_tenant: tenantId })
   if (error) throw error
-  return (data ?? EMPTY_METRICS) as CrmMetrics
+  // The RPC returns `{}` when the caller has no access to the tenant. Merge it
+  // with the empty shape so array consumers never receive undefined fields.
+  return { ...EMPTY_METRICS, ...((data ?? {}) as Partial<CrmMetrics>) }
 }
 
 export async function createContact(tenantId: string, values: ContactFormValues): Promise<string> {
@@ -190,6 +192,15 @@ export async function createContact(tenantId: string, values: ContactFormValues)
     p_notes: values.notes || null,
     p_assigned_to: values.assigned_to || null,
     p_lead_status: values.lead_status,
+    p_clinic: values.clinic.trim() || null,
+    p_area: values.area.trim() || null,
+    p_mobile: values.mobile.trim() || null,
+    p_rating: values.rating.trim() === '' ? null : Number(values.rating),
+    p_reviews: values.reviews.trim() === '' ? null : Number(values.reviews),
+    p_why_included: values.why_included.trim() || null,
+    p_google_maps_url: values.google_maps_url.trim() || null,
+    p_sent: values.sent,
+    p_reply_1: values.reply_1.trim() || null,
   })
   if (error) throw error
   return data
@@ -212,6 +223,15 @@ export async function updateContact(
     p_lead_status: values.lead_status,
     p_status: values.status,
     p_follow_up_at: values.follow_up_at ? new Date(values.follow_up_at).toISOString() : null,
+    p_clinic: values.clinic.trim() || null,
+    p_area: values.area.trim() || null,
+    p_mobile: values.mobile.trim() || null,
+    p_rating: values.rating.trim() === '' ? null : Number(values.rating),
+    p_reviews: values.reviews.trim() === '' ? null : Number(values.reviews),
+    p_why_included: values.why_included.trim() || null,
+    p_google_maps_url: values.google_maps_url.trim() || null,
+    p_sent: values.sent,
+    p_reply_1: values.reply_1.trim() || null,
   })
   if (error) throw error
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CustomFieldRow } from '@/types/database'
-import { autoMapColumns, availableFields, buildMappedRows } from './mapping'
+import { autoMapColumns, availableFields, buildMappedRows, mappedHeaderLabel } from './mapping'
 import type { ImportOptions, ParsedSheet } from './types'
 
 const customFields = [
@@ -38,6 +38,15 @@ const sheet: ParsedSheet = {
     ['Ravi', 'Verma', 'RAVI@example.com', '+91 98765 43210', 'Acme', 'lead', 'new', 'Website', 'Asha Sharma', 'VIP, Follow-up', 'Call tomorrow', 'Evening'],
     ['', '', '', '', '', '', '', '', '', '', '', ''],
     ['Meera', '', 'meera@example.com', '9999999999', '', 'lead', 'contacted', '', '', '', '', ''],
+  ],
+}
+
+const enrichmentSheet: ParsedSheet = {
+  name: 'Enriched contacts',
+  headerRowIndex: 0,
+  rows: [
+    ['First name', 'Mobile (+91)', 'Mobile', 'Clinic', 'Area', 'Rating', 'Reviews', 'Why included', 'Google Maps link', 'Sent? (Y/N)', 'Reply 1'],
+    ['Ravi', '+91 98765 43210', '9876543210', 'Example Clinic', 'Andheri West', '4.5', '120', 'Near metro', 'https://maps.example.com/place', 'Y', 'Follow-up sent'],
   ],
 }
 
@@ -81,5 +90,58 @@ describe('column mapping', () => {
       options,
     )
     expect(rows[0]?.source_id).toBe('Unknown source')
+  })
+
+  it('maps Mobile (+91) to mobile but plain Mobile to phone', () => {
+    const mapping = autoMapColumns(enrichmentSheet, options)
+    expect(mapping[1]).toBe('mobile')
+    expect(mapping[2]).toBe('phone')
+    expect(mappedHeaderLabel(enrichmentSheet, mapping, options, 1)).toBe('Mobile (+91)')
+    expect(mappedHeaderLabel(enrichmentSheet, mapping, options, 2)).toBe('Phone')
+    expect(availableFields(options).map((field) => field.label)).toEqual(
+      expect.arrayContaining([
+        'Clinic',
+        'Area',
+        'Mobile (+91)',
+        'Rating',
+        'Reviews',
+        'Why included',
+        'Google Maps link',
+        'Sent? (Y/N)',
+        'Reply 1',
+      ]),
+    )
+  })
+
+  it('carries all nine enrichment fields into mapped rows', () => {
+    const rows = buildMappedRows(enrichmentSheet, autoMapColumns(enrichmentSheet, options), options)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      clinic: 'Example Clinic',
+      area: 'Andheri West',
+      mobile: '+91 98765 43210',
+      rating: '4.5',
+      reviews: '120',
+      why_included: 'Near metro',
+      google_maps_url: 'https://maps.example.com/place',
+      sent: 'Y',
+      reply_1: 'Follow-up sent',
+    })
+  })
+
+  it('keeps rows that only contain enrichment values', () => {
+    const rows = buildMappedRows(
+      {
+        ...enrichmentSheet,
+        rows: [
+          enrichmentSheet.rows[0] ?? [],
+          ['', '', '', 'Example Clinic', '', '', '', '', '', '', ''],
+        ],
+      },
+      autoMapColumns(enrichmentSheet, options),
+      options,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.clinic).toBe('Example Clinic')
   })
 })

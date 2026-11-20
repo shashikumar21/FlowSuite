@@ -31,6 +31,15 @@ export type ImportRow = {
   assigned_to: string
   tag_ids: string[]
   custom_data: Record<string, string>
+  clinic: string
+  area: string
+  mobile: string
+  rating: string
+  reviews: string
+  why_included: string
+  google_maps_url: string
+  sent: string
+  reply_1: string
 }
 
 export type ValidatedRow = {
@@ -114,6 +123,15 @@ export type ExportRow = {
   tags: string
   notes: string
   custom_data: Record<string, unknown>
+  clinic: string
+  area: string
+  mobile: string
+  rating: string
+  reviews: string
+  why_included: string
+  google_maps_url: string
+  sent: string
+  reply_1: string
   created_at: string
 }
 

@@ -4,11 +4,17 @@ import type { ImportRow } from './types'
 import {
   duplicateModeAllowed,
   findDuplicate,
+  guessFieldKey,
   hashFile,
   isValidEmail,
+  isValidHttpUrl,
   isValidPhone,
+  isValidRating,
+  isValidReviews,
   normalizeEmail,
+  normalizeMobile,
   normalizePhone,
+  normalizeSent,
   sanitizeCell,
   validateFile,
   validateImportRow,
@@ -45,6 +51,15 @@ const row = (overrides: Partial<ImportRow> = {}): ImportRow => ({
   assigned_to: '',
   tag_ids: [],
   custom_data: {},
+  clinic: '',
+  area: '',
+  mobile: '',
+  rating: '',
+  reviews: '',
+  why_included: '',
+  google_maps_url: '',
+  sent: '',
+  reply_1: '',
   ...overrides,
 })
 
@@ -125,6 +140,143 @@ describe('row validation', () => {
     expect(
       validateImportRow(row({ custom_data: { preference: 'morning' } }), customFields, 'contacts'),
     ).toEqual([])
+  })
+})
+
+describe('lead enrichment validation', () => {
+  it('bounds rating to 0-5 with at most one decimal place', () => {
+    expect(isValidRating('4.5')).toBe(true)
+    expect(isValidRating('5.1')).toBe(false)
+    for (const value of ['0', '5', '5.0', '4.5']) {
+      expect(validateImportRow(row({ rating: value }), customFields, 'contacts')).toEqual([])
+    }
+    for (const value of ['5.1', '6', '-1', '4.55', 'abc']) {
+      expect(validateImportRow(row({ rating: value }), customFields, 'contacts')).toContain(
+        'Invalid rating',
+      )
+    }
+  })
+
+  it('accepts only non-negative whole review counts', () => {
+    expect(isValidReviews('120')).toBe(true)
+    expect(isValidReviews('1.5')).toBe(false)
+    expect(validateImportRow(row({ reviews: '0' }), customFields, 'contacts')).toEqual([])
+    for (const value of ['-1', '1.5', '1e3', 'abc']) {
+      expect(validateImportRow(row({ reviews: value }), customFields, 'contacts')).toContain(
+        'Invalid reviews',
+      )
+    }
+  })
+
+  it('normalizes mobile numbers to +91 form', () => {
+    expect(normalizeMobile('9876543210')).toBe('+919876543210')
+    expect(normalizeMobile('+91 98765 43210')).toBe('+919876543210')
+    expect(normalizeMobile('91-98765-43210')).toBe('+919876543210')
+    expect(normalizeMobile('(98765) 43210')).toBe('+919876543210')
+    expect(normalizeMobile('')).toBe('')
+    expect(normalizeMobile('12345')).toBe('12345')
+
+    const valid = row({ mobile: '+91 (98765) 43210' })
+    expect(validateImportRow(valid, customFields, 'contacts')).toEqual([])
+    expect(valid.mobile).toBe('+919876543210')
+    expect(validateImportRow(row({ mobile: '98765abc43210' }), customFields, 'contacts')).toContain(
+      'Invalid mobile number',
+    )
+  })
+
+  it('canonicalises sent flags to Y or N', () => {
+    expect(normalizeSent('')).toBe('N')
+    expect(normalizeSent('YES')).toBe('Y')
+    expect(normalizeSent('no')).toBe('N')
+    expect(normalizeSent('1')).toBe('Y')
+    expect(normalizeSent('FALSE')).toBe('N')
+
+    for (const value of ['Y', 'yes', 'TRUE', '1']) {
+      const current = row({ sent: value })
+      expect(validateImportRow(current, customFields, 'contacts')).toEqual([])
+      expect(current.sent).toBe('Y')
+    }
+    for (const value of ['N', 'no', 'false', '0', '']) {
+      const current = row({ sent: value })
+      expect(validateImportRow(current, customFields, 'contacts')).toEqual([])
+      expect(current.sent).toBe('N')
+    }
+    expect(validateImportRow(row({ sent: 'maybe' }), customFields, 'contacts')).toContain(
+      'Invalid sent value',
+    )
+  })
+
+  it('validates Google Maps links as http(s) URLs', () => {
+    expect(isValidHttpUrl('https://maps.example.com/place')).toBe(true)
+    expect(isValidHttpUrl('ftp://maps.example.com/place')).toBe(false)
+    expect(
+      validateImportRow(
+        row({ google_maps_url: 'http://maps.example.com/place' }),
+        customFields,
+        'contacts',
+      ),
+    ).toEqual([])
+    for (const value of ['not a url', 'ftp://maps.example.com', '//maps.example.com']) {
+      expect(
+        validateImportRow(row({ google_maps_url: value }), customFields, 'contacts'),
+      ).toContain('Invalid Google Maps link')
+    }
+  })
+
+  it('enforces the contact-form text lengths', () => {
+    expect(
+      validateImportRow(
+        row({
+          clinic: 'c'.repeat(200),
+          area: 'a'.repeat(200),
+          why_included: 'w'.repeat(2000),
+          reply_1: 'r'.repeat(4000),
+        }),
+        customFields,
+        'contacts',
+      ),
+    ).toEqual([])
+    const errors = validateImportRow(
+      row({
+        clinic: 'c'.repeat(201),
+        area: 'a'.repeat(201),
+        why_included: 'w'.repeat(2001),
+        reply_1: 'r'.repeat(4001),
+      }),
+      customFields,
+      'contacts',
+    )
+    expect(errors).toContain('Clinic is too long')
+    expect(errors).toContain('Area is too long')
+    expect(errors).toContain('Why included is too long')
+    expect(errors).toContain('Reply 1 is too long')
+  })
+})
+
+describe('header aliases', () => {
+  it('distinguishes +91 mobile headers from plain mobile headers', () => {
+    expect(guessFieldKey('Mobile (+91)', customFields)).toBe('mobile')
+    expect(guessFieldKey('Mobile+91', customFields)).toBe('mobile')
+    expect(guessFieldKey('Mobile no (+91)', customFields)).toBe('mobile')
+    expect(guessFieldKey('Mobile', customFields)).toBe('phone')
+    expect(guessFieldKey('Mobile number', customFields)).toBe('phone')
+  })
+
+  it('recognises all nine enrichment headers', () => {
+    const headers: Array<[string, string]> = [
+      ['Clinic', 'clinic'],
+      ['Area', 'area'],
+      ['Mobile (+91)', 'mobile'],
+      ['Rating', 'rating'],
+      ['Reviews', 'reviews'],
+      ['Why included', 'why_included'],
+      ['Google Maps link', 'google_maps_url'],
+      ['Sent? (Y/N)', 'sent'],
+      ['Reply 1', 'reply_1'],
+    ]
+    for (const [header, key] of headers) {
+      expect(guessFieldKey(header, customFields)).toBe(key)
+    }
   })
 })
 

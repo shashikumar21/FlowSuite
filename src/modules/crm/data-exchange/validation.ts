@@ -8,7 +8,18 @@ export const MAX_CELL_LENGTH = 500
 export const BATCH_SIZE = 100
 export const ALLOWED_EXTENSIONS = ['xlsx', 'xls', 'csv'] as const
 
+/** Lengths mirror the contact form so an import cannot write longer values. */
+export const MAX_CLINIC_LENGTH = 200
+export const MAX_AREA_LENGTH = 200
+export const MAX_WHY_INCLUDED_LENGTH = 2000
+export const MAX_REPLY_1_LENGTH = 4000
+
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+const RATING_RE = /^[0-5](?:\.[0-9])?$/
+const REVIEWS_RE = /^\d+$/
+const MOBILE_CHARS_RE = /^[0-9+\-()\s]+$/
+const CANONICAL_MOBILE_RE = /^\+91\d{10}$/
+const HTTP_PROTOCOLS = new Set(['http:', 'https:'])
 // eslint-disable-next-line no-control-regex -- deliberate: strip control chars from untrusted cells
 const CONTROL_RE = /[\u0000-\u001f\u007f]/g
 const CUSTOM_PREFIX = 'custom:'
@@ -41,6 +52,50 @@ export function isValidEmail(value: string): boolean {
 
 export function isValidPhone(value: string): boolean {
   return value.length >= 7 && value.length <= 15 && /^\d+$/.test(value)
+}
+
+/**
+ * Canonical lead mobile: +91 followed by 10 digits. Spaces, +, -, ( and ) are
+ * allowed in the source. Anything not recognised is returned trimmed so the
+ * row can be flagged instead of silently rewritten.
+ */
+export function normalizeMobile(value: unknown): string {
+  const raw = sanitizeCell(value)
+  if (!raw || !MOBILE_CHARS_RE.test(raw)) return raw
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 10) return `+91${digits}`
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`
+  return raw
+}
+
+/** Blank means "not sent"; all accepted spellings collapse to Y or N. */
+export function normalizeSent(value: unknown): string {
+  const trimmed = sanitizeCell(value)
+  const lower = trimmed.toLowerCase()
+  if (!lower) return 'N'
+  if (lower === 'y' || lower === 'yes' || lower === 'true' || lower === '1') return 'Y'
+  if (lower === 'n' || lower === 'no' || lower === 'false' || lower === '0') return 'N'
+  return trimmed
+}
+
+/** Rating is a decimal from 0 to 5 with at most one fractional digit. */
+export function isValidRating(value: string): boolean {
+  return value.length > 0 && RATING_RE.test(value) && Number(value) <= 5
+}
+
+/** Review count is a non-negative whole number. */
+export function isValidReviews(value: string): boolean {
+  return value.length > 0 && REVIEWS_RE.test(value)
+}
+
+export function isValidHttpUrl(value: string): boolean {
+  if (!value) return false
+  try {
+    const url = new URL(value)
+    return HTTP_PROTOCOLS.has(url.protocol) && url.hostname.length > 0
+  } catch {
+    return false
+  }
 }
 
 export function fileExtension(name: string): string {
@@ -78,7 +133,11 @@ export function hashFile(name: string, size: number, bytes: Uint8Array): string 
 const VALID_STATUSES = new Set(['lead', 'customer', 'inactive'])
 const VALID_LEAD_STATUSES = new Set(['new', 'contacted', 'qualified', 'unqualified', 'converted'])
 
-/** Per-row validation used for the preview; the RPC repeats all of these. */
+/**
+ * Per-row validation used for the preview; the RPC repeats all of these.
+ * Mobile and sent are canonicalised in place so the rows sent on to the RPC
+ * carry the same values the user accepted in the preview.
+ */
 export function validateImportRow(
   row: ImportRow,
   customFields: CustomFieldRow[],
@@ -97,6 +156,25 @@ export function validateImportRow(
 
   if (row.company.length > 150) errors.push('Company name is too long')
   if (row.notes.length > 2000) errors.push('Notes are too long')
+
+  if (row.clinic.length > MAX_CLINIC_LENGTH) errors.push('Clinic is too long')
+  if (row.area.length > MAX_AREA_LENGTH) errors.push('Area is too long')
+
+  const mobile = normalizeMobile(row.mobile)
+  row.mobile = mobile
+  if (mobile && !CANONICAL_MOBILE_RE.test(mobile)) errors.push('Invalid mobile number')
+
+  if (row.rating && !isValidRating(row.rating)) errors.push('Invalid rating')
+  if (row.reviews && !isValidReviews(row.reviews)) errors.push('Invalid reviews')
+  if (row.why_included.length > MAX_WHY_INCLUDED_LENGTH) errors.push('Why included is too long')
+  if (row.google_maps_url && !isValidHttpUrl(row.google_maps_url)) {
+    errors.push('Invalid Google Maps link')
+  }
+
+  const sent = normalizeSent(row.sent)
+  row.sent = sent
+  if (sent !== 'Y' && sent !== 'N') errors.push('Invalid sent value')
+  if (row.reply_1.length > MAX_REPLY_1_LENGTH) errors.push('Reply 1 is too long')
 
   if (!VALID_STATUSES.has(row.status)) errors.push('Invalid contact status')
   if (!VALID_LEAD_STATUSES.has(row.lead_status)) errors.push('Invalid lead status')
@@ -165,6 +243,15 @@ export function customKeyToFieldKey(key: string): string {
   return `${CUSTOM_PREFIX}${key}`
 }
 
+/** Explicit +91 labels are matched before the generic phone aliases. */
+const MOBILE_SPECIFIC_ALIASES = [
+  'mobile (+91)',
+  'mobile+91',
+  'mobile no (+91)',
+  'mobile number (+91)',
+  'mobile +91',
+] as const
+
 /** Fuzzy header matching so most exports map without manual work. */
 const HEADER_ALIASES: Record<string, string[]> = {
   first_name: ['first name', 'firstname', 'name', 'full name', 'contact name', 'first'],
@@ -178,6 +265,15 @@ const HEADER_ALIASES: Record<string, string[]> = {
   assigned_to: ['owner', 'assigned to', 'assignee', 'sales owner', 'user'],
   tags: ['tags', 'tag', 'labels'],
   notes: ['notes', 'note', 'description', 'comments'],
+  clinic: ['clinic', 'clinic name'],
+  area: ['area', 'locality', 'neighbourhood', 'neighborhood'],
+  mobile: [...MOBILE_SPECIFIC_ALIASES],
+  rating: ['rating', 'ratings', 'google rating', 'star rating'],
+  reviews: ['reviews', 'review count', 'number of reviews', 'no of reviews'],
+  why_included: ['why included', 'why included?', 'why include', 'reason included', 'why added'],
+  google_maps_url: ['google maps link', 'google maps url', 'google maps', 'maps link', 'maps url'],
+  sent: ['sent? (y/n)', 'sent y/n', 'sent?', 'sent'],
+  reply_1: ['reply 1', 'reply1', 'reply one', 'first reply'],
 }
 
 export function guessFieldKey(header: string, customFields: CustomFieldRow[]): string {
@@ -190,6 +286,16 @@ export function guessFieldKey(header: string, customFields: CustomFieldRow[]): s
     if (normalized === label || normalized === customKeyToFieldKey(custom.key)) {
       return customKeyToFieldKey(custom.key)
     }
+  }
+  // Conflict rule: "Mobile (+91)" and friends mean the enriched mobile column.
+  // Plain "Mobile"/"Mobile number" deliberately stay on the legacy `phone` key.
+  // This check must run before the generic alias scan, which sees "mobile" as a phone alias.
+  if (
+    MOBILE_SPECIFIC_ALIASES.some(
+      (alias) => normalized === alias || normalized.includes(alias),
+    )
+  ) {
+    return 'mobile'
   }
   // Exact matches first: "last name" must not be swallowed by the "name" alias.
   const exact = allAliases.find(([, alias]) => normalized === alias)

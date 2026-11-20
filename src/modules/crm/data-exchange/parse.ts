@@ -2,9 +2,13 @@ import type { CustomFieldRow } from '@/types/database'
 import type { ParsedSheet, ParsedWorkbook } from './types'
 import {
   hashFile,
+  MAX_AREA_LENGTH,
   MAX_CELL_LENGTH,
+  MAX_CLINIC_LENGTH,
   MAX_COLUMNS,
+  MAX_REPLY_1_LENGTH,
   MAX_ROWS,
+  MAX_WHY_INCLUDED_LENGTH,
   sanitizeCell,
   validateFile,
 } from './validation'
@@ -81,6 +85,15 @@ export async function downloadSampleTemplate(customFields: CustomFieldRow[]): Pr
     'Owner',
     'Tags',
     'Notes',
+    'Clinic',
+    'Area',
+    'Mobile (+91)',
+    'Rating',
+    'Reviews',
+    'Why included',
+    'Google Maps link',
+    'Sent? (Y/N)',
+    'Reply 1',
     ...fields.map((key) => `custom:${key}`),
   ]
   const example = [
@@ -95,6 +108,15 @@ export async function downloadSampleTemplate(customFields: CustomFieldRow[]): Pr
     '',
     'Follow-up',
     'Website enquiry',
+    'Example Clinic',
+    'Andheri West',
+    '+919876543210',
+    '4.5',
+    '120',
+    'Near metro',
+    'https://maps.example.com/place',
+    'N',
+    'Follow-up sent',
     ...fields.map(() => ''),
   ]
   const sheet = utils.aoa_to_sheet([headers, example])
@@ -113,6 +135,15 @@ export async function downloadSampleTemplate(customFields: CustomFieldRow[]): Pr
     ['Owner', 'assigned_to', 'No', 'Exact name or email of an active team member.'],
     ['Tags', 'tag_ids', 'No', 'Comma-separated names of existing tags.'],
     ['Notes', 'notes', 'No', 'Optional free text.'],
+    ['Clinic', 'clinic', 'No', `Optional. Maximum ${MAX_CLINIC_LENGTH} characters.`],
+    ['Area', 'area', 'No', `Optional. Maximum ${MAX_AREA_LENGTH} characters.`],
+    ['Mobile (+91)', 'mobile', 'No', 'Indian mobile in +91 format, e.g. +919876543210. A 10-digit number gets +91 added.'],
+    ['Rating', 'rating', 'No', 'Decimal from 0 to 5 with at most one decimal place.'],
+    ['Reviews', 'reviews', 'No', 'Non-negative whole number.'],
+    ['Why included', 'why_included', 'No', `Optional. Maximum ${MAX_WHY_INCLUDED_LENGTH} characters.`],
+    ['Google Maps link', 'google_maps_url', 'No', 'A valid http or https URL.'],
+    ['Sent? (Y/N)', 'sent', 'No', 'Y or N; yes/no, true/false and 1/0 are accepted. Blank means N.'],
+    ['Reply 1', 'reply_1', 'No', `Optional. Maximum ${MAX_REPLY_1_LENGTH} characters.`],
     ...fields.map((key) => [`custom:${key}`, `custom:${key}`, 'No', 'Must match a configured custom field key.']),
   ])
   utils.book_append_sheet(workbook, guide, 'Field guide')

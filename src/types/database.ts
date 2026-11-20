@@ -134,6 +134,15 @@ export type ContactRow = {
   import_allow_duplicate: boolean
   created_at: string
   updated_at: string
+  clinic: string | null
+  area: string | null
+  mobile: string | null
+  rating: number | null
+  reviews: number | null
+  why_included: string | null
+  google_maps_url: string | null
+  sent: boolean
+  reply_1: string | null
 }
 
 export type PipelineRow = {
@@ -262,6 +271,15 @@ export type ContactSearchRow = {
   assigned_to: string | null
   created_at: string
   total_count: number
+  clinic: string | null
+  area: string | null
+  mobile: string | null
+  rating: number | null
+  reviews: number | null
+  why_included: string | null
+  google_maps_url: string | null
+  sent: boolean
+  reply_1: string | null
 }
 
 /** Shape returned by the tenant-scoped `crm_dashboard_metrics` RPC. */
@@ -695,6 +713,15 @@ export type CrmExportRow = {
   notes: string
   custom_data: Json
   created_at: string
+  clinic: string | null
+  area: string | null
+  mobile: string | null
+  rating: number | null
+  reviews: number | null
+  why_included: string | null
+  google_maps_url: string | null
+  sent: boolean
+  reply_1: string | null
 }
 
 export interface Database {
@@ -936,6 +963,15 @@ export interface Database {
           p_notes?: string | null
           p_assigned_to?: string | null
           p_lead_status?: LeadStatus
+          p_clinic?: string | null
+          p_area?: string | null
+          p_mobile?: string | null
+          p_rating?: number | null
+          p_reviews?: number | null
+          p_why_included?: string | null
+          p_google_maps_url?: string | null
+          p_sent?: boolean
+          p_reply_1?: string | null
         }
         Returns: string
       }
@@ -952,6 +988,15 @@ export interface Database {
           p_lead_status?: LeadStatus | null
           p_follow_up_at?: string | null
           p_status?: ContactStatus | null
+          p_clinic?: string | null
+          p_area?: string | null
+          p_mobile?: string | null
+          p_rating?: number | null
+          p_reviews?: number | null
+          p_why_included?: string | null
+          p_google_maps_url?: string | null
+          p_sent?: boolean
+          p_reply_1?: string | null
         }
         Returns: undefined
       }

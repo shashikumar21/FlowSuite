@@ -53,6 +53,9 @@ This repository contains **Milestone 1 — secure multi-tenant foundation**, **M
 | Filtered CSV export with formula-injection protection and visibility-scoped rows | Done |
 | Sample Excel template download, manager-only import controls | Done |
 | Import/export security + workflow regression suite (33 checks) | Done (executed on hosted project, rolled back) |
+| Lead enrichment fields (Clinic, Area, Mobile (+91), Rating, Reviews, Why included, Google Maps link, Sent?, Reply 1) in contact form, detail, list and CSV export | Done |
+| Import mapping for all nine enrichment headers, with +91 mobile and Y/N normalisation | Done |
+| Lead enrichment regression suite (17 checks) | Done (executed on hosted project, rolled back) |
 
 ### Milestone 3 — booking & communication foundation
 
@@ -130,6 +133,7 @@ For the hosted project already configured in `.env.local`, the SQL files were ru
 11. `0010_milestone3_booking_communication.sql`
 12. `0011_fix_booking_notifications.sql`
 13. `0012_prevent_appointment_overlaps.sql`
+14. `0013_crm_lead_enrichment.sql`
 
 `0004` already contains the `0005` visibility fix for fresh installs; `0005` exists so an already-migrated database can be patched on its own. `0007`–`0009` are hotfixes that replace earlier import definitions. `0010` already contains the `0011` and `0012` fixes for fresh installs; `0011` only replaces three RPCs and `0012` adds one exclusion constraint on databases that already ran `0010`. Fresh installs must apply the whole sequence in order. There is no `supabase/config.toml`, so hosted migrations were applied manually through the SQL Editor.
 
@@ -191,9 +195,9 @@ src/
       data-exchange/   CSV/XLSX parsing, mapping, validation, import/export API
   types/             hand-written Supabase Database type
 supabase/
-  migrations/        0001–0012
+  migrations/        0001–0013
   seed.sql           plans only — no fake businesses or contacts
-  tests/             foundation_rls.sql, milestone2_crm.sql, contact_import_export.sql, milestone3_booking.sql
+  tests/             foundation_rls.sql, milestone2_crm.sql, contact_import_export.sql, milestone3_booking.sql, crm_lead_enrichment.sql
 ```
 
 Regenerate types once a real project exists:
@@ -239,6 +243,7 @@ npx supabase gen types typescript --local > src/types/database.ts
 | `0010_milestone3_booking_communication.sql` | services/resources/availability/booking pages, appointment events, channels/webhooks/notifications, slot engine, staff and public booking RPCs, inbox/notification RPCs, RLS and grants |
 | `0011_fix_booking_notifications.sql` | fix anonymous-booking notifications, legacy `conversations.channel`, and channel-less conversation messages (folded into `0010`) |
 | `0012_prevent_appointment_overlaps.sql` | add a GiST exclusion constraint so overlapping appointments are impossible on every write path (folded into `0010`) |
+| `0013_crm_lead_enrichment.sql` | nine nullable/defaulted lead columns on `contacts`, enriched create/update/search/export/import RPCs, mobile normalisation and rating/reviews checks |
 | `supabase/seed.sql` | illustrative plan/entitlement reference data only |
 
 ---
@@ -255,13 +260,14 @@ npm run build       # production build
 ### Tests actually executed
 
 - `npm run typecheck` — passed.
-- `npm test` — **45/45 passed** across 7 files.
+- `npm test` — **87/87 passed** across 12 files.
 - `npm run lint` — passed with warnings only (no errors).
 - `npm run build` — passed; Vite warns that the JS chunk exceeds 500 kB.
 - `supabase/tests/foundation_rls.sql` — executed in hosted SQL Editor; passed and rolled back.
 - `supabase/tests/milestone2_crm.sql` — executed in hosted SQL Editor with the psql-only `\set` line removed: **37 checks, 37 passed, 0 failed**; transaction rolled back.
 - `supabase/tests/contact_import_export.sql` — executed in hosted SQL Editor: **33 checks, 33 passed, 0 failed**, including a tagged-row regression case; transaction rolled back.
 - `supabase/tests/milestone3_booking.sql` — executed in hosted SQL Editor: **38 checks, 38 passed, 0 failed**, covering anonymous slot lookup/booking/idempotency/overlap/token self-service, staff transitions, the database-level overlap constraint, cross-tenant denial, inbox and notification scoping; transaction rolled back.
+- `supabase/tests/crm_lead_enrichment.sql` — executed in hosted SQL Editor: **17 checks, 17 passed, 0 failed**, covering create/update round-trips, search and export of all nine lead fields, rating/reviews CHECKs, import parsing/normalisation (`+91` mobile, `Y/N` sent) and cross-tenant denial; transaction rolled back.
 - Hosted schema probe after `0004`: 6 new CRM tables, 25 CRM policies, 6 key CRM functions and 4 extended contact columns.
 - Hosted schema probe after `0010`: 11 new tables, 10 key functions and 16 sampled RLS policies.
 
@@ -311,4 +317,4 @@ Temporary SQL loader files and the smoke CSV under `public/` were removed. The s
 
 ## Next milestone
 
-Milestone 3 is complete and committed. The next milestone is AI/WhatsApp automation, followed by workflows and campaigns. CRM lead enrichment fields (Clinic, Area, mobile with country code, rating/reviews, why-included, Google Maps link, sent/reply tracking) are deferred to a follow-up change so this milestone stays scoped to booking and communication.
+Milestone 3 and the deferred CRM lead-enrichment follow-up are complete and committed. The next milestone is AI/WhatsApp automation, followed by workflows and campaigns.

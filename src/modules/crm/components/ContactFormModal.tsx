@@ -55,6 +55,15 @@ export function ContactFormModal({
       status: 'lead',
       assigned_to: currentUserId,
       follow_up_at: '',
+      clinic: '',
+      area: '',
+      mobile: '',
+      rating: '',
+      reviews: '',
+      why_included: '',
+      google_maps_url: '',
+      sent: false,
+      reply_1: '',
     },
   })
 
@@ -74,6 +83,15 @@ export function ContactFormModal({
             status: contact.status,
             assigned_to: contact.assigned_to ?? (canAssign ? '' : currentUserId),
             follow_up_at: toDateTimeLocal(contact.follow_up_at),
+            clinic: contact.clinic ?? '',
+            area: contact.area ?? '',
+            mobile: contact.mobile ?? '',
+            rating: contact.rating == null ? '' : String(contact.rating),
+            reviews: contact.reviews == null ? '' : String(contact.reviews),
+            why_included: contact.why_included ?? '',
+            google_maps_url: contact.google_maps_url ?? '',
+            sent: contact.sent,
+            reply_1: contact.reply_1 ?? '',
           }
         : {
             first_name: '',
@@ -87,6 +105,15 @@ export function ContactFormModal({
             status: 'lead',
             assigned_to: canAssign ? '' : currentUserId,
             follow_up_at: '',
+            clinic: '',
+            area: '',
+            mobile: '',
+            rating: '',
+            reviews: '',
+            why_included: '',
+            google_maps_url: '',
+            sent: false,
+            reply_1: '',
           },
     )
   }, [open, contact, canAssign, currentUserId, form])
@@ -194,6 +221,60 @@ export function ContactFormModal({
               <Input id="contact-follow-up" type="datetime-local" {...form.register('follow_up_at')} />
             </div>
           ) : null}
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-ink-200 p-4">
+          <h4 className="text-sm font-semibold text-ink-900">Lead enrichment</h4>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="contact-clinic">Clinic</Label>
+              <Input id="contact-clinic" placeholder="Clinic name" {...form.register('clinic')} />
+              <FieldError>{form.formState.errors.clinic?.message}</FieldError>
+            </div>
+            <div>
+              <Label htmlFor="contact-area">Area</Label>
+              <Input id="contact-area" placeholder="Locality or area" {...form.register('area')} />
+              <FieldError>{form.formState.errors.area?.message}</FieldError>
+            </div>
+            <div>
+              <Label htmlFor="contact-mobile">Mobile (+91)</Label>
+              <Input id="contact-mobile" type="tel" placeholder="+919876543210" {...form.register('mobile')} />
+              <FieldError>{form.formState.errors.mobile?.message}</FieldError>
+            </div>
+            <div>
+              <Label htmlFor="contact-rating">Rating (0–5)</Label>
+              <Input id="contact-rating" type="number" step="0.1" min="0" max="5" placeholder="4.5" {...form.register('rating')} />
+              <FieldError>{form.formState.errors.rating?.message}</FieldError>
+            </div>
+            <div>
+              <Label htmlFor="contact-reviews">Reviews</Label>
+              <Input id="contact-reviews" type="number" step="1" min="0" placeholder="128" {...form.register('reviews')} />
+              <FieldError>{form.formState.errors.reviews?.message}</FieldError>
+            </div>
+            <div>
+              <Label htmlFor="contact-sent">Sent?</Label>
+              <div className="flex h-10 items-center gap-2">
+                <Input id="contact-sent" type="checkbox" className="size-4 cursor-pointer" {...form.register('sent')} />
+                <span className="text-sm text-ink-600">Mark when the first reply was sent</span>
+              </div>
+              <FieldError>{form.formState.errors.sent?.message}</FieldError>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="contact-why-included">Why included</Label>
+              <Textarea id="contact-why-included" placeholder="Reason this lead was added…" {...form.register('why_included')} />
+              <FieldError>{form.formState.errors.why_included?.message}</FieldError>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="contact-google-maps">Google Maps link</Label>
+              <Input id="contact-google-maps" type="url" placeholder="https://maps.google.com/…" {...form.register('google_maps_url')} />
+              <FieldError>{form.formState.errors.google_maps_url?.message}</FieldError>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="contact-reply-1">Reply 1</Label>
+              <Textarea id="contact-reply-1" placeholder="First reply sent to this lead…" {...form.register('reply_1')} />
+              <FieldError>{form.formState.errors.reply_1?.message}</FieldError>
+            </div>
+          </div>
         </div>
 
         <div>

@@ -133,7 +133,9 @@ export function ContactsPage() {
       )
       const headers = [
         'First name', 'Last name', 'Email', 'Phone', 'Company', 'Status',
-        'Lead status', 'Source', 'Owner', 'Tags', 'Notes', 'Created at',
+        'Lead status', 'Source', 'Owner', 'Tags', 'Notes',
+        'Clinic', 'Area', 'Mobile (+91)', 'Rating', 'Reviews', 'Why included', 'Google Maps link', 'Sent? (Y/N)', 'Reply 1',
+        'Created at',
         ...customFields.map((field) => `Custom: ${field.label}`),
       ]
       const csvRows = rows.map((row) => [
@@ -148,6 +150,15 @@ export function ContactsPage() {
         row.owner_name,
         row.tags,
         row.notes,
+        row.clinic ?? '',
+        row.area ?? '',
+        row.mobile ?? '',
+        row.rating == null ? '' : String(row.rating),
+        row.reviews == null ? '' : String(row.reviews),
+        row.why_included ?? '',
+        row.google_maps_url ?? '',
+        row.sent ? 'Y' : 'N',
+        row.reply_1 ?? '',
         row.created_at,
         ...customFields.map((field) => {
           const value = row.custom_data?.[field.key]
@@ -313,6 +324,10 @@ export function ContactsPage() {
                       <th className="px-5 py-3 font-semibold">Name</th>
                       <th className="px-3 py-3 font-semibold">Contact</th>
                       <th className="px-3 py-3 font-semibold">Company</th>
+                      <th className="px-3 py-3 font-semibold">Clinic</th>
+                      <th className="px-3 py-3 font-semibold">Mobile (+91)</th>
+                      <th className="px-3 py-3 font-semibold">Rating</th>
+                      <th className="px-3 py-3 font-semibold">Sent</th>
                       <th className="px-3 py-3 font-semibold">Status</th>
                       <th className="px-3 py-3 font-semibold">Lead stage</th>
                       <th className="px-3 py-3 font-semibold">Owner</th>
@@ -336,6 +351,12 @@ export function ContactsPage() {
                         </td>
                         <td className="px-3 py-3 text-ink-600">{contact.email ?? contact.phone ?? '—'}</td>
                         <td className="px-3 py-3 text-ink-600">{contact.company ?? '—'}</td>
+                        <td className="px-3 py-3 text-xs text-ink-600">{contact.clinic ?? '—'}</td>
+                        <td className="px-3 py-3 text-xs text-ink-600">{contact.mobile ?? '—'}</td>
+                        <td className="px-3 py-3 text-xs text-ink-600">{contact.rating == null ? '—' : contact.rating.toFixed(1)}</td>
+                        <td className="px-3 py-3">
+                          <Badge variant={contact.sent ? 'success' : 'neutral'}>{contact.sent ? 'Yes' : 'No'}</Badge>
+                        </td>
                         <td className="px-3 py-3"><ContactStatusBadge status={contact.status} /></td>
                         <td className="px-3 py-3"><LeadStatusBadge status={contact.lead_status} /></td>
                         <td className="px-3 py-3 text-ink-600">
@@ -365,6 +386,12 @@ export function ContactsPage() {
                       <div className="mt-2 flex gap-2">
                         <ContactStatusBadge status={contact.status} />
                         <LeadStatusBadge status={contact.lead_status} />
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-500">
+                        {contact.clinic ? <span>Clinic: {contact.clinic}</span> : null}
+                        {contact.mobile ? <span>Mobile: {contact.mobile}</span> : null}
+                        {contact.rating != null ? <span>Rating: {contact.rating.toFixed(1)}</span> : null}
+                        <span>Sent: {contact.sent ? 'Yes' : 'No'}</span>
                       </div>
                     </button>
                   </li>
