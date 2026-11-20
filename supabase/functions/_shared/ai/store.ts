@@ -19,6 +19,7 @@ import type {
   FollowUpChannel,
   QualificationStore,
 } from './qualification.ts';
+import type { VoiceStore, VoiceProvider, VoiceCallStatus } from './voice.ts';
 import type { WhatsAppInboundStore } from './whatsapp_inbound.ts';
 import type { WhatsAppMessagingState } from './whatsapp_send.ts';
 
@@ -402,4 +403,82 @@ export function createAiStore(client: StoreClient): AiStore {
 export async function getWebsiteAgent(client: StoreClient, publicKey: string): Promise<AgentContext | null> {
   const value = await rpc<unknown>(client, 'ai_service_get_agent', { p_public_key: publicKey });
   return toAgentContext(value);
+}
+
+/** Voice foundation store. No audio or provider credentials are involved. */
+export function createVoiceStore(client: StoreClient): VoiceStore {
+  return {
+    resolveTenantForAccount: async (
+      provider: VoiceProvider,
+      accountId: string
+    ): Promise<string | null> => {
+      const { data, error } = await client
+        .from('channel_credentials')
+        .select('tenant_id')
+        .eq('provider', provider)
+        .eq('external_identifier', accountId)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return typeof data?.tenant_id === 'string' ? data.tenant_id : null;
+    },
+
+    recordWebhookEvent: async (input: {
+      tenantId: string;
+      provider: VoiceProvider;
+      externalId: string;
+      payload: Record<string, unknown>;
+    }): Promise<AiWebhookEventResult> => {
+      return rpc<AiWebhookEventResult>(client, 'ai_record_webhook_event', {
+        p_tenant: input.tenantId,
+        p_provider: input.provider,
+        p_event_type: 'call',
+        p_external_id: input.externalId,
+        p_payload: toJson(input.payload),
+        p_signature_verified: true,
+      });
+    },
+
+    upsertCallSession: async (input: {
+      tenantId: string;
+      provider: VoiceProvider;
+      callId: string;
+      from: string | null;
+      to: string | null;
+      direction: 'inbound' | 'outbound';
+      status: VoiceCallStatus;
+      metadata: Record<string, unknown>;
+    }): Promise<string> => {
+      return rpc<string>(client, 'ai_upsert_call_session', {
+        p_tenant: input.tenantId,
+        p_provider: input.provider,
+        p_provider_call_id: input.callId,
+        p_direction: input.direction,
+        p_from_number: input.from,
+        p_to_number: input.to,
+        p_status: input.status,
+        p_metadata: toJson(input.metadata),
+      });
+    },
+
+    recordCallLog: async (input: {
+      tenantId: string;
+      sessionId: string;
+      outcome: string;
+    }): Promise<void> => {
+      const { error } = await client
+        .from('ai_call_logs')
+        .insert({
+          tenant_id: input.tenantId,
+          session_id: input.sessionId,
+          outcome: input.outcome,
+          summary: null,
+          duration_seconds: null,
+          usage: {},
+          error: null,
+        });
+      if (error) throw new Error(error.message);
+    },
+  };
 }

@@ -19,6 +19,7 @@ This directory is reserved for trusted server-side code. No function is deployed
 | `whatsapp-webhook` | Meta GET handshake and HMAC-verified POST ingestion. Maps WABA phone-number IDs to tenants via `channel_credentials`, dedupes by Meta message ID, stores inbound rows and sends one AI reply when allowed. | Local code + unit tests |
 | `whatsapp-send` | Internal sender for trusted callers. Requires the shared internal secret, verifies the contact belongs to the tenant, resolves that tenant's secret reference and enforces opt-out/consent/template rules before calling the Graph API. | Local code + unit tests |
 | `ai-follow-up-worker` | Small internal worker that claims due follow-up jobs, re-checks consent and sends one approved WhatsApp template per job via the official Graph API. Not the Milestone 5 automation engine. | Local code + unit tests |
+| `telephony-webhook` | Inbound voice **foundation only**: verifies an HMAC webhook signature over the raw body, dedupes the call event and records a call session plus log in the tenant's CRM. No STT, TTS, audio playback or dialling. | Local code + unit tests; no live provider/audio tests |
 
 Both chat entry points also run lead qualification after the reply is stored. `qualification.ts` uses strict structured output and the validated `qualifyLeadSchema`, never invents a lead score, and records an assessment through a service-role RPC. A follow-up is queued only for `future_follow_up` classification with an eligible channel, an active tenant sequence and an existing opt-in (the RPC re-checks consent). Qualification is non-fatal: a provider, schema or store failure never removes an already delivered reply.
 
@@ -32,9 +33,10 @@ Required Supabase secrets (never `VITE_*`):
 - `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, optional `WHATSAPP_ACCESS_TOKEN` fallback
 - `WHATSAPP_SEND_SECRET` (shared secret for the internal sender)
 - `AI_FOLLOW_UP_WORKER_SECRET` (shared secret for the follow-up worker)
+- `VOICE_PROVIDER` (`exotel` or `other`), `VOICE_WEBHOOK_SECRET`, optional `VOICE_SIGNATURE_HEADER` (defaults to `x-flowsuite-signature`). Set the header to your provider's actual signature header before deployment.
 - Per-tenant WhatsApp token secret names must match `channel_credentials.secret_ref`
 
-With no provider key the functions fail closed with HTTP 503 and make no live provider call. No Edge Function has been deployed.
+With no provider key the functions fail closed with HTTP 503 and make no live provider call. The telephony webhook also fails closed (503) without an explicit provider and secret. No Edge Function has been deployed, and voice has **not** been tested end-to-end with a real provider or audio.
 
 Planned functions (each gets its own folder and test):
 
@@ -43,7 +45,6 @@ Planned functions (each gets its own folder and test):
 | `razorpay-webhook` | Verify signature, enforce idempotency, update subscription entitlements |
 | `ai-tool-executor` | Validate tenant scope and permissions before running an approved AI tool; log usage |
 | `send-campaign` | Check consent and plan limits before dispatching messages |
-| `telephony-webhook` | Verify provider signature and manage inbound call state |
 | `google-oauth-callback` | Store provider tokens encrypted, scoped to the tenant |
 
 Rules:
