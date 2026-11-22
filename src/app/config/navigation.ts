@@ -112,7 +112,7 @@ export const navigation: NavGroup[] = [
   {
     label: 'Operations',
     items: [
-      planned('Tasks', 'tasks', FileText),
+      { label: 'Tasks', to: '/app/tasks', icon: FileText, available: true },
       { label: 'Team', to: '/app/team', icon: Users, available: true },
       planned('Payments', 'payments', Receipt),
       planned('Reports', 'reports', BarChart3),
@@ -140,6 +140,6 @@ export const moduleTitles: Record<string, { title: string; description: string; 
   'sales-campaigns': { title: 'Sales campaigns', description: 'Plan and measure approved outreach.', icon: Megaphone, phase: 'Phase 3' },
   'sales-approvals': { title: 'Approvals', description: 'Review and approve messages before sending.', icon: Inbox, phase: 'Phase 3' },
   'sales-replies': { title: 'Replies', description: 'Inbound replies and interest signals.', icon: MessageSquare, phase: 'Phase 4' },
-  tasks: { title: 'Tasks', description: 'Assignments, due dates and team activity.', icon: FileText, phase: 'Phase 2' },
+  tasks: { title: 'Tasks', description: 'Tenant-scoped assignments, owners and due dates. No reminders.', icon: FileText, phase: 'Tasks (local)' },
   subscription: { title: 'Subscription', description: 'Plans, entitlements and usage.', icon: CreditCard, phase: 'Phase 4' },
 }

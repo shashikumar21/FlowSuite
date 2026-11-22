@@ -47,6 +47,7 @@ import { RepliesPage } from '@/modules/sales-agent/contacts/pages/RepliesPage'
 import { ProfileSettingsPage } from '@/modules/settings/pages/ProfileSettingsPage'
 import { AcceptInvitationPage } from '@/modules/team/pages/AcceptInvitationPage'
 import { TeamPage } from '@/modules/team/pages/TeamPage'
+import { TasksPage } from '@/modules/tasks/pages/TasksPage'
 import { HomeRedirect, ProtectedRoute, RequireAdmin, RequireTenant } from './guards'
 
 export function AppRouter() {
@@ -83,6 +84,7 @@ export function AppRouter() {
           <Route path="booking/page" element={<BookingPageSettingsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="team" element={<TeamPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="ai/agents" element={<AiAgentsPage />} />
           <Route path="ai/conversations" element={<AiConversationsPage />} />
           <Route path="sales-agent" element={<SalesAgentOverviewPage />} />

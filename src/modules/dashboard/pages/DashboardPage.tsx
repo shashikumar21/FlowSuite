@@ -224,6 +224,9 @@ export function DashboardPage() {
                 <Link to="/app/team" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
                   Manage your team <ArrowRight className="size-3.5" />
                 </Link>
+                <Link to="/app/tasks" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  Tasks <ArrowRight className="size-3.5" />
+                </Link>
               </div>
             </CardContent>
           </Card>

@@ -938,16 +938,23 @@ export type NotificationsResult = {
   total_count: number
 }
 
-type TaskRow = {
+/* Tasks — local-only 0022. The actor/completion fields are optional because
+   the hosted project still has the original 0001 table shape. */
+export type TaskStatus = 'pending' | 'in_progress' | 'completed'
+
+export type TaskRow = {
   id: string
   tenant_id: string
   title: string
   description: string | null
   assigned_to: string | null
   due_at: string | null
-  status: 'pending' | 'in_progress' | 'completed'
+  status: TaskStatus
   created_at: string
   updated_at: string
+  created_by?: string | null
+  completed_by?: string | null
+  completed_at?: string | null
 }
 
 export type IndustryTemplateRow = {
@@ -2768,6 +2775,34 @@ export interface Database {
         Returns: undefined
       }
       growth_delete_feedback: { Args: { p_tenant: string; p_feedback: string }; Returns: undefined }
+
+      /* Tasks — local-only 0022. No client-supplied actor or completion time. */
+      tasks_create_task: {
+        Args: {
+          p_tenant: string
+          p_title: string
+          p_description: string | null
+          p_assigned_to: string | null
+          p_due_at: string | null
+        }
+        Returns: string
+      }
+      tasks_update_task: {
+        Args: {
+          p_tenant: string
+          p_task: string
+          p_title: string
+          p_description: string | null
+          p_assigned_to: string | null
+          p_due_at: string | null
+        }
+        Returns: undefined
+      }
+      tasks_set_status: {
+        Args: { p_tenant: string; p_task: string; p_status: TaskStatus }
+        Returns: undefined
+      }
+      tasks_delete_task: { Args: { p_tenant: string; p_task: string }; Returns: undefined }
 
       admin_list_businesses: {
         Args: Record<string, never>

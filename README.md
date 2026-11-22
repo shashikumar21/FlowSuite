@@ -129,7 +129,19 @@ Migration `0020_phase4_contacts_replies.sql` is local-only and adds RPCs only �
 
 Migration `0021_growth_modules.sql` is local-only and creates six new tables without editing any earlier migration. Browser code has SELECT only; all writes go through 18 trusted, tenant-scoped RPCs. Deletes and owner/admin checks are enforced server-side, and a review response is stamped with `auth.uid()` by the RPC. See [docs/GROWTH_PLAN.md](docs/GROWTH_PLAN.md) and [docs/GROWTH.md](docs/GROWTH.md).
 
-**Still not built:** hosted promotion of `0019`, `0020` and `0021`, WhatsApp/AI live integrations, workflow builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred. See `src/app/config/navigation.ts` for the remaining planned modules.
+### Tasks (local only)
+
+| Area | Status |
+| --- | --- |
+| Tenant-scoped task list with owner, due date and status | Code complete locally; needs migration `0022` |
+| Create/edit tasks with validated input | Code complete locally; needs migration `0022` |
+| Status changes with server-stamped completion | Code complete locally; needs migration `0022`. **No reminders sent** |
+| Owner/admin delete enforced by RPC | Code complete locally; needs migration `0022` |
+| Hosted database / deployed functions | Unchanged — `0022` not applied; no new function deployed |
+
+Migration `0022_tasks_module.sql` extends the existing `public.tasks` table additively without recreating it or editing any earlier migration. Browser code has SELECT only; all writes go through four trusted, tenant-scoped RPCs. Active-member owners are rechecked server-side, completion is stamped with `auth.uid()`, and deletes are owner/admin only. See [docs/TASKS_PLAN.md](docs/TASKS_PLAN.md) and [docs/TASKS.md](docs/TASKS.md).
+
+**Still not built:** hosted promotion of `0019`, `0020`, `0021` and `0022`, WhatsApp/AI live integrations, workflow builder, Razorpay billing and advanced analytics. Automated email dispatch and task reminders are intentionally deferred. See `src/app/config/navigation.ts` for the remaining planned modules.
 
 ---
 
@@ -223,7 +235,7 @@ npm run dev
 
 If the environment variables are missing, the app shows a setup screen instead of silently rendering an unauthenticated UI.
 
-After signing in, the AI console is under **Automation → AI Agents / AI Conversations** and **Settings → Integrations**. See [docs/AI_CONSOLE_UI.md](docs/AI_CONSOLE_UI.md) for what works and what still needs deployment. The native Sales Agent is under **AI Sales Agent NEW** with Overview, Prospect discovery, Prospects, AI email writer, Campaigns, Approvals, Sending queue, Decision makers and Replies. Phase 1/2 screens need `0017`; Phase 3 screens need `0019`; Phase 4 screens need `0020`. The latter two are local-only until deliberately promoted.
+After signing in, the AI console is under **Automation → AI Agents / AI Conversations** and **Settings → Integrations**. See [docs/AI_CONSOLE_UI.md](docs/AI_CONSOLE_UI.md) for what works and what still needs deployment. The native Sales Agent is under **AI Sales Agent NEW** with Overview, Prospect discovery, Prospects, AI email writer, Campaigns, Approvals, Sending queue, Decision makers and Replies. Phase 1/2 screens need `0017`; Phase 3 screens need `0019`; Phase 4 screens need `0020`; Tasks needs `0022`. The Phase 3, Phase 4, Growth and Tasks local additions are not promoted to hosted until deliberately approved.
 
 ---
 

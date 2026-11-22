@@ -96,12 +96,16 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
 - `supabase/migrations/0021_growth_modules.sql` — six new `growth_*` tables and
   18 trusted RPCs for Marketing, Campaigns, Websites and Reputation. Never
   submitted to hosted. No Growth table or RPC exists on the hosted project.
+- `supabase/migrations/0022_tasks_module.sql` — additive actor/completion
+  columns, `SELECT`-only RLS replacing the broad `0001` tasks policy, and four
+  trusted `tasks_*` RPCs. Never submitted to hosted. The hosted `tasks` table
+  keeps its original `0001` shape and `FOR ALL` policy.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
-`sales_*`/`can_manage_sales_agent` RPCs, plus no Growth tables. The Phase 3,
-Phase 4 and Growth pages in this repo run against the hosted project through
-`.env.local` and correctly show schema-cache errors until a deliberate promotion
-is approved.
+`sales_*`/`can_manage_sales_agent` RPCs, plus no Growth tables and no
+`tasks_*` RPCs. The Phase 3, Phase 4, Growth and Tasks pages in this repo run
+against the hosted project through `.env.local` and correctly show schema-cache
+errors until a deliberate promotion is approved.
 
 ## Read-only verification commands
 
