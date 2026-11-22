@@ -1,6 +1,6 @@
 import type { AiChannel, AiOperation } from '@/types/database'
-import { AiProviderError } from './providers/errors'
-import type { AiCompletion } from './providers/types'
+import { AiProviderError } from './providers/errors.ts'
+import type { AiCompletion } from './providers/types.ts'
 
 /** Injected by the Edge Function: wraps the service-role ai_check_usage_limit RPC. */
 export type UsageLimitChecker = (tenantId: string, agentId: string) => Promise<boolean>

@@ -3,9 +3,9 @@ import {
   AiProviderError,
   AiRateLimitError,
   AiTimeoutError,
-} from './errors'
-import { estimateOpenAiCostUsd } from './pricing'
-import { withRetry } from './retry'
+} from './errors.ts'
+import { estimateOpenAiCostUsd } from './pricing.ts'
+import { withRetry } from './retry.ts'
 import type {
   AiCompletion,
   AiCompletionRequest,
@@ -13,7 +13,7 @@ import type {
   AiProvider,
   AiProviderConfig,
   AiUsage,
-} from './types'
+} from './types.ts'
 
 const DEFAULT_MODEL = 'gpt-4o-mini'
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1'

@@ -1,4 +1,4 @@
-import { AiProviderError, AiTimeoutError } from './errors'
+import { AiProviderError, AiTimeoutError } from './errors.ts'
 
 export interface RetryOptions {
   maxAttempts: number
