@@ -79,6 +79,26 @@ Until Docker or `pg_dump` is available, take a backup from the Supabase
 dashboard: **Project → Database → Backups**, or use the dashboard SQL editor.
 Do not store a data dump containing real customer records inside the git repo.
 
+## Local-only work not present on hosted (do not assume it exists)
+
+The following changes exist **only in the repository** as of 2026-11-22. They
+have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
+
+- `supabase/migrations/0019_phase3_email_outreach.sql` — approvals table and
+  nine Phase 3 RPCs. Read-only checks returned `404 PGRST202` for
+  `sales_create_campaign` and `404` for `public.sales_email_approvals`, so it is
+  definitely absent. `sales_dashboard_metrics` and `sales_is_suppressed` exist.
+- `supabase/functions/sales-email-draft/index.ts` — source only, not deployed.
+  `supabase functions list` still shows only `ai-chat` at version `9`.
+- `supabase/migrations/0020_phase4_contacts_replies.sql` — nine Phase 4 RPCs for
+  decision makers, manual verification, signals and replies. Never submitted to
+  hosted.
+
+Hosted therefore still has exactly 10 Sales Agent tables and 12
+`sales_*`/`can_manage_sales_agent` RPCs. The Phase 3 and Phase 4 pages in this
+repo run against the hosted project through `.env.local` and correctly show
+schema-cache errors until a deliberate promotion is approved.
+
 ## Read-only verification commands
 
 ```powershell

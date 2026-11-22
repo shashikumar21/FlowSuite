@@ -104,8 +104,8 @@ export const navigation: NavGroup[] = [
       { label: 'Campaigns', to: '/app/sales-agent/campaigns', icon: Megaphone, available: true },
       { label: 'Approvals', to: '/app/sales-agent/approvals', icon: Inbox, available: true },
       { label: 'Sending queue', to: '/app/sales-agent/sending', icon: Send, available: true },
-      planned('Decision makers', 'sales-decision-makers', UserCog),
-      planned('Replies', 'sales-replies', MessageSquare),
+      { label: 'Decision makers', to: '/app/sales-agent/decision-makers', icon: UserCog, available: true },
+      { label: 'Replies', to: '/app/sales-agent/replies', icon: MessageSquare, available: true },
     ],
   },
   {

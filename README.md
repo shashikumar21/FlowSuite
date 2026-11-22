@@ -86,7 +86,8 @@ This repository contains **Milestone 1 — secure multi-tenant foundation**, **M
 | Prospect → CRM contact conversion (`0018`, idempotent, reuses email matches, audited) | Done |
 | Explicit provider status: discovery/verification/email sending unavailable until configured | Done |
 | `NEW` sidebar group with Overview, Prospect discovery and Prospects enabled | Done |
-| Phase 3/4 (AI email writing, campaigns, approvals, replies) | Deferred — schema only, no sending |
+| Phase 3 (AI email writing, campaigns, approvals, sending preparation) | Code complete locally; `0019` not applied to hosted |
+| Phase 4 (decision makers, verification evidence, replies) | Code complete locally; `0020` not applied to hosted |
 
 Migrations `0015`–`0018` were applied to the hosted project in order; no Sales Agent Edge Function is needed (all writes are database RPCs). The separate website chat Edge Function is deployed. See [docs/AI_SALES_AGENT.md](docs/AI_SALES_AGENT.md) for setup, security model and next steps.
 
@@ -101,6 +102,19 @@ Migrations `0015`–`0018` were applied to the hosted project in order; no Sales
 | Hosted database / deployed functions | Unchanged — `0019` not applied, new function not deployed |
 
 Migration `0019_phase3_email_outreach.sql` is local-only and extends `0017` without modifying any earlier migration. Hosted state is recorded in [docs/HOSTED_STATE.md](docs/HOSTED_STATE.md) so it is not duplicated or overwritten. No API key is exposed to the browser; no delivery or open metric is shown. See [docs/PHASE3_PLAN.md](docs/PHASE3_PLAN.md) for the file-by-file plan.
+
+### Native AI Sales Agent — Phase 4 (local only)
+
+| Area | Status |
+| --- | --- |
+| Decision makers: add/edit/delete people inside each prospect | Code complete locally; needs migration `0020` |
+| Verification evidence: manual attestation only, human attestor stored by `auth.uid()` | Code complete locally; needs migration `0020`. **No verification provider** |
+| Research signals: tenant-scoped notes with owner/admin deletes | Code complete locally; needs migration `0020` |
+| Replies: manual recording, read/archived triage, classification | Code complete locally; needs migration `0020`. **No inbox provider** |
+| Unsubscribe replies suppress the sender server-side in the same RPC | Code complete locally; needs migration `0020` |
+| Hosted database / deployed functions | Unchanged — `0020` not applied; no new function deployed |
+
+Migration `0020_phase4_contacts_replies.sql` is local-only and adds RPCs only — it does not recreate or destructively alter any `0017` table. See [docs/PHASE4_PLAN.md](docs/PHASE4_PLAN.md) for the file-by-file plan. Nothing was promoted to hosted, no provider was configured and no email was sent.
 
 **Still not built:** WhatsApp/AI live integrations, workflow builder, marketing campaigns, reputation, website builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred. See `src/app/config/navigation.ts` for the planned module map.
 
@@ -196,7 +210,7 @@ npm run dev
 
 If the environment variables are missing, the app shows a setup screen instead of silently rendering an unauthenticated UI.
 
-After signing in, the AI console is under **Automation → AI Agents / AI Conversations** and **Settings → Integrations**. See [docs/AI_CONSOLE_UI.md](docs/AI_CONSOLE_UI.md) for what works and what still needs deployment. The native Sales Agent is under **AI Sales Agent NEW → Overview / Prospect discovery / Prospects** and requires migration `0017` to be applied to the backend before its screens can load data.
+After signing in, the AI console is under **Automation → AI Agents / AI Conversations** and **Settings → Integrations**. See [docs/AI_CONSOLE_UI.md](docs/AI_CONSOLE_UI.md) for what works and what still needs deployment. The native Sales Agent is under **AI Sales Agent NEW** with Overview, Prospect discovery, Prospects, AI email writer, Campaigns, Approvals, Sending queue, Decision makers and Replies. Phase 1/2 screens need `0017`; Phase 3 screens need `0019`; Phase 4 screens need `0020`. The latter two are local-only until deliberately promoted.
 
 ---
 
@@ -284,6 +298,7 @@ npx supabase gen types typescript --local > src/types/database.ts
 | `0017_ai_sales_agent.sql` | native Sales Agent prospects/searches/verification/import schema, outreach/outbox/suppression, metrics RPCs, RLS, grants and audit — applied to hosted |
 | `0018_sales_prospect_contact_conversion.sql` | idempotent prospect → CRM contact conversion plus a forward-only FK correction — applied to hosted |
 | `0019_phase3_email_outreach.sql` | Phase 3 additive columns, approval history, drafting/campaign/approval/queue/suppression RPCs, RLS and grants — **local only, not applied to hosted** |
+| `0020_phase4_contacts_replies.sql` | Phase 4 trusted RPCs for decision makers, manual verification, signals and replies, with server-side unsubscribe suppression — **local only, not applied to hosted** |
 | `supabase/seed.sql` | illustrative plan/entitlement reference data only |
 
 ---

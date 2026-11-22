@@ -28,10 +28,14 @@ const PHASE3_LINKS = [
   { label: 'Sending queue', to: '/app/sales-agent/sending', detail: 'Idempotency, suppression and retry controls. No provider attached.' },
 ] as const
 
+const PHASE4_LINKS = [
+  { label: 'Decision makers', to: '/app/sales-agent/decision-makers', detail: 'Record people, manual verification evidence and research signals.' },
+  { label: 'Replies', to: '/app/sales-agent/replies', detail: 'Record and triage replies by hand. Unsubscribes suppress the sender.' },
+] as const
+
 const PLANNED = [
-  { label: 'Decision makers', phase: 'Phase 4', detail: 'Research and store contacts within each prospect.' },
-  { label: 'Business discovery', phase: 'Phase 4', detail: 'Provider-backed discovery of new prospect businesses.' },
-  { label: 'Reply handling', phase: 'Phase 5', detail: 'Ingest replies so follow-up can be tracked on qualified prospects.' },
+  { label: 'Business discovery', phase: 'Provider pending', detail: 'Provider-backed discovery of new prospect businesses.' },
+  { label: 'Verified contact provider', phase: 'Provider pending', detail: 'Automatic verification. Manual attestation is available today.' },
 ] as const
 
 export function SalesAgentOverviewPage() {
@@ -148,6 +152,28 @@ export function SalesAgentOverviewPage() {
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           {PHASE3_LINKS.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className="flex items-center justify-between rounded-lg border border-ink-200 p-3 text-sm hover:bg-ink-50"
+            >
+              <span>
+                <span className="block font-semibold text-ink-900">{item.label}</span>
+                <span className="block text-xs text-ink-500">{item.detail}</span>
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-ink-400" />
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Contacts &amp; replies</CardTitle>
+          <CardDescription>Manual research and reply triage. No external provider is connected.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {PHASE4_LINKS.map((item) => (
             <Link
               key={item.label}
               to={item.to}

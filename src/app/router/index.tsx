@@ -37,6 +37,8 @@ import { CampaignsPage } from '@/modules/sales-agent/outreach/pages/CampaignsPag
 import { EmailWriterPage } from '@/modules/sales-agent/outreach/pages/EmailWriterPage'
 import { ApprovalsPage } from '@/modules/sales-agent/outreach/pages/ApprovalsPage'
 import { SendingPage } from '@/modules/sales-agent/outreach/pages/SendingPage'
+import { DecisionMakersPage } from '@/modules/sales-agent/contacts/pages/DecisionMakersPage'
+import { RepliesPage } from '@/modules/sales-agent/contacts/pages/RepliesPage'
 import { ProfileSettingsPage } from '@/modules/settings/pages/ProfileSettingsPage'
 import { AcceptInvitationPage } from '@/modules/team/pages/AcceptInvitationPage'
 import { TeamPage } from '@/modules/team/pages/TeamPage'
@@ -85,6 +87,8 @@ export function AppRouter() {
           <Route path="sales-agent/email-writer" element={<EmailWriterPage />} />
           <Route path="sales-agent/approvals" element={<ApprovalsPage />} />
           <Route path="sales-agent/sending" element={<SendingPage />} />
+          <Route path="sales-agent/decision-makers" element={<DecisionMakersPage />} />
+          <Route path="sales-agent/replies" element={<RepliesPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />

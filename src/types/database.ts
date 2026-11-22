@@ -2458,6 +2458,82 @@ export interface Database {
       sales_retry_outbox: { Args: { p_tenant: string; p_outbox: string }; Returns: undefined }
       sales_campaign_summary: { Args: { p_tenant: string; p_campaign: string }; Returns: SalesCampaignSummary }
 
+      /* Phase 4 — decision makers, verification evidence, signals and replies. */
+      sales_create_decision_maker: {
+        Args: {
+          p_tenant: string
+          p_prospect: string
+          p_full_name: string
+          p_job_title: string | null
+          p_email: string | null
+          p_phone: string | null
+          p_linkedin_url: string | null
+          p_research_source: string | null
+        }
+        Returns: string
+      }
+      sales_update_decision_maker: {
+        Args: {
+          p_tenant: string
+          p_decision_maker: string
+          p_full_name: string
+          p_job_title: string | null
+          p_email: string | null
+          p_phone: string | null
+          p_linkedin_url: string | null
+          p_research_source: string | null
+        }
+        Returns: undefined
+      }
+      sales_delete_decision_maker: { Args: { p_tenant: string; p_decision_maker: string }; Returns: undefined }
+      sales_record_verification: {
+        Args: {
+          p_tenant: string
+          p_entity_type: 'prospect' | 'decision_maker'
+          p_entity_id: string
+          p_status: SalesVerificationStatus
+          p_method: 'manual'
+          p_evidence?: Json
+        }
+        Returns: string
+      }
+      sales_add_signal: {
+        Args: {
+          p_tenant: string
+          p_prospect: string
+          p_signal_type: 'note' | 'website' | 'news' | 'referral' | 'other'
+          p_summary: string
+          p_source_url: string | null
+        }
+        Returns: string
+      }
+      sales_delete_signal: { Args: { p_tenant: string; p_signal: string }; Returns: undefined }
+      sales_record_reply: {
+        Args: {
+          p_tenant: string
+          p_prospect: string
+          p_message: string | null
+          p_campaign: string | null
+          p_sender_email: string | null
+          p_subject: string | null
+          p_body: string | null
+          p_classification: 'interested' | 'not_interested' | 'follow_up_required' | 'unsubscribe' | 'unknown'
+          p_external_id?: string | null
+          p_received_at?: string | null
+        }
+        Returns: string
+      }
+      sales_update_reply: {
+        Args: {
+          p_tenant: string
+          p_reply: string
+          p_reply_status: 'unread' | 'read' | 'archived'
+          p_classification: 'interested' | 'not_interested' | 'follow_up_required' | 'unsubscribe' | 'unknown'
+        }
+        Returns: undefined
+      }
+      sales_delete_reply: { Args: { p_tenant: string; p_reply: string }; Returns: undefined }
+
       admin_list_businesses: {
         Args: Record<string, never>
         Returns: Array<{

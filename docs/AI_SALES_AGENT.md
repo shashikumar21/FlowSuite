@@ -1,4 +1,4 @@
-# AI Sales Agent (native module) — Phase 2 + Phase 3
+# AI Sales Agent (native module) — Phase 2 + Phase 3 + Phase 4
 
 This is a **new, native module** at `src/modules/sales-agent/`. It is deliberately separate from the website/WhatsApp assistant in `src/modules/ai-console/` and from CRM contacts. Migrations `0014`–`0016` are not modified.
 
@@ -12,12 +12,14 @@ This is a **new, native module** at `src/modules/sales-agent/`. It is deliberate
 | Server-side duplicate prevention | Working (`0017` applied) |
 | Prospect → CRM contact conversion | Working (`0018` applied; idempotent, duplicate-safe, audited) |
 | Business discovery provider | **Unavailable** — no provider configured |
-| Contact verification provider / manual attestation UI | **Unavailable** — schema only |
+| Contact verification provider | **Unavailable** — no provider configured |
+| Manual verification evidence / decision makers / research signals | Code complete locally; needs `0020` applied |
+| Manual reply recording and triage | Code complete locally; needs `0020` applied. **No inbox provider** |
 | AI email writer (generate + edit + save drafts) | Code complete locally; needs `0019` applied and the undeployed draft function deployed |
 | Campaign manager (create + select recipients + real drafts) | Code complete locally; needs `0019` applied |
 | Approval inbox with server-enforced decisions and history | Code complete locally; needs `0019` applied |
 | Send queue, idempotency, suppression, failure/retry controls | Code complete locally; needs `0019` applied. **No provider, nothing sends** |
-| Replies | **Unavailable** — schema only (Phase 5) |
+| Live email delivery / provider-backed replies | **Unavailable** — no provider configured |
 
 All dashboard values are `count(*)` over real tables via `public.sales_dashboard_metrics`. Empty tables produce genuine zeros; no lead scores or demo data are generated.
 
@@ -51,10 +53,12 @@ Verified on hosted: 10 Sales Agent tables, 12 `sales_*`/`can_manage_sales_agent`
 - `/app/sales-agent/email-writer` — AI Email Writer (Phase 3)
 - `/app/sales-agent/approvals` — Approval inbox and history (Phase 3)
 - `/app/sales-agent/sending` — Sending preparation / suppression (Phase 3)
+- `/app/sales-agent/decision-makers` — People, manual verification, research signals (Phase 4)
+- `/app/sales-agent/replies` — Manual reply recording and triage (Phase 4)
 
-Sidebar group: **AI Sales Agent NEW**. Decision makers and replies remain planned (`/app/module/...`) for later phases.
+Sidebar group: **AI Sales Agent NEW**. All eight links are live; provider-backed discovery, verification and email delivery remain unavailable.
 
-**Important:** migration `0019_phase3_email_outreach.sql` was **not applied to hosted**, and the `sales-email-draft` Edge Function was **not deployed**. The new pages therefore show a clear database/service error rather than fake data until those local-only changes are deliberately promoted. See `docs/HOSTED_STATE.md`.
+**Important:** migrations `0019_phase3_email_outreach.sql` and `0020_phase4_contacts_replies.sql` were **not applied to hosted**, and the `sales-email-draft` Edge Function was **not deployed**. The new pages therefore show a clear database/service error rather than fake data until those local-only changes are deliberately promoted. See `docs/HOSTED_STATE.md`.
 
 ## Security model
 
@@ -98,6 +102,39 @@ Security invariants (all enforced server-side, never by the client):
 
 The `sales-email-draft` function must be deployed with the existing import map and the server secrets already configured for `ai-chat` (rotate the Groq key first — see `docs/HOSTED_STATE.md`). No new `VITE_*` variables are introduced.
 
+## Phase 4 — decision makers, verification evidence, signals and replies
+
+Phase 4 extends `0017` (and assumes `0019` for outreach context). The four tables
+`decision_makers`, `contact_verifications`, `prospect_signals` and
+`outreach_replies` already exist in `0017` with RLS SELECT only; there were no
+RPCs to write them. The only new migration is
+`supabase/migrations/0020_phase4_contacts_replies.sql` — **local only, not applied
+to hosted**. It adds nine trusted RPCs:
+
+- `sales_create_decision_maker`, `sales_update_decision_maker`, `sales_delete_decision_maker`
+- `sales_record_verification`
+- `sales_add_signal`, `sales_delete_signal`
+- `sales_record_reply`, `sales_update_reply`, `sales_delete_reply`
+
+Security invariants:
+
+- `has_tenant_access(p_tenant)` is checked first in every RPC; tenant/prospect
+  ownership is checked on the row before update/delete.
+- Destructive actions (deletes) additionally require
+  `public.can_manage_sales_agent(p_tenant)` — owner/admin. The
+  `canManageContacts()` helper in the UI is UX only.
+- `sales_record_verification` accepts **only** `method='manual'`. A `verified`
+  result stores `checked_by = auth.uid()`, so a human is always named and no
+  browser can fabricate a provider result. Evidence is append-only.
+- Classifying a reply as `unsubscribe` inserts the sender into
+  `suppression_list` inside the same RPC. The client never sends a suppression
+  flag; the server derives it from the authoritative classification.
+- `provider='manual'` for recorded replies. There is no inbox polling, webhook,
+  provider configuration or email send.
+- All functions use `set search_path = ''`, fully qualified `public.*` names,
+  `REVOKE ... FROM public, anon` and `GRANT ... TO authenticated`, and append
+  audit entries. Form input is validated with Zod; the RPCs remain authoritative.
+
 ## Files
 
 Created: `supabase/migrations/0017_ai_sales_agent.sql`, `supabase/migrations/0018_sales_prospect_contact_conversion.sql`, `supabase/tests/ai_sales_agent.sql`, `src/modules/sales-agent/{schemas,types,utils,api,hooks,schemas.test,utils.test}.ts*`, `src/modules/sales-agent/components/{StatusBadges,ProviderStatus,ProspectFormModal,SavedSearchFormModal}.tsx`, `src/modules/sales-agent/pages/{SalesAgentOverviewPage,ProspectDiscoveryPage,ProspectsPage}.tsx`, this file.
@@ -110,11 +147,17 @@ Created: `docs/PHASE3_PLAN.md`, `docs/HOSTED_STATE.md`, `supabase/migrations/001
 
 Modified: `src/types/database.ts` (additive Phase 3 rows/RPCs), `src/app/router/index.tsx`, `src/app/config/navigation.ts`, `src/modules/sales-agent/pages/SalesAgentOverviewPage.tsx`, `.gitignore`.
 
+### Phase 4 additions
+
+Created: `docs/PHASE4_PLAN.md`, `supabase/migrations/0020_phase4_contacts_replies.sql` (local only, **not applied to hosted**), `src/modules/sales-agent/contacts/{schemas,utils,api,hooks}.ts`, `src/modules/sales-agent/contacts/components/{DecisionMakerFormModal,VerificationModal,SignalFormModal,ReplyFormModal}.tsx`, `src/modules/sales-agent/contacts/pages/{DecisionMakersPage,RepliesPage}.tsx`, and `schemas.test.ts`, `rpc.test.ts`.
+
+Modified: `src/types/database.ts` (additive Phase 4 RPC args/returns), `src/app/router/index.tsx`, `src/app/config/navigation.ts`, `src/modules/sales-agent/pages/SalesAgentOverviewPage.tsx`, `README.md`, `docs/HOSTED_STATE.md`.
+
 ## Exact next steps
 
 1. Rotate the exposed Groq key and update the hosted `OPENAI_API_KEY` secret (see `docs/HOSTED_STATE.md`).
-2. On a **local** Supabase with Docker running: apply `0019` and run both `supabase/tests/ai_sales_agent.sql` and `supabase/tests/ai_sales_agent_phase3.sql`; both files roll back.
+2. On a **local** Supabase with Docker running: apply `0019` and `0020`, then run `supabase/tests/ai_sales_agent.sql` and `supabase/tests/ai_sales_agent_phase3.sql`; both files roll back. Add a rolled-back Phase 4 SQL regression test covering tenant isolation, manual-only verification and unsubscribe suppression, then execute it. No local Postgres is available on this machine, so `0020` has **not** been DB-verified.
 3. Create a hosted backup before any future promotion; the schema dump attempt on 2026-11-22 failed because Docker was unavailable.
 4. Only after review: apply `0019` to hosted and deploy `sales-email-draft` with the existing import map. Re-run the read-only inventory in `HOSTED_STATE.md` afterwards to record the new state.
 5. Verify Supabase auth redirects include the production origin before hosting.
-6. Do not proceed to Phase 4 until the Phase 3 report has been reviewed.
+6. Do not proceed beyond Phase 4 until the Phase 4 report has been reviewed. Never apply `0019`/`0020`, deploy functions, rotate secrets or send email without explicit approval.
