@@ -160,7 +160,7 @@ export function ProspectsPage() {
             <Badge variant="brand">NEW</Badge>
           </div>
           <p className="mt-1 text-sm text-ink-500">
-            Prospects are tracked here, separately from CRM contacts. Conversion arrives in a later phase.
+            Prospects are tracked here, separately from CRM contacts. Convert a prospect to add it to your CRM.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

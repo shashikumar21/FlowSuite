@@ -25,7 +25,7 @@ const PLANNED = [
   { label: 'Decision makers', phase: 'Phase 4', detail: 'Research and store contacts within each prospect.' },
   { label: 'AI email writer', phase: 'Phase 3', detail: 'Draft subject lines and bodies from saved context.' },
   { label: 'Campaigns & approvals', phase: 'Phase 3', detail: 'Manual approval before any message can be queued.' },
-  { label: 'Replies & conversion', phase: 'Phase 4', detail: 'Ingest replies and convert qualified prospects into CRM contacts.' },
+  { label: 'Reply handling', phase: 'Phase 4', detail: 'Ingest replies so follow-up can be tracked on qualified prospects.' },
 ] as const
 
 export function SalesAgentOverviewPage() {
