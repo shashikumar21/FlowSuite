@@ -209,6 +209,13 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0025_calendar_google_connection.sql`.
   No Google OAuth secrets configured by this step; no calendar sync/webhooks
   enabled; Edge Functions not deployed yet.
+- `supabase/migrations/0027_workflows.sql` — Workflows v1 definitions shell
+  (no execution engine): `workflows` table, SELECT-only RLS, and trusted RPCs
+  (`workflows_create`, `workflows_update`, `workflows_set_status`,
+  `workflows_delete`). **Applied to hosted 2026-11-22** with explicit user
+  approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0027_workflows.sql`.
+  No workflow execution/webhooks/external actions enabled.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
@@ -216,6 +223,7 @@ Hosted therefore still has exactly 10 Sales Agent tables and 12
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
+1 workflows table and 4 `workflows_*` RPCs (from `0027`, applied 2026-11-22; no execution engine),
 and no `tasks_*` RPCs. The Phase 3,
 Phase 4, and Tasks pages in this repo run against the hosted project through
 `.env.local` and correctly show schema-cache errors until a deliberate promotion
