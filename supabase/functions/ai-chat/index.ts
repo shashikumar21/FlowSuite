@@ -197,7 +197,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const code = error instanceof ChatError ? error.code
       : error instanceof Error && error.name === 'AiNotConfiguredError' ? 'not_configured'
       : 'internal_error';
-    console.error('ai-chat: request failed', { code, requestId: payload.requestId });
+    console.error('ai-chat: request failed', {
+      code,
+      requestId: payload.requestId,
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return json({ error: { code } }, statusForError(error), req);
   }
 });
