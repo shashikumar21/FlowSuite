@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Globe, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Copy, Download, Eye, Globe, Pencil, Plus, Rocket, Trash2 } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
 import { Badge } from '@/components/ui/Badge'
@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Select } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import type { GrowthSiteRow, GrowthSubmissionRow } from '@/types/database'
 import { SiteFormModal } from '../components/SiteFormModal'
 import { SubmissionFormModal } from '../components/SubmissionFormModal'
+import { websiteTemplates, type WebsiteTemplate } from '../websiteTemplates'
 import {
   useDeleteGrowthSite,
   useDeleteGrowthSubmission,
@@ -38,6 +40,34 @@ export function WebsitesPage() {
   const [editingSite, setEditingSite] = useState<GrowthSiteRow | null>(null)
   const [submissionOpen, setSubmissionOpen] = useState(false)
   const [defaultWebsiteId, setDefaultWebsiteId] = useState<string | undefined>()
+  const [previewTemplate, setPreviewTemplate] = useState<WebsiteTemplate | null>(null)
+  const [deployTemplate, setDeployTemplate] = useState<WebsiteTemplate | null>(null)
+
+  const templateData = {
+    businessName: activeTenant?.businesses?.name ?? 'Your Business',
+    phone: activeTenant?.businesses?.phone ?? '',
+    email: activeTenant?.businesses?.email ?? '',
+  }
+  const buildTemplate = (tpl: WebsiteTemplate) => tpl.build(templateData)
+  const downloadTemplate = (tpl: WebsiteTemplate) => {
+    const html = buildTemplate(tpl)
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${tpl.id}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: 'Template downloaded', description: `${tpl.id}.html saved. You can deploy it to Netlify, Vercel, or any static host.` })
+  }
+  const copyTemplate = async (tpl: WebsiteTemplate) => {
+    try {
+      await navigator.clipboard.writeText(buildTemplate(tpl))
+      toast({ title: 'Template copied', description: 'HTML copied to clipboard.' })
+    } catch {
+      toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'error' })
+    }
+  }
 
   if (!tenantId) return <ErrorState message="Select a business to manage its website records." />
 
@@ -107,6 +137,34 @@ export function WebsitesPage() {
           </Button>
         </div>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>AI website templates</CardTitle>
+          <CardDescription>Choose a template, preview it, download/copy the HTML, or follow deploy steps. These are static starter files - FlowSuite does not host custom website files yet.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            {websiteTemplates.map((tpl) => (
+              <div key={tpl.id} className="rounded-xl border border-ink-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-ink-900">{tpl.name}</p>
+                    <p className="mt-1 text-xs text-ink-500">{tpl.description}</p>
+                  </div>
+                  <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: tpl.accent }} />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setPreviewTemplate(tpl)}><Eye className="size-4" /> Preview</Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadTemplate(tpl)}><Download className="size-4" /> Download</Button>
+                  <Button size="sm" variant="outline" onClick={() => void copyTemplate(tpl)}><Copy className="size-4" /> Copy</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setDeployTemplate(tpl)}><Rocket className="size-4" /> Deploy</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {sitesQuery.isLoading || submissionsQuery.isLoading ? (
         <div className="space-y-4"><Skeleton className="h-40" /><Skeleton className="h-40" /></div>
@@ -219,6 +277,41 @@ export function WebsitesPage() {
           onSaved={refetch}
         />
       ) : null}
+
+      <Modal open={Boolean(previewTemplate)} onClose={() => setPreviewTemplate(null)} title={previewTemplate?.name ?? 'Template preview'} description="Preview of the static HTML template. Download or copy to use it.">
+        {previewTemplate ? (
+          <div className="space-y-3">
+            <iframe title="Template preview" srcDoc={buildTemplate(previewTemplate)} className="h-[420px] w-full rounded-lg border border-ink-200 bg-white" />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => void copyTemplate(previewTemplate)}><Copy className="size-4" /> Copy HTML</Button>
+              <Button onClick={() => downloadTemplate(previewTemplate)}><Download className="size-4" /> Download HTML</Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal open={Boolean(deployTemplate)} onClose={() => setDeployTemplate(null)} title="Deploy website template" description="FlowSuite does not host custom website files yet. Download the HTML and deploy it with a static host.">
+        {deployTemplate ? (
+          <div className="space-y-4 text-sm text-ink-700">
+            <div className="rounded-lg border border-ink-200 bg-ink-50 p-3">
+              <p className="font-semibold text-ink-900">Option A - Netlify Drop (quick)</p>
+              <p className="mt-1 text-ink-600">Download the HTML, rename it to <code>index.html</code> if needed, then drag-drop the folder/file in Netlify Drop.</p>
+            </div>
+            <div className="rounded-lg border border-ink-200 bg-ink-50 p-3">
+              <p className="font-semibold text-ink-900">Option B - Vercel / GitHub Pages</p>
+              <p className="mt-1 text-ink-600">Put the HTML file in a repo/folder as <code>index.html</code> and deploy as a static site. No build step required.</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              <p className="font-semibold">Inside FlowSuite now</p>
+              <p className="mt-1">You can store website records and submissions in this section, and use the public Booking page at <code>/book/:slug</code>. Custom file hosting/deploy inside FlowSuite is not configured.</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeployTemplate(null)}>Close</Button>
+              <Button onClick={() => downloadTemplate(deployTemplate)}><Download className="size-4" /> Download {deployTemplate.name}</Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   )
 }
