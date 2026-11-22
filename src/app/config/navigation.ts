@@ -3,6 +3,7 @@ import {
   Bell,
   Bot,
   CalendarDays,
+  CalendarPlus,
   Clock,
   CreditCard,
   FileText,
@@ -75,6 +76,7 @@ export const navigation: NavGroup[] = [
       { label: 'Availability', to: '/app/booking/availability', icon: CalendarDays, available: true },
       { label: 'Resources', to: '/app/booking/resources', icon: UserCog, available: true },
       { label: 'Booking page', to: '/app/booking/page', icon: Globe, available: true },
+      { label: 'Calendar', to: '/app/booking/calendar', icon: CalendarPlus, available: true },
     ],
   },
   {

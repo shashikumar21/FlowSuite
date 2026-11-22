@@ -37,6 +37,9 @@ const BookingOverviewPage = lazy(() =>
 const BookingPageSettingsPage = lazy(() =>
   import('@/modules/booking/pages/BookingPageSettingsPage').then((m) => ({ default: m.BookingPageSettingsPage })),
 )
+const BookingCalendarPage = lazy(() =>
+  import('@/modules/booking/pages/BookingCalendarPage').then((m) => ({ default: m.BookingCalendarPage })),
+)
 const PublicBookingPage = lazy(() =>
   import('@/modules/booking/pages/PublicBookingPage').then((m) => ({ default: m.PublicBookingPage })),
 )
@@ -196,6 +199,7 @@ export function AppRouter() {
             <Route path="booking/availability" element={<AvailabilityPage />} />
             <Route path="booking/resources" element={<ResourcesPage />} />
             <Route path="booking/page" element={<BookingPageSettingsPage />} />
+            <Route path="booking/calendar" element={<BookingCalendarPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="team" element={<TeamPage />} />
             <Route path="tasks" element={<TasksPage />} />
