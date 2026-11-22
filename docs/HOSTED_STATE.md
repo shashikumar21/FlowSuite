@@ -124,11 +124,11 @@ Validated with the demo login on the live Netlify site:
   email was sent. An internal note reopens a closed thread.
 - Tasks: create, edit, delete and status actions still fail with missing
   `public.tasks_*` RPC errors, confirming `0022` is not hosted.
-- Growth websites: the list returns `Could not find the table
-  'public.growth_websites'` and the New website form returns `Could not find the
-  function public.growth_create_site(...) in the schema cache`. Client-side Zod
-  validation works and no fake record is created. `Record submission` stays
-  disabled because no site records can load.
+- Growth websites: **updated 2026-11-22** after explicit approval and hosted
+  apply of `0021_growth_modules.sql` via `supabase db query --remote --yes`.
+  Growth tables/RPCs now exist on hosted; `/app/growth*` pages load genuine
+  empty states. A smoke create/delete of a website record succeeded and was
+  cleaned up.
 - Tenant isolation: demo-token reads of the original owner tenant returned zero
   rows across contacts, deals, appointments, conversations, tasks and
   businesses. Demo user has one active membership: owner of the demo tenant.
@@ -176,18 +176,20 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   decision makers, manual verification, signals and replies. Never submitted to
   hosted.
 - `supabase/migrations/0021_growth_modules.sql` — six new `growth_*` tables and
-  18 trusted RPCs for Marketing, Campaigns, Websites and Reputation. Never
-  submitted to hosted. No Growth table or RPC exists on the hosted project.
+  18 trusted RPCs for Marketing, Campaigns, Websites and Reputation. **Applied to
+  hosted 2026-11-22** with explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0021_growth_modules.sql`.
+  Verified: all 6 `growth_*` tables and 18 `growth_*` RPCs present.
 - `supabase/migrations/0022_tasks_module.sql` — additive actor/completion
   columns, `SELECT`-only RLS replacing the broad `0001` tasks policy, and four
   trusted `tasks_*` RPCs. Never submitted to hosted. The hosted `tasks` table
   keeps its original `0001` shape and `FOR ALL` policy.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
-`sales_*`/`can_manage_sales_agent` RPCs, plus no Growth tables and no
-`tasks_*` RPCs. The Phase 3, Phase 4, Growth and Tasks pages in this repo run
-against the hosted project through `.env.local` and correctly show schema-cache
-errors until a deliberate promotion is approved.
+`sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
+(from `0021`, applied 2026-11-22), and no `tasks_*` RPCs. The Phase 3, Phase 4
+and Tasks pages in this repo run against the hosted project through `.env.local`
+and correctly show schema-cache errors until a deliberate promotion is approved.
 
 ## Read-only verification commands
 
