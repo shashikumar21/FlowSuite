@@ -1,5 +1,5 @@
 import { requireSupabase } from '@/integrations/supabase/client'
-import type { ActivityFormValues, ContactFormValues, DealFormValues } from './schemas'
+import type { ActivityFormValues, ContactFormValues, DealFormValues, DealValueValues } from './schemas'
 import { EMPTY_METRICS } from './utils'
 import type {
   ContactActivityRow,
@@ -270,6 +270,28 @@ export async function createDeal(tenantId: string, values: DealFormValues): Prom
   })
   if (error) throw error
   return data
+}
+
+/**
+ * Updates an existing deal's value using the hosted `deals` UPDATE policy, which
+ * already restricts writes to deals the caller may edit. No migration or RPC is
+ * needed; the zero-row result is treated as an error so the UI cannot report a
+ * false success when RLS denies the write.
+ */
+export async function updateDealValue(
+  tenantId: string,
+  dealId: string,
+  value: DealValueValues['value'],
+): Promise<void> {
+  const { data, error } = await requireSupabase()
+    .from('deals')
+    .update({ value })
+    .eq('tenant_id', tenantId)
+    .eq('id', dealId)
+    .select('id')
+    .returns<Array<{ id: string }>>()
+  if (error) throw error
+  if (!data?.length) throw new Error('This deal is no longer available or cannot be edited.')
 }
 
 export async function moveDealStage(tenantId: string, dealId: string, stageId: string): Promise<void> {

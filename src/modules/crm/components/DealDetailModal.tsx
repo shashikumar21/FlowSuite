@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { useToast } from '@/app/providers/ToastProvider'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Label, Select } from '@/components/ui/Input'
+import { FieldError, Input, Label, Select } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { DealStatusBadge } from './StatusBadges'
 import { getErrorMessage } from '@/lib/errors'
 import { formatCurrency, formatDate } from '@/lib/format'
-import { assignDeal, moveDealStage, type CrmOptions, type DealWithContact } from '../api'
+import { assignDeal, moveDealStage, updateDealValue, type CrmOptions, type DealWithContact } from '../api'
+import { dealValueSchema } from '../schemas'
 import { stagesForPipeline } from '../utils'
 
 type Props = {
@@ -34,6 +35,8 @@ export function DealDetailModal({
   const { toast } = useToast()
   const [stageId, setStageId] = useState('')
   const [assignee, setAssignee] = useState('')
+  const [value, setValue] = useState('')
+  const [valueError, setValueError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -41,6 +44,8 @@ export function DealDetailModal({
     if (!open || !deal) return
     setStageId(deal.stage_id)
     setAssignee(deal.assigned_to ?? '')
+    setValue(String(deal.value))
+    setValueError(null)
     setError(null)
   }, [open, deal])
 
@@ -60,6 +65,17 @@ export function DealDetailModal({
     } finally {
       setBusy(false)
     }
+  }
+
+  const saveValue = async () => {
+    if (!deal) return
+    const parsed = dealValueSchema.safeParse({ value })
+    if (!parsed.success) {
+      setValueError(parsed.error.issues[0]?.message ?? 'Enter a valid value')
+      return
+    }
+    setValueError(null)
+    await apply('Deal value updated', () => updateDealValue(tenantId, deal.id, parsed.data.value))
   }
 
   return (
@@ -134,6 +150,35 @@ export function DealDetailModal({
                 </Button>
               </div>
             ) : null}
+
+            <div>
+              <Label htmlFor="deal-detail-value">Value ({currency})</Label>
+              <Input
+                id="deal-detail-value"
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                value={value}
+                aria-invalid={Boolean(valueError)}
+                onChange={(event) => {
+                  setValue(event.target.value)
+                  setValueError(null)
+                }}
+              />
+              <FieldError>{valueError ?? undefined}</FieldError>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                loading={busy}
+                disabled={value === String(deal.value)}
+                onClick={() => void saveValue()}
+              >
+                Save value
+              </Button>
+            </div>
           </div>
         </div>
       )}

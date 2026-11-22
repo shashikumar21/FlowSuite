@@ -52,6 +52,12 @@ export type DealFormValues = z.output<typeof dealSchema>
 /** Raw form shape — `value` starts as a string from the number input. */
 export type DealFormInput = z.input<typeof dealSchema>
 
+/** Editing an existing deal's value is validated with the same rules as create. */
+export const dealValueSchema = z.object({
+  value: z.coerce.number().finite().min(0, 'Value cannot be negative'),
+})
+export type DealValueValues = z.output<typeof dealValueSchema>
+
 export const activitySchema = z.object({
   type: z.enum(activityKinds),
   subject: z.string().trim().max(150),

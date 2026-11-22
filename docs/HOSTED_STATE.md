@@ -113,8 +113,11 @@ login is never used for demos:
 Validated with the demo login on the live Netlify site:
 
 - Contacts: create, edit, assign, log activity and archive all persisted.
-- Deals: create with value, move stage and change owner all persisted. There is
-  no UI to edit a deal value after creation or to delete a deal.
+- Deals: create with value, move stage and change owner all persisted. Editing a
+  deal value after creation is available in the deal detail dialog and writes
+  only `deals.value` under the already-hosted `0004` UPDATE policy. Deleting a
+  deal is deliberately not exposed in the client: destructive actions must go
+  through a server-side RPC, and no such RPC is hosted yet.
 - Appointments: status change persisted. Reschedule/assign are blocked by the
   absence of seeded bookable resources and availability rules, not by RLS.
 - Inbox: mark-read, status change and internal note all persisted. No external
@@ -135,6 +138,28 @@ its seeded state. This login is safe to use for guided sales demos, but the
 product is not ready to sell as a finished multi-tenant SaaS until the hosted
 migrations/RPC promotion, RLS hardening, billing, custom domain, backups and
 legal pages are in place.
+
+## Safe fixes applied (2026-11-22)
+
+These changed code/docs only; no hosted schema, RLS policy or destructive action
+was touched:
+
+- Route-level code splitting (`React.lazy` + `Suspense`) removed the Vite
+  `>500 kB chunk` build warning. The initial JS bundle is now about 374 kB and
+  each page loads on demand.
+- Deal value can now be edited after creation. `updateDealValue` writes only
+  `deals.value` through the already-hosted `0004` UPDATE policy, scoped by
+  tenant and deal id, with Zod validation and an explicit error when no row is
+  updated. Covered by `src/modules/crm/deal-value.test.ts`.
+- Deal deletion was **not** added to the client. It is a destructive action and
+  must be implemented as a server-side RPC before it is exposed.
+- Booking reschedule/assign still needs seeded bookable resources and
+  availability rules in the hosted database; that is a hosted write and remains
+  approval-gated.
+
+Still approval-gated: hosted promotion of `0019`–`0022`, RLS hardening, Groq key
+rotation (provider console), deletion of the failed Netlify site and project
+rename.
 
 ## Local-only work not present on hosted (do not assume it exists)
 
