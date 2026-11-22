@@ -1148,6 +1148,9 @@ export type OutreachCampaignRow = {
   body: string | null
   tone: string | null
   objective: string | null
+  /** Added by 0019_phase3_email_outreach.sql. */
+  product_offered: string | null
+  problem_addressed: string | null
   created_by: string | null
   approved_by: string | null
   approved_at: string | null
@@ -1176,6 +1179,14 @@ export type OutreachMessageRow = {
     | 'sent'
     | 'failed'
     | 'cancelled'
+  /** Added by 0019_phase3_email_outreach.sql. */
+  decision_maker_id: string | null
+  opening: string | null
+  cta: string | null
+  follow_up_subject: string | null
+  follow_up_body: string | null
+  generation_source: 'manual' | 'ai'
+  submitted_at: string | null
   approved_by: string | null
   approved_at: string | null
   rejected_reason: string | null
@@ -1229,6 +1240,20 @@ export type SuppressionRow = {
   created_at: string
 }
 
+/** Read-only approval decision history added by 0019. */
+export type SalesEmailApprovalRow = {
+  id: string
+  tenant_id: string
+  campaign_id: string
+  message_id: string
+  decision: 'approved' | 'rejected'
+  actor_id: string | null
+  edited_subject: string | null
+  edited_body: string | null
+  reason: string | null
+  created_at: string
+}
+
 /** Shape returned by the tenant-scoped `sales_dashboard_metrics` RPC. */
 export type SalesAgentMetrics = {
   total_prospects: number
@@ -1240,6 +1265,26 @@ export type SalesAgentMetrics = {
   interested_prospects: number
   converted_customers: number
   saved_searches: number
+}
+
+/** Shape returned by `sales_create_campaign`. Counts are real inserted rows. */
+export type SalesCampaignCreateResult = {
+  campaign_id: string
+  recipients_created: number
+  skipped_no_email: number
+  skipped_suppressed: number
+}
+
+/** Real counts from outreach_messages, aggregated server-side by RPC. */
+export type SalesCampaignSummary = {
+  recipients: number
+  drafts: number
+  pending_approval: number
+  approved: number
+  rejected: number
+  queued: number
+  sent: number
+  failed: number
 }
 
 /** Shape returned by the tenant-scoped `sales_import_prospects` RPC. */
@@ -1551,6 +1596,7 @@ export interface Database {
       outreach_outbox: Table<OutreachOutboxRow, Partial<OutreachOutboxRow>, Partial<OutreachOutboxRow>>
       outreach_replies: Table<OutreachReplyRow, Partial<OutreachReplyRow>, Partial<OutreachReplyRow>>
       suppression_list: Table<SuppressionRow, Partial<SuppressionRow>, Partial<SuppressionRow>>
+      sales_email_approvals: Table<SalesEmailApprovalRow, Partial<SalesEmailApprovalRow>, Partial<SalesEmailApprovalRow>>
     }
     Views: Record<string, never>
     Functions: {
@@ -2359,6 +2405,58 @@ export interface Database {
         Returns: SalesImportResult
       }
       sales_dashboard_metrics: { Args: { p_tenant: string }; Returns: SalesAgentMetrics }
+
+      /* Phase 3 — drafting, campaigns, approvals and send preparation. */
+      sales_create_campaign: {
+        Args: {
+          p_tenant: string
+          p_name: string
+          p_objective: string
+          p_tone: string
+          p_product_offered: string
+          p_problem_addressed: string
+          p_prospect_ids: Json
+        }
+        Returns: SalesCampaignCreateResult
+      }
+      sales_save_email_draft: {
+        Args: {
+          p_tenant: string
+          p_message: string
+          p_decision_maker: string | null
+          p_subject: string
+          p_body: string
+          p_opening: string | null
+          p_cta: string | null
+          p_follow_up_subject: string | null
+          p_follow_up_body: string | null
+          p_generation_source?: string
+        }
+        Returns: undefined
+      }
+      sales_submit_for_approval: { Args: { p_tenant: string; p_message: string }; Returns: undefined }
+      sales_review_email_draft: {
+        Args: {
+          p_tenant: string
+          p_message: string
+          p_decision: string
+          p_edited_subject: string | null
+          p_edited_body: string | null
+          p_reason: string | null
+        }
+        Returns: undefined
+      }
+      sales_queue_approved_email: { Args: { p_tenant: string; p_message: string }; Returns: string }
+      sales_add_suppression: {
+        Args: { p_tenant: string; p_email: string; p_reason: string; p_source: string | null }
+        Returns: undefined
+      }
+      sales_mark_outbox_failed: {
+        Args: { p_tenant: string; p_outbox: string; p_error: string }
+        Returns: undefined
+      }
+      sales_retry_outbox: { Args: { p_tenant: string; p_outbox: string }; Returns: undefined }
+      sales_campaign_summary: { Args: { p_tenant: string; p_campaign: string }; Returns: SalesCampaignSummary }
 
       admin_list_businesses: {
         Args: Record<string, never>

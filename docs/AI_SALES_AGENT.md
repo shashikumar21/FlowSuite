@@ -1,4 +1,4 @@
-# AI Sales Agent (native module) — Phase 2 foundation
+# AI Sales Agent (native module) — Phase 2 + Phase 3
 
 This is a **new, native module** at `src/modules/sales-agent/`. It is deliberately separate from the website/WhatsApp assistant in `src/modules/ai-console/` and from CRM contacts. Migrations `0014`–`0016` are not modified.
 
@@ -13,7 +13,11 @@ This is a **new, native module** at `src/modules/sales-agent/`. It is deliberate
 | Prospect → CRM contact conversion | Working (`0018` applied; idempotent, duplicate-safe, audited) |
 | Business discovery provider | **Unavailable** — no provider configured |
 | Contact verification provider / manual attestation UI | **Unavailable** — schema only |
-| AI email drafting, campaigns, approvals, outbox, replies | **Unavailable** — schema only, nothing can send |
+| AI email writer (generate + edit + save drafts) | Code complete locally; needs `0019` applied and the undeployed draft function deployed |
+| Campaign manager (create + select recipients + real drafts) | Code complete locally; needs `0019` applied |
+| Approval inbox with server-enforced decisions and history | Code complete locally; needs `0019` applied |
+| Send queue, idempotency, suppression, failure/retry controls | Code complete locally; needs `0019` applied. **No provider, nothing sends** |
+| Replies | **Unavailable** — schema only (Phase 5) |
 
 All dashboard values are `count(*)` over real tables via `public.sales_dashboard_metrics`. Empty tables produce genuine zeros; no lead scores or demo data are generated.
 
@@ -43,8 +47,14 @@ Verified on hosted: 10 Sales Agent tables, 12 `sales_*`/`can_manage_sales_agent`
 - `/app/sales-agent` — Overview
 - `/app/sales-agent/discovery` — Prospect discovery (manual saved searches)
 - `/app/sales-agent/prospects` — Prospects (with **Convert** action)
+- `/app/sales-agent/campaigns` — Campaign manager (Phase 3)
+- `/app/sales-agent/email-writer` — AI Email Writer (Phase 3)
+- `/app/sales-agent/approvals` — Approval inbox and history (Phase 3)
+- `/app/sales-agent/sending` — Sending preparation / suppression (Phase 3)
 
-Sidebar group: **AI Sales Agent NEW**. Decision makers, AI email writer, Campaigns, Approvals and Replies are shown as planned (`/app/module/...`) and are not functional.
+Sidebar group: **AI Sales Agent NEW**. Decision makers and replies remain planned (`/app/module/...`) for later phases.
+
+**Important:** migration `0019_phase3_email_outreach.sql` was **not applied to hosted**, and the `sales-email-draft` Edge Function was **not deployed**. The new pages therefore show a clear database/service error rather than fake data until those local-only changes are deliberately promoted. See `docs/HOSTED_STATE.md`.
 
 ## Security model
 
@@ -69,16 +79,42 @@ Sidebar group: **AI Sales Agent NEW**. Decision makers, AI email writer, Campaig
 - Sets the prospect's `lead_status = 'converted'`, `converted_at` and `converted_contact_id`, and appends a `sales.prospect_converted_to_contact` audit entry.
 - UI: a **Convert** action on each unconverted prospect; converted rows show an **In CRM** badge. Client roles never gate the write — the RPC is authoritative.
 
+## Phase 3 — AI Email Writer, Campaigns, Approvals and sending preparation
+
+Phase 3 extends `0017` rather than recreating anything. `0017` already provides `outreach_campaigns`, `outreach_messages`, `outreach_outbox`, `suppression_list`, `decision_makers`, `contact_verifications` and `sales_is_suppressed`. The only new migration is `0019_phase3_email_outreach.sql`, which adds:
+
+- additive columns on campaigns/messages (product, problem, decision maker, opening, CTA, follow-ups, generation source, submitted time);
+- `sales_email_approvals` — read-only history table, tenant scoped;
+- nine trusted RPCs: `sales_create_campaign`, `sales_save_email_draft`, `sales_submit_for_approval`, `sales_review_email_draft`, `sales_queue_approved_email`, `sales_add_suppression`, `sales_mark_outbox_failed`, `sales_retry_outbox`, `sales_campaign_summary`.
+
+Security invariants (all enforced server-side, never by the client):
+
+- `has_tenant_access(p_tenant)` is the first check in every RPC; the database unique indexes are the backstop for duplicate recipients and duplicate queue rows.
+- `can_manage_sales_agent(p_tenant)` (owner/admin) is required for approval, queueing, suppression changes, failure marking and retries. The `canReviewOutreach()` helper in the UI is UX only.
+- `sales_is_suppressed()` is re-checked at submit, approval and queue time — a stale client suppression list cannot bypass it.
+- Queue rows always have `provider = NULL`. No Edge Function sends mail; `sales_campaign_summary` counts real rows and never reports delivery, opens or clicks.
+- Zod validates all draft input and model output. The model must return an exact strict JSON shape; unknown fields and drift are rejected.
+- The draft Edge Function source verifies the caller JWT and active membership with the caller's own client (RLS applies), reads `OPENAI_*` secrets from `Deno.env`, and never writes to the database. It is **not deployed**; the UI reports "draft service not available" until it is.
+
+The `sales-email-draft` function must be deployed with the existing import map and the server secrets already configured for `ai-chat` (rotate the Groq key first — see `docs/HOSTED_STATE.md`). No new `VITE_*` variables are introduced.
+
 ## Files
 
 Created: `supabase/migrations/0017_ai_sales_agent.sql`, `supabase/migrations/0018_sales_prospect_contact_conversion.sql`, `supabase/tests/ai_sales_agent.sql`, `src/modules/sales-agent/{schemas,types,utils,api,hooks,schemas.test,utils.test}.ts*`, `src/modules/sales-agent/components/{StatusBadges,ProviderStatus,ProspectFormModal,SavedSearchFormModal}.tsx`, `src/modules/sales-agent/pages/{SalesAgentOverviewPage,ProspectDiscoveryPage,ProspectsPage}.tsx`, this file.
 
 Modified: `src/types/database.ts`, `src/lib/permissions.ts`, `src/app/config/navigation.ts`, `src/app/layouts/AppLayout.tsx`, `src/app/router/index.tsx`, `README.md`.
 
+### Phase 3 additions
+
+Created: `docs/PHASE3_PLAN.md`, `docs/HOSTED_STATE.md`, `supabase/migrations/0019_phase3_email_outreach.sql` (local only, **not applied to hosted**), `supabase/tests/ai_sales_agent_phase3.sql` (rolled back, not executed), `supabase/functions/sales-email-draft/index.ts` (**not deployed**), `src/modules/sales-agent/outreach/{schemas,types,utils,ai-draft,api,hooks}.ts`, `src/modules/sales-agent/outreach/components/{CampaignFormModal,DraftEditor,ApprovalRow}.tsx`, `src/modules/sales-agent/outreach/pages/{CampaignsPage,EmailWriterPage,ApprovalsPage,SendingPage}.tsx`, and `schemas.test.ts`, `utils.test.ts`, `ai-draft.test.ts`, `rpc.test.ts`.
+
+Modified: `src/types/database.ts` (additive Phase 3 rows/RPCs), `src/app/router/index.tsx`, `src/app/config/navigation.ts`, `src/modules/sales-agent/pages/SalesAgentOverviewPage.tsx`, `.gitignore`.
+
 ## Exact next steps
 
-1. Execute `supabase/tests/ai_sales_agent.sql` against a local Postgres to cover the conversion, idempotency and cross-tenant cases (no local DB was available during this phase).
-2. Verify Supabase auth redirects include the production origin before hosting.
-3. Add provider abstractions (server-only) for discovery and verification; keep features failing closed until credentials exist.
-4. Phase 3: AI email writer, campaign manager and approval inbox with manual approval as the default and server-side suppression checks.
-5. Phase 4: reply handling and decision-maker research (CRM conversion is already implemented via `create_contact`).
+1. Rotate the exposed Groq key and update the hosted `OPENAI_API_KEY` secret (see `docs/HOSTED_STATE.md`).
+2. On a **local** Supabase with Docker running: apply `0019` and run both `supabase/tests/ai_sales_agent.sql` and `supabase/tests/ai_sales_agent_phase3.sql`; both files roll back.
+3. Create a hosted backup before any future promotion; the schema dump attempt on 2026-11-22 failed because Docker was unavailable.
+4. Only after review: apply `0019` to hosted and deploy `sales-email-draft` with the existing import map. Re-run the read-only inventory in `HOSTED_STATE.md` afterwards to record the new state.
+5. Verify Supabase auth redirects include the production origin before hosting.
+6. Do not proceed to Phase 4 until the Phase 3 report has been reviewed.

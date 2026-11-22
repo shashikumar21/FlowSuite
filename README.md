@@ -90,6 +90,18 @@ This repository contains **Milestone 1 — secure multi-tenant foundation**, **M
 
 Migrations `0015`–`0018` were applied to the hosted project in order; no Sales Agent Edge Function is needed (all writes are database RPCs). The separate website chat Edge Function is deployed. See [docs/AI_SALES_AGENT.md](docs/AI_SALES_AGENT.md) for setup, security model and next steps.
 
+### Native AI Sales Agent — Phase 3 (local only)
+
+| Area | Status |
+| --- | --- |
+| AI Email Writer: generated subject/opening/body/CTA/follow-up, edited and saved as a draft | Code complete locally; generation needs the undeployed `sales-email-draft` function |
+| Campaign Manager: create campaigns, select prospects, real draft recipients, status | Code complete locally; needs migration `0019` |
+| Approval Inbox: preview, edit, approve/reject, server-side permissions and history | Code complete locally; needs migration `0019` |
+| Sending preparation: queue, idempotency, suppression, failure/retry controls | Code complete locally; needs migration `0019`. **No provider configured, nothing sends** |
+| Hosted database / deployed functions | Unchanged — `0019` not applied, new function not deployed |
+
+Migration `0019_phase3_email_outreach.sql` is local-only and extends `0017` without modifying any earlier migration. Hosted state is recorded in [docs/HOSTED_STATE.md](docs/HOSTED_STATE.md) so it is not duplicated or overwritten. No API key is exposed to the browser; no delivery or open metric is shown. See [docs/PHASE3_PLAN.md](docs/PHASE3_PLAN.md) for the file-by-file plan.
+
 **Still not built:** WhatsApp/AI live integrations, workflow builder, marketing campaigns, reputation, website builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred. See `src/app/config/navigation.ts` for the planned module map.
 
 ---
@@ -269,7 +281,9 @@ npx supabase gen types typescript --local > src/types/database.ts
 | `0014_milestone4_ai_communication.sql` | website/WhatsApp AI agents, knowledge, tools, consent, conversations, follow-ups, RLS and trusted RPCs |
 | `0015_milestone4_ai_service_rpcs.sql` | service-role-only AI provider RPCs (no schema changes) |
 | `0016_milestone4_ai_qualification_rpcs.sql` | service-role-only assessment and follow-up enqueue RPCs (no schema changes) |
-| `0017_ai_sales_agent.sql` | native Sales Agent prospects/searches/verification/import schema, suppression, metrics RPCs, RLS, grants and audit — local only |
+| `0017_ai_sales_agent.sql` | native Sales Agent prospects/searches/verification/import schema, outreach/outbox/suppression, metrics RPCs, RLS, grants and audit — applied to hosted |
+| `0018_sales_prospect_contact_conversion.sql` | idempotent prospect → CRM contact conversion plus a forward-only FK correction — applied to hosted |
+| `0019_phase3_email_outreach.sql` | Phase 3 additive columns, approval history, drafting/campaign/approval/queue/suppression RPCs, RLS and grants — **local only, not applied to hosted** |
 | `supabase/seed.sql` | illustrative plan/entitlement reference data only |
 
 ---

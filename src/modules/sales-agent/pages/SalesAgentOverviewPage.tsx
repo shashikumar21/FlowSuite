@@ -21,11 +21,17 @@ import { formatNumber } from '@/lib/format'
 import { useSalesMetrics } from '../hooks'
 import { ProviderStatus } from '../components/ProviderStatus'
 
+const PHASE3_LINKS = [
+  { label: 'AI email writer', to: '/app/sales-agent/email-writer', detail: 'Generate and edit drafts for one recipient at a time.' },
+  { label: 'Campaigns', to: '/app/sales-agent/campaigns', detail: 'Select prospects and create real draft recipients.' },
+  { label: 'Approvals', to: '/app/sales-agent/approvals', detail: 'Review, edit, approve or reject each draft.' },
+  { label: 'Sending queue', to: '/app/sales-agent/sending', detail: 'Idempotency, suppression and retry controls. No provider attached.' },
+] as const
+
 const PLANNED = [
   { label: 'Decision makers', phase: 'Phase 4', detail: 'Research and store contacts within each prospect.' },
-  { label: 'AI email writer', phase: 'Phase 3', detail: 'Draft subject lines and bodies from saved context.' },
-  { label: 'Campaigns & approvals', phase: 'Phase 3', detail: 'Manual approval before any message can be queued.' },
-  { label: 'Reply handling', phase: 'Phase 4', detail: 'Ingest replies so follow-up can be tracked on qualified prospects.' },
+  { label: 'Business discovery', phase: 'Phase 4', detail: 'Provider-backed discovery of new prospect businesses.' },
+  { label: 'Reply handling', phase: 'Phase 5', detail: 'Ingest replies so follow-up can be tracked on qualified prospects.' },
 ] as const
 
 export function SalesAgentOverviewPage() {
@@ -108,7 +114,7 @@ export function SalesAgentOverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle>Working now</CardTitle>
-            <CardDescription>Available in this phase, with no external providers required.</CardDescription>
+            <CardDescription>Available with no external providers required.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Link
@@ -134,6 +140,28 @@ export function SalesAgentOverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>AI email &amp; campaigns</CardTitle>
+          <CardDescription>Drafts and approvals are stored locally. No email is sent.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {PHASE3_LINKS.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className="flex items-center justify-between rounded-lg border border-ink-200 p-3 text-sm hover:bg-ink-50"
+            >
+              <span>
+                <span className="block font-semibold text-ink-900">{item.label}</span>
+                <span className="block text-xs text-ink-500">{item.detail}</span>
+              </span>
+              <ArrowRight className="size-4 shrink-0 text-ink-400" />
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -33,6 +33,10 @@ import { BusinessSettingsPage } from '@/modules/settings/pages/BusinessSettingsP
 import { SalesAgentOverviewPage } from '@/modules/sales-agent/pages/SalesAgentOverviewPage'
 import { ProspectDiscoveryPage } from '@/modules/sales-agent/pages/ProspectDiscoveryPage'
 import { ProspectsPage } from '@/modules/sales-agent/pages/ProspectsPage'
+import { CampaignsPage } from '@/modules/sales-agent/outreach/pages/CampaignsPage'
+import { EmailWriterPage } from '@/modules/sales-agent/outreach/pages/EmailWriterPage'
+import { ApprovalsPage } from '@/modules/sales-agent/outreach/pages/ApprovalsPage'
+import { SendingPage } from '@/modules/sales-agent/outreach/pages/SendingPage'
 import { ProfileSettingsPage } from '@/modules/settings/pages/ProfileSettingsPage'
 import { AcceptInvitationPage } from '@/modules/team/pages/AcceptInvitationPage'
 import { TeamPage } from '@/modules/team/pages/TeamPage'
@@ -77,6 +81,10 @@ export function AppRouter() {
           <Route path="sales-agent" element={<SalesAgentOverviewPage />} />
           <Route path="sales-agent/discovery" element={<ProspectDiscoveryPage />} />
           <Route path="sales-agent/prospects" element={<ProspectsPage />} />
+          <Route path="sales-agent/campaigns" element={<CampaignsPage />} />
+          <Route path="sales-agent/email-writer" element={<EmailWriterPage />} />
+          <Route path="sales-agent/approvals" element={<ApprovalsPage />} />
+          <Route path="sales-agent/sending" element={<SendingPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />
