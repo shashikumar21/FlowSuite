@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Copy, Download, Eye, Globe, Package, Pencil, Plus, Rocket, Settings2, Sparkles, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Copy, Download, Eye, FileUp, FolderUp, Globe, Package, Pencil, Plus, Rocket, Settings2, Sparkles, Trash2, Upload } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
 import { requireSupabase } from '@/integrations/supabase/client'
@@ -115,6 +115,66 @@ export function WebsitesPage() {
     const blob = makeZip([{ name: 'index.html', content: aiHtml }, { name: 'README.md', content: `# AI Generated Website\n\nGenerated from FlowSuite prompt.\n\nDeploy the folder as a static site (Netlify Drop/Vercel/GitHub Pages). Keep index.html at root.\n` }])
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url; a.download = 'ai-website-deploy-pack.zip'; a.click(); URL.revokeObjectURL(url)
+  }
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const folderInputRef = useRef<HTMLInputElement | null>(null)
+  const [githubOpen, setGithubOpen] = useState(false)
+  const [githubUrl, setGithubUrl] = useState('')
+  const [importedHtml, setImportedHtml] = useState<string | null>(null)
+  const [importedName, setImportedName] = useState<string | null>(null)
+  const [importedFiles, setImportedFiles] = useState<Array<{ name: string; content: Uint8Array }> | null>(null)
+  const [importNotice, setImportNotice] = useState<string | null>(null)
+
+  const resetImported = () => { setImportedHtml(null); setImportedName(null); setImportedFiles(null); setImportNotice(null) }
+
+  const handleFileUpload = async (file: File | undefined) => {
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { toast({ title: 'File too large', description: 'Upload an HTML file up to 5MB.', variant: 'error' }); return }
+    const name = file.name.toLowerCase()
+    if (!name.endsWith('.html') && !name.endsWith('.htm')) { toast({ title: 'Unsupported file', description: 'Upload a .html file. For folders/zips, use the folder option or download a deploy pack.', variant: 'error' }); return }
+    const html = await file.text()
+    setImportedFiles(null)
+    setImportedName(file.name)
+    setImportedHtml(html)
+    setImportNotice('Previewing uploaded HTML file locally. FlowSuite does not host custom website files yet.')
+    toast({ title: 'File loaded', description: `${file.name} ready for preview.` })
+  }
+
+  const handleFolderUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return
+    const files = Array.from(fileList)
+    const total = files.reduce((n, f) => n + f.size, 0)
+    if (total > 15 * 1024 * 1024) { toast({ title: 'Folder too large', description: 'Upload a static folder up to 15MB total for local preview/export.', variant: 'error' }); return }
+    const mapped: Array<{ name: string; content: Uint8Array }> = []
+    for (const f of files) {
+      const rel = (f.webkitRelativePath || f.name).replace(/\\/g, '/')
+      const clean = rel.replace(/^[^/]+\//, '') // drop top folder name
+      const buf = new Uint8Array(await f.arrayBuffer())
+      mapped.push({ name: clean || f.name, content: buf })
+    }
+    const index = mapped.find((f) => f.name.toLowerCase() === 'index.html') || mapped.find((f) => f.name.toLowerCase().endsWith('.html'))
+    let html: string | null = null
+    if (index) html = new TextDecoder().decode(index.content)
+    setImportedFiles(mapped)
+    setImportedName(index?.name ?? files[0]?.webkitRelativePath?.split('/')[0] ?? 'Uploaded folder')
+    setImportedHtml(html)
+    setImportNotice(html ? 'Preview shows the selected HTML file. Relative assets (CSS/images/JS) may not render in this local srcDoc preview. You can still download the folder as a deploy pack.' : 'Folder loaded. No index.html found for preview, but you can download it as a zip.')
+    toast({ title: 'Folder loaded', description: `${mapped.length} file(s) ready.` })
+  }
+
+  const downloadImported = () => {
+    if (importedFiles?.length) {
+      const blob = makeZip(importedFiles)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = 'website-import-deploy-pack.zip'; a.click(); URL.revokeObjectURL(url)
+      return
+    }
+    if (importedHtml) {
+      const blob = new Blob([importedHtml], { type: 'text/html;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = importedName || 'imported-website.html'; a.click(); URL.revokeObjectURL(url)
+    }
   }
 
   if (!tenantId) return <ErrorState message="Select a business to manage its website records." />
@@ -236,6 +296,58 @@ export function WebsitesPage() {
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Upload className="size-4 text-brand-600" /> Add your website</CardTitle>
+          <CardDescription>Upload a file/folder for local preview and deploy-pack export, or use GitHub deploy instructions. FlowSuite does not host custom website files yet.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-ink-200 p-4">
+              <div className="flex items-center gap-2 font-semibold text-ink-900"><FileUp className="size-4 text-brand-600" /> Upload HTML file</div>
+              <p className="mt-1 text-xs text-ink-500">Preview a single .html file locally and download/copy it.</p>
+              <div className="mt-3">
+                <input ref={fileInputRef} type="file" accept=".html,.htm,text/html" className="hidden" onChange={(e) => { void handleFileUpload(e.target.files?.[0]); e.currentTarget.value = '' }} />
+                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="size-4" /> Choose file</Button>
+              </div>
+            </div>
+            <div className="rounded-xl border border-ink-200 p-4">
+              <div className="flex items-center gap-2 font-semibold text-ink-900"><FolderUp className="size-4 text-brand-600" /> Upload folder</div>
+              <p className="mt-1 text-xs text-ink-500">Load a static site folder for local preview/export as a deploy pack zip.</p>
+              <div className="mt-3">
+                <input ref={folderInputRef} type="file" multiple className="hidden" {...({ webkitdirectory: '', directory: '' } as any)} onChange={(e) => { void handleFolderUpload(e.target.files); e.currentTarget.value = '' }} />
+                <Button size="sm" variant="outline" onClick={() => folderInputRef.current?.click()}><FolderUp className="size-4" /> Choose folder</Button>
+              </div>
+            </div>
+            <div className="rounded-xl border border-ink-200 p-4">
+              <div className="flex items-center gap-2 font-semibold text-ink-900"><Globe className="size-4 text-brand-600" /> GitHub</div>
+              <p className="mt-1 text-xs text-ink-500">Use your GitHub repo with Netlify/Vercel/GitHub Pages. Direct GitHub import into FlowSuite is not configured yet.</p>
+              <div className="mt-3"><Button size="sm" variant="outline" onClick={() => setGithubOpen(true)}><Globe className="size-4" /> GitHub option</Button></div>
+            </div>
+          </div>
+
+          {importNotice ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{importNotice}</div> : null}
+          {importedHtml ? (
+            <div className="space-y-2 rounded-xl border border-ink-200 bg-ink-50/40 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink-900">Imported preview{importedName ? `: ${importedName}` : ''}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={downloadImported}><Download className="size-4" /> {importedFiles?.length ? 'Download zip' : 'Download HTML'}</Button>
+                  <Button size="sm" variant="outline" onClick={() => { if (importedHtml) { void navigator.clipboard.writeText(importedHtml); toast({ title: 'Copied' }) } }}><Copy className="size-4" /> Copy HTML</Button>
+                  <Button size="sm" variant="ghost" onClick={resetImported}>Clear</Button>
+                </div>
+              </div>
+              <iframe title="Imported website preview" srcDoc={importedHtml} className="h-[420px] w-full rounded-lg border border-ink-200 bg-white" sandbox="allow-same-origin" />
+            </div>
+          ) : importedFiles?.length ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink-200 p-3">
+              <p className="text-sm text-ink-700">{importedFiles.length} file(s) loaded. No HTML preview available.</p>
+              <div className="flex gap-2"><Button size="sm" variant="outline" onClick={downloadImported}><Download className="size-4" /> Download zip</Button><Button size="sm" variant="ghost" onClick={resetImported}>Clear</Button></div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -424,6 +536,18 @@ export function WebsitesPage() {
             <div className="space-y-2 rounded-lg border border-ink-100 p-3"><p className="text-xs font-semibold text-ink-700">Service 3</p><Input value={custom.s3n} onChange={(e) => setCustom((c) => ({ ...c, s3n: e.target.value }))} placeholder="Name" /><Input value={custom.s3p} onChange={(e) => setCustom((c) => ({ ...c, s3p: e.target.value }))} placeholder="Price" /><Input value={custom.s3d} onChange={(e) => setCustom((c) => ({ ...c, s3d: e.target.value }))} placeholder="Description" /></div>
           </div>
           <div className="flex justify-end"><Button onClick={() => { setCustomizeOpen(false); toast({ title: 'Customization applied', description: 'Preview/download will use these values.' }) }}>Apply</Button></div>
+        </div>
+      </Modal>
+
+      <Modal open={githubOpen} onClose={() => setGithubOpen(false)} title="GitHub website option" description="FlowSuite does not host custom website files or import GitHub repos directly yet. Use GitHub with an external static host.">
+        <div className="space-y-4 text-sm text-ink-700">
+          <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">GitHub repository URL (optional reference)</span><Input value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} placeholder="https://github.com/owner/repo" /></label>
+          <div className="rounded-lg border border-ink-200 bg-ink-50 p-3"><p className="font-semibold text-ink-900">Recommended flow</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-ink-600"><li>Upload/download your website files (or AI/deploy pack) from FlowSuite.</li><li>Push them to a GitHub repository (keep <code>index.html</code> at root for static sites).</li><li>Deploy with Netlify, Vercel, or GitHub Pages.</li></ol></div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900"><p className="font-semibold">Not configured yet</p><p className="mt-1">Direct GitHub import, repo sync, and FlowSuite-hosted custom files are not enabled. No GitHub credentials are collected.</p></div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { if (githubUrl.trim()) { void navigator.clipboard.writeText(githubUrl.trim()); toast({ title: 'Repo URL copied' }) } }}>Copy URL</Button>
+            <Button onClick={() => setGithubOpen(false)}>Close</Button>
+          </div>
         </div>
       </Modal>
     </div>

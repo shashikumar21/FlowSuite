@@ -229,14 +229,14 @@ function crc32(buf: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0
 }
 
-export function makeZip(files: Array<{ name: string; content: string }>): Blob {
+export function makeZip(files: Array<{ name: string; content: string | Uint8Array }>): Blob {
   const enc = new TextEncoder()
   const local: Uint8Array[] = []
   const central: Uint8Array[] = []
   let offset = 0
   for (const f of files) {
     const name = enc.encode(f.name)
-    const data = enc.encode(f.content)
+    const data = typeof f.content === 'string' ? enc.encode(f.content) : f.content
     const crc = crc32(data)
     const lh = new Uint8Array(30 + name.length)
     const dv = new DataView(lh.buffer)
