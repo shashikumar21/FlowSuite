@@ -95,7 +95,7 @@ export const navigation: NavGroup[] = [
       { label: 'AI Agents', to: '/app/ai/agents', icon: Bot, available: true },
       { label: 'AI Conversations', to: '/app/ai/conversations', icon: MessageSquare, available: true },
       { label: 'AI Call Agent', to: '/app/voice-agent', icon: PhoneCall, available: true },
-      planned('Workflows', 'workflows', Workflow),
+      { label: 'Workflows', to: '/app/workflows', icon: Workflow, available: true },
     ],
   },
   {
@@ -138,7 +138,7 @@ export const moduleTitles: Record<string, { title: string; description: string; 
   campaigns: { title: 'Campaigns', description: 'Plan multi-channel campaigns. No sends or delivery metrics.', icon: Inbox, phase: 'Growth (local)' },
   websites: { title: 'Websites', description: 'Record pages and form leads. No hosting or custom domains.', icon: Globe, phase: 'Growth (local)' },
   reputation: { title: 'Reputation', description: 'Record reviews, responses and feedback. No provider posts.', icon: Star, phase: 'Growth (local)' },
-  workflows: { title: 'Workflows', description: 'Triggers, conditions, actions and delays.', icon: Workflow, phase: 'Phase 3' },
+  workflows: { title: 'Workflows', description: 'Workflow definitions (triggers/actions). Execution engine not enabled in v1.', icon: Workflow, phase: 'Phase 3 (v1 shell)' },
   'sales-decision-makers': { title: 'Decision makers', description: 'Research contacts within each sales prospect.', icon: UserCog, phase: 'Phase 4' },
   'sales-email-writer': { title: 'AI email writer', description: 'Draft outreach from saved prospect context.', icon: MessageSquare, phase: 'Phase 3' },
   'sales-campaigns': { title: 'Sales campaigns', description: 'Plan and measure approved outreach.', icon: Megaphone, phase: 'Phase 3' },

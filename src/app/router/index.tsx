@@ -151,6 +151,9 @@ const TasksPage = lazy(() =>
 const PaymentsPage = lazy(() =>
   import('@/modules/payments/pages/PaymentsPage').then((m) => ({ default: m.PaymentsPage })),
 )
+const WorkflowsPage = lazy(() =>
+  import('@/modules/workflows/pages/WorkflowsPage').then((m) => ({ default: m.WorkflowsPage })),
+)
 const VoiceAgentPage = lazy(() =>
   import('@/modules/voice-agent/pages/VoiceAgentPage').then((m) => ({ default: m.VoiceAgentPage })),
 )
@@ -204,6 +207,7 @@ export function AppRouter() {
             <Route path="team" element={<TeamPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="payments" element={<PaymentsPage />} />
+            <Route path="workflows" element={<WorkflowsPage />} />
             <Route path="ai/agents" element={<AiAgentsPage />} />
             <Route path="ai/conversations" element={<AiConversationsPage />} />
             <Route path="voice-agent" element={<VoiceAgentPage />} />
