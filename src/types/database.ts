@@ -1042,6 +1042,221 @@ export type CrmExportRow = {
   reply_1: string | null
 }
 
+// ---------------------------------------------------------------------------
+// AI Sales Agent (migration 0017). Browser access is SELECT-only; every write
+// goes through the trusted sales_* RPCs listed in Functions below.
+// ---------------------------------------------------------------------------
+
+export type SalesVerificationStatus = 'unverified' | 'pending' | 'verified' | 'invalid' | 'unknown'
+export type SalesLeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted'
+
+export type ProspectSearchRow = {
+  id: string
+  tenant_id: string
+  created_by: string | null
+  name: string
+  criteria: Json
+  provider: 'manual' | 'google_places' | 'other'
+  result_count: number
+  last_run_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ProspectRow = {
+  id: string
+  tenant_id: string
+  business_name: string
+  industry: string | null
+  city: string | null
+  state: string | null
+  country: string | null
+  website: string | null
+  business_size: string | null
+  contact_person: string | null
+  email: string | null
+  phone: string | null
+  source: string
+  source_reference: string | null
+  verification_status: SalesVerificationStatus
+  lead_status: SalesLeadStatus
+  assigned_to: string | null
+  created_by: string | null
+  notes: string | null
+  custom_data: Json
+  converted_at: string | null
+  converted_contact_id: string | null
+  attribution: Json
+  created_at: string
+  updated_at: string
+}
+
+export type DecisionMakerRow = {
+  id: string
+  tenant_id: string
+  prospect_id: string
+  full_name: string
+  job_title: string | null
+  email: string | null
+  phone: string | null
+  linkedin_url: string | null
+  research_source: string | null
+  verification_status: SalesVerificationStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ContactVerificationRow = {
+  id: string
+  tenant_id: string
+  entity_type: 'prospect' | 'decision_maker'
+  entity_id: string
+  method: 'manual' | 'provider'
+  status: SalesVerificationStatus
+  provider: string | null
+  checked_by: string | null
+  checked_at: string
+  evidence: Json
+}
+
+export type ProspectSignalRow = {
+  id: string
+  tenant_id: string
+  prospect_id: string
+  signal_type: 'note' | 'website' | 'news' | 'referral' | 'other'
+  summary: string
+  source_url: string | null
+  recorded_by: string | null
+  created_at: string
+}
+
+export type OutreachCampaignRow = {
+  id: string
+  tenant_id: string
+  name: string
+  status:
+    | 'draft'
+    | 'pending_approval'
+    | 'approved'
+    | 'rejected'
+    | 'active'
+    | 'paused'
+    | 'completed'
+    | 'cancelled'
+  subject: string | null
+  body: string | null
+  tone: string | null
+  objective: string | null
+  created_by: string | null
+  approved_by: string | null
+  approved_at: string | null
+  rejected_reason: string | null
+  scheduled_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type OutreachMessageRow = {
+  id: string
+  tenant_id: string
+  campaign_id: string
+  prospect_id: string
+  recipient_email: string | null
+  subject: string
+  body: string
+  status:
+    | 'draft'
+    | 'pending_approval'
+    | 'approved'
+    | 'rejected'
+    | 'queued'
+    | 'sent'
+    | 'failed'
+    | 'cancelled'
+  approved_by: string | null
+  approved_at: string | null
+  rejected_reason: string | null
+  provider_message_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type OutreachOutboxRow = {
+  id: string
+  tenant_id: string
+  message_id: string
+  prospect_id: string
+  recipient_email: string
+  status: 'queued' | 'processing' | 'sent' | 'skipped' | 'failed' | 'cancelled'
+  idempotency_key: string
+  provider: string | null
+  provider_message_id: string | null
+  attempts: number
+  last_error: string | null
+  queued_at: string
+  sent_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type OutreachReplyRow = {
+  id: string
+  tenant_id: string
+  message_id: string | null
+  campaign_id: string | null
+  prospect_id: string
+  sender_email: string | null
+  subject: string | null
+  body: string | null
+  reply_status: 'unread' | 'read' | 'archived'
+  classification: 'interested' | 'not_interested' | 'follow_up_required' | 'unsubscribe' | 'unknown'
+  provider: string
+  external_id: string | null
+  received_at: string
+  created_at: string
+}
+
+export type SuppressionRow = {
+  id: string
+  tenant_id: string
+  email: string
+  reason: 'unsubscribe' | 'bounced' | 'complaint' | 'manual'
+  source: string | null
+  created_by: string | null
+  created_at: string
+}
+
+/** Shape returned by the tenant-scoped `sales_dashboard_metrics` RPC. */
+export type SalesAgentMetrics = {
+  total_prospects: number
+  new_prospects: number
+  verified_contacts: number
+  active_campaigns: number
+  emails_sent: number
+  replies_received: number
+  interested_prospects: number
+  converted_customers: number
+  saved_searches: number
+}
+
+/** Shape returned by the tenant-scoped `sales_import_prospects` RPC. */
+export type SalesImportResult = {
+  total: number
+  created: number
+  skipped_duplicate: number
+  failed: number
+  results: Array<{
+    row: number
+    business_name: string | null
+    status: 'created' | 'duplicate' | 'failed'
+    reason?: string | null
+    id?: string | null
+  }>
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -1324,6 +1539,18 @@ export interface Database {
         Pick<AiCallLogRow, 'tenant_id' | 'session_id'> & Partial<AiCallLogRow>,
         Partial<AiCallLogRow>
       >
+
+      /* AI Sales Agent — SELECT-only for browser code. Writes go via RPCs. */
+      prospect_searches: Table<ProspectSearchRow, Partial<ProspectSearchRow>, Partial<ProspectSearchRow>>
+      prospects: Table<ProspectRow, Partial<ProspectRow>, Partial<ProspectRow>>
+      decision_makers: Table<DecisionMakerRow, Partial<DecisionMakerRow>, Partial<DecisionMakerRow>>
+      contact_verifications: Table<ContactVerificationRow, Partial<ContactVerificationRow>, Partial<ContactVerificationRow>>
+      prospect_signals: Table<ProspectSignalRow, Partial<ProspectSignalRow>, Partial<ProspectSignalRow>>
+      outreach_campaigns: Table<OutreachCampaignRow, Partial<OutreachCampaignRow>, Partial<OutreachCampaignRow>>
+      outreach_messages: Table<OutreachMessageRow, Partial<OutreachMessageRow>, Partial<OutreachMessageRow>>
+      outreach_outbox: Table<OutreachOutboxRow, Partial<OutreachOutboxRow>, Partial<OutreachOutboxRow>>
+      outreach_replies: Table<OutreachReplyRow, Partial<OutreachReplyRow>, Partial<OutreachReplyRow>>
+      suppression_list: Table<SuppressionRow, Partial<SuppressionRow>, Partial<SuppressionRow>>
     }
     Views: Record<string, never>
     Functions: {
@@ -2046,6 +2273,88 @@ export interface Database {
         }
         Returns: string
       }
+
+      /* AI Sales Agent — trusted RPCs. RLS and membership remain authoritative. */
+      can_manage_sales_agent: { Args: { p_tenant: string }; Returns: boolean }
+      sales_is_suppressed: { Args: { p_tenant: string; p_email: string }; Returns: boolean }
+      sales_normalize_website: { Args: { p_website: string }; Returns: string | null }
+      sales_find_duplicate_prospect: {
+        Args: {
+          p_tenant: string
+          p_email?: string | null
+          p_website?: string | null
+          p_business_name?: string | null
+          p_city?: string | null
+          p_country?: string | null
+        }
+        Returns: string | null
+      }
+      sales_create_prospect: {
+        Args: {
+          p_tenant: string
+          p_business_name: string
+          p_industry?: string | null
+          p_city?: string | null
+          p_state?: string | null
+          p_country?: string | null
+          p_website?: string | null
+          p_business_size?: string | null
+          p_contact_person?: string | null
+          p_email?: string | null
+          p_phone?: string | null
+          p_source?: string
+          p_source_reference?: string | null
+          p_assigned_to?: string | null
+          p_notes?: string | null
+        }
+        Returns: string
+      }
+      sales_update_prospect: {
+        Args: {
+          p_tenant: string
+          p_prospect: string
+          p_business_name: string
+          p_industry?: string | null
+          p_city?: string | null
+          p_state?: string | null
+          p_country?: string | null
+          p_website?: string | null
+          p_business_size?: string | null
+          p_contact_person?: string | null
+          p_email?: string | null
+          p_phone?: string | null
+          p_assigned_to?: string | null
+          p_notes?: string | null
+        }
+        Returns: undefined
+      }
+      sales_set_prospect_lead_status: {
+        Args: { p_tenant: string; p_prospect: string; p_status: SalesLeadStatus }
+        Returns: undefined
+      }
+      sales_delete_prospect: {
+        Args: { p_tenant: string; p_prospect: string }
+        Returns: undefined
+      }
+      sales_save_search: {
+        Args: {
+          p_tenant: string
+          p_name: string
+          p_criteria: Json
+          p_provider?: 'manual' | 'google_places' | 'other'
+          p_search?: string | null
+        }
+        Returns: string
+      }
+      sales_import_prospects: {
+        Args: {
+          p_tenant: string
+          p_rows: Json
+          p_source?: string
+        }
+        Returns: SalesImportResult
+      }
+      sales_dashboard_metrics: { Args: { p_tenant: string }; Returns: SalesAgentMetrics }
 
       admin_list_businesses: {
         Args: Record<string, never>

@@ -15,7 +15,9 @@ import {
   MessageSquare,
   Plug,
   Receipt,
+  Search,
   Settings2,
+  Sparkles,
   Star,
   Target,
   UserCog,
@@ -34,6 +36,7 @@ export type NavItem = {
 export type NavGroup = {
   label: string
   items: NavItem[]
+  badge?: string
 }
 
 const planned = (label: string, to: string, icon: LucideIcon): NavItem => ({
@@ -90,6 +93,20 @@ export const navigation: NavGroup[] = [
     ],
   },
   {
+    label: 'AI Sales Agent',
+    badge: 'NEW',
+    items: [
+      { label: 'Overview', to: '/app/sales-agent', icon: Sparkles, available: true },
+      { label: 'Prospect discovery', to: '/app/sales-agent/discovery', icon: Search, available: true },
+      { label: 'Prospects', to: '/app/sales-agent/prospects', icon: Users, available: true },
+      planned('Decision makers', 'sales-decision-makers', UserCog),
+      planned('AI email writer', 'sales-email-writer', MessageSquare),
+      planned('Campaigns', 'sales-campaigns', Megaphone),
+      planned('Approvals', 'sales-approvals', Inbox),
+      planned('Replies', 'sales-replies', MessageSquare),
+    ],
+  },
+  {
     label: 'Operations',
     items: [
       planned('Tasks', 'tasks', FileText),
@@ -115,6 +132,11 @@ export const moduleTitles: Record<string, { title: string; description: string; 
   websites: { title: 'Websites', description: 'Landing pages, forms and custom domains.', icon: Globe, phase: 'Phase 3' },
   reputation: { title: 'Reputation', description: 'Reviews, AI replies and feedback collection.', icon: Star, phase: 'Phase 3' },
   workflows: { title: 'Workflows', description: 'Triggers, conditions, actions and delays.', icon: Workflow, phase: 'Phase 3' },
+  'sales-decision-makers': { title: 'Decision makers', description: 'Research contacts within each sales prospect.', icon: UserCog, phase: 'Phase 4' },
+  'sales-email-writer': { title: 'AI email writer', description: 'Draft outreach from saved prospect context.', icon: MessageSquare, phase: 'Phase 3' },
+  'sales-campaigns': { title: 'Sales campaigns', description: 'Plan and measure approved outreach.', icon: Megaphone, phase: 'Phase 3' },
+  'sales-approvals': { title: 'Approvals', description: 'Review and approve messages before sending.', icon: Inbox, phase: 'Phase 3' },
+  'sales-replies': { title: 'Replies', description: 'Inbound replies and interest signals.', icon: MessageSquare, phase: 'Phase 4' },
   tasks: { title: 'Tasks', description: 'Assignments, due dates and team activity.', icon: FileText, phase: 'Phase 2' },
   subscription: { title: 'Subscription', description: 'Plans, entitlements and usage.', icon: CreditCard, phase: 'Phase 4' },
 }

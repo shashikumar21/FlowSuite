@@ -75,7 +75,21 @@ This repository contains **Milestone 1 — secure multi-tenant foundation**, **M
 | Server-only email adapter seam (`notify-email` Edge Function), no keys in the browser | Foundation only |
 | Booking/inbox regression suite (38 checks) | Done (executed on hosted project, rolled back) |
 
-**Still not built:** WhatsApp/AI integrations, workflow builder, campaigns, reputation, website builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred: Milestone 3 ships in-app notifications plus the server-only adapter seam. See `src/app/config/navigation.ts` for the planned module map.
+### Native AI Sales Agent — Phase 2 foundation
+
+| Area | Status |
+| --- | --- |
+| Tenant-scoped prospects, saved manual searches, decision-maker/verification/import schema | Done (migration `0017`, local only) |
+| Overview with real counts from `sales_dashboard_metrics` — no invented scores or demo data | Done |
+| Add/edit/delete prospects, lead status changes, server-authoritative duplicate checks | Done |
+| CSV/XLSX prospect import reusing the CRM parser, with per-row results | Done |
+| Explicit provider status: discovery/verification/email sending unavailable until configured | Done |
+| `NEW` sidebar group with Overview, Prospect discovery and Prospects enabled | Done |
+| Phase 3/4 (AI email writing, campaigns, approvals, replies, CRM conversion) | Deferred — schema only, no sending |
+
+No migration has been applied to the hosted project and no Edge Function was deployed for this module. See [docs/AI_SALES_AGENT.md](docs/AI_SALES_AGENT.md) for setup, security model and next steps.
+
+**Still not built:** WhatsApp/AI live integrations, workflow builder, marketing campaigns, reputation, website builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred. See `src/app/config/navigation.ts` for the planned module map.
 
 ---
 
@@ -166,7 +180,7 @@ npm run dev
 
 If the environment variables are missing, the app shows a setup screen instead of silently rendering an unauthenticated UI.
 
-After signing in, the AI console is under **Automation → AI Agents / AI Conversations** and **Settings → Integrations**. See [docs/AI_CONSOLE_UI.md](docs/AI_CONSOLE_UI.md) for what works and what still needs deployment.
+After signing in, the AI console is under **Automation → AI Agents / AI Conversations** and **Settings → Integrations**. See [docs/AI_CONSOLE_UI.md](docs/AI_CONSOLE_UI.md) for what works and what still needs deployment. The native Sales Agent is under **AI Sales Agent NEW → Overview / Prospect discovery / Prospects** and requires migration `0017` to be applied to the backend before its screens can load data.
 
 ---
 
@@ -248,6 +262,10 @@ npx supabase gen types typescript --local > src/types/database.ts
 | `0011_fix_booking_notifications.sql` | fix anonymous-booking notifications, legacy `conversations.channel`, and channel-less conversation messages (folded into `0010`) |
 | `0012_prevent_appointment_overlaps.sql` | add a GiST exclusion constraint so overlapping appointments are impossible on every write path (folded into `0010`) |
 | `0013_crm_lead_enrichment.sql` | nine nullable/defaulted lead columns on `contacts`, enriched create/update/search/export/import RPCs, mobile normalisation and rating/reviews checks |
+| `0014_milestone4_ai_communication.sql` | website/WhatsApp AI agents, knowledge, tools, consent, conversations, follow-ups, RLS and trusted RPCs |
+| `0015_milestone4_ai_service_rpcs.sql` | service-role-only AI provider RPCs (no schema changes) |
+| `0016_milestone4_ai_qualification_rpcs.sql` | service-role-only assessment and follow-up enqueue RPCs (no schema changes) |
+| `0017_ai_sales_agent.sql` | native Sales Agent prospects/searches/verification/import schema, suppression, metrics RPCs, RLS, grants and audit — local only |
 | `supabase/seed.sql` | illustrative plan/entitlement reference data only |
 
 ---

@@ -18,6 +18,8 @@ export type Permission =
   | 'manage_integrations'
   | 'manage_billing'
   | 'view_audit_log'
+  | 'use_sales_agent'
+  | 'manage_sales_agent'
 
 const ALL: TenantRole[] = ['owner', 'admin', 'manager', 'employee']
 
@@ -39,6 +41,10 @@ const MATRIX: Record<Permission, TenantRole[]> = {
   manage_integrations: ['owner', 'admin'],
   manage_billing: ['owner'],
   view_audit_log: ['owner', 'admin'],
+  // Mirrors 0017: every active member may work with prospects, while
+  // destructive actions require public.can_manage_sales_agent (owner/admin).
+  use_sales_agent: ALL,
+  manage_sales_agent: ['owner', 'admin'],
 }
 
 export const ROLE_LABELS: Record<TenantRole, string> = {

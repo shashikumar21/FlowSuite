@@ -54,7 +54,14 @@ export function AppLayout() {
       <nav className="scrollbar-thin flex-1 space-y-6 overflow-y-auto px-3 py-5" aria-label="Main navigation">
         {navigation.map((group) => (
           <div key={group.label}>
-            <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-500">{group.label}</p>
+            <div className="mb-2 flex items-center gap-2 px-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-500">{group.label}</p>
+              {group.badge ? (
+                <span className="rounded bg-brand-600/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-brand-300">
+                  {group.badge}
+                </span>
+              ) : null}
+            </div>
             <ul className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon

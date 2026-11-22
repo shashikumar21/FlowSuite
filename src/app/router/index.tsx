@@ -30,6 +30,9 @@ import { NotificationsPage } from '@/modules/notifications/pages/NotificationsPa
 import { ModulePlaceholderPage } from '@/modules/dashboard/pages/ModulePlaceholderPage'
 import { CreateBusinessPage } from '@/modules/onboarding/pages/CreateBusinessPage'
 import { BusinessSettingsPage } from '@/modules/settings/pages/BusinessSettingsPage'
+import { SalesAgentOverviewPage } from '@/modules/sales-agent/pages/SalesAgentOverviewPage'
+import { ProspectDiscoveryPage } from '@/modules/sales-agent/pages/ProspectDiscoveryPage'
+import { ProspectsPage } from '@/modules/sales-agent/pages/ProspectsPage'
 import { ProfileSettingsPage } from '@/modules/settings/pages/ProfileSettingsPage'
 import { AcceptInvitationPage } from '@/modules/team/pages/AcceptInvitationPage'
 import { TeamPage } from '@/modules/team/pages/TeamPage'
@@ -71,6 +74,9 @@ export function AppRouter() {
           <Route path="team" element={<TeamPage />} />
           <Route path="ai/agents" element={<AiAgentsPage />} />
           <Route path="ai/conversations" element={<AiConversationsPage />} />
+          <Route path="sales-agent" element={<SalesAgentOverviewPage />} />
+          <Route path="sales-agent/discovery" element={<ProspectDiscoveryPage />} />
+          <Route path="sales-agent/prospects" element={<ProspectsPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />
