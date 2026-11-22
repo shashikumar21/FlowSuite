@@ -45,23 +45,33 @@ export const WIDGET_SCRIPT = `(function () {
     var form = document.createElement('form');
     form.style.cssText = 'border-top:1px solid #e5e7eb;padding:12px;display:flex;flex-direction:column;gap:8px';
 
+    // Host sites often set a global min-height on inputs. Reset it here so the
+    // lead-capture fields stay compact and do not squeeze the conversation.
+    var inputStyle = 'height:34px;min-height:0;box-sizing:border-box;width:100%;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font-size:13px';
+
     var nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.placeholder = 'Your name (optional)';
     nameInput.setAttribute('aria-label', 'Your name');
-    nameInput.style.cssText = 'height:34px;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font-size:13px';
+    nameInput.style.cssText = inputStyle;
+
+    var emailInput = document.createElement('input');
+    emailInput.type = 'email';
+    emailInput.placeholder = 'Email (optional)';
+    emailInput.setAttribute('aria-label', 'Your email');
+    emailInput.style.cssText = inputStyle;
 
     var phoneInput = document.createElement('input');
     phoneInput.type = 'tel';
     phoneInput.placeholder = 'Phone (optional)';
     phoneInput.setAttribute('aria-label', 'Your phone');
-    phoneInput.style.cssText = nameInput.style.cssText;
+    phoneInput.style.cssText = inputStyle;
 
     var messageInput = document.createElement('input');
     messageInput.type = 'text';
     messageInput.placeholder = 'Ask a question...';
     messageInput.setAttribute('aria-label', 'Message');
-    messageInput.style.cssText = nameInput.style.cssText;
+    messageInput.style.cssText = inputStyle;
 
     var consentLabel = document.createElement('label');
     consentLabel.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:11px;color:#475569';
@@ -79,6 +89,7 @@ export const WIDGET_SCRIPT = `(function () {
     notice.style.cssText = 'font-size:12px;color:#b91c1c;display:none';
 
     form.appendChild(nameInput);
+    form.appendChild(emailInput);
     form.appendChild(phoneInput);
     form.appendChild(messageInput);
     form.appendChild(consentLabel);
@@ -102,6 +113,18 @@ export const WIDGET_SCRIPT = `(function () {
     bubble('Hi! Ask me about services, hours or booking.', false);
 
     var history = [];
+    var detailsCaptured = false;
+    function captureContactDetails() {
+      if (detailsCaptured) return;
+      detailsCaptured = true;
+      // Values stay in the hidden inputs so every request still carries them.
+      // Only the fields are removed from view: the conversation gets the space.
+      [nameInput, emailInput, phoneInput].forEach(function (field) {
+        field.style.display = 'none';
+      });
+      form.style.gap = '8px';
+    }
+
     form.onsubmit = function (event) {
       event.preventDefault();
       var text = messageInput.value.trim();
@@ -112,6 +135,7 @@ export const WIDGET_SCRIPT = `(function () {
       messageInput.value = '';
       send.disabled = true;
       notice.style.display = 'none';
+      captureContactDetails();
 
       fetch(config.endpoint, {
         method: 'POST',
@@ -121,7 +145,7 @@ export const WIDGET_SCRIPT = `(function () {
           message: text,
           name: nameInput.value.trim() || null,
           phone: phoneInput.value.trim() || null,
-          email: null,
+          email: emailInput.value.trim() || null,
           consentToWhatsapp: consent.checked,
           history: history,
           idempotencyKey: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random()
