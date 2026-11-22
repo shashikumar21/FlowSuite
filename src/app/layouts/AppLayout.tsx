@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/app/providers/AuthProvider'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { navigation } from '@/app/config/navigation'
+import { isDentalIndustry } from '@/modules/crm/niche'
 import { Avatar } from '@/components/ui/Feedback'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
@@ -26,6 +27,8 @@ export function AppLayout() {
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openMenu, setOpenMenu] = useState<'tenant' | 'profile' | 'ai' | null>(null)
+  const isDental = isDentalIndustry(activeTenant?.businesses?.industry)
+  const visibleNavigation = isDental ? navigation.filter((group) => group.label !== 'AI Sales Agent') : navigation
 
   const closeMenus = () => setOpenMenu(null)
 
@@ -52,7 +55,7 @@ export function AppLayout() {
       </div>
 
       <nav className="scrollbar-thin flex-1 space-y-6 overflow-y-auto px-3 py-5" aria-label="Main navigation">
-        {navigation.map((group) => (
+        {visibleNavigation.map((group) => (
           <div key={group.label}>
             <div className="mb-2 flex items-center gap-2 px-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-ink-500">{group.label}</p>
