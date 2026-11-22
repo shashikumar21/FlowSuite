@@ -2336,6 +2336,10 @@ export interface Database {
         Args: { p_tenant: string; p_prospect: string }
         Returns: undefined
       }
+      sales_convert_prospect_to_contact: {
+        Args: { p_tenant: string; p_prospect: string }
+        Returns: string
+      }
       sales_save_search: {
         Args: {
           p_tenant: string

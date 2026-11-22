@@ -99,6 +99,7 @@ declare
   v_a uuid;
   v_b uuid;
   v_prospect uuid;
+  v_contact uuid;
   v_imported uuid;
   v_duplicate uuid;
   v_search uuid;
@@ -270,6 +271,37 @@ begin
     'insert into public.prospects (tenant_id, business_name) values (%L, %L)', v_a, 'Direct insert'
   ));
   perform test.sa_assert('direct client insert is rejected', true);
+
+  -- 10b. Prospect -> CRM contact conversion is tenant-scoped and idempotent.
+  perform test.act_as(v_owner_a, 'sa-owner-a@example.test');
+  v_contact := public.sales_convert_prospect_to_contact(v_a, v_imported);
+  perform test.sa_assert('conversion creates a real CRM contact', v_contact is not null, coalesce(v_contact::text, 'null'));
+  perform test.sa_assert(
+    'contact carries prospect company and sales_agent source',
+    exists (
+      select 1 from public.contacts c
+      where c.id = v_contact and c.tenant_id = v_a
+        and c.company = 'Bright Smile Clinic' and c.source = 'sales_agent'
+    ),
+    coalesce(v_contact::text, 'null')
+  );
+  perform test.sa_assert(
+    'prospect is marked converted and linked to the contact',
+    exists (
+      select 1 from public.prospects p
+      where p.id = v_imported and p.lead_status = 'converted'
+        and p.converted_contact_id = v_contact and p.converted_at is not null
+    )
+  );
+  perform test.sa_assert(
+    'second conversion is idempotent',
+    public.sales_convert_prospect_to_contact(v_a, v_imported) = v_contact
+  );
+  perform test.act_as(v_owner_b, 'sa-owner-b@example.test');
+  perform test.expect_error(format(
+    'select public.sales_convert_prospect_to_contact(%L, %L)', v_a, v_imported
+  ));
+  perform test.sa_assert('cross-tenant conversion is rejected', true);
 
   -- 11. Owner can delete in their own tenant.
   perform test.act_as(v_owner_a, 'sa-owner-a@example.test');

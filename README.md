@@ -79,15 +79,16 @@ This repository contains **Milestone 1 — secure multi-tenant foundation**, **M
 
 | Area | Status |
 | --- | --- |
-| Tenant-scoped prospects, saved manual searches, decision-maker/verification/import schema | Done (migration `0017`, local only) |
+| Tenant-scoped prospects, saved manual searches, decision-maker/verification/import schema | Done (migrations `0017` + `0018`, hosted and local) |
 | Overview with real counts from `sales_dashboard_metrics` — no invented scores or demo data | Done |
 | Add/edit/delete prospects, lead status changes, server-authoritative duplicate checks | Done |
 | CSV/XLSX prospect import reusing the CRM parser, with per-row results | Done |
+| Prospect → CRM contact conversion (`0018`, idempotent, reuses email matches, audited) | Done |
 | Explicit provider status: discovery/verification/email sending unavailable until configured | Done |
 | `NEW` sidebar group with Overview, Prospect discovery and Prospects enabled | Done |
-| Phase 3/4 (AI email writing, campaigns, approvals, replies, CRM conversion) | Deferred — schema only, no sending |
+| Phase 3/4 (AI email writing, campaigns, approvals, replies) | Deferred — schema only, no sending |
 
-No migration has been applied to the hosted project and no Edge Function was deployed for this module. See [docs/AI_SALES_AGENT.md](docs/AI_SALES_AGENT.md) for setup, security model and next steps.
+Migrations `0015`–`0018` were applied to the hosted project in order; no Sales Agent Edge Function is needed (all writes are database RPCs). The separate website chat Edge Function is deployed. See [docs/AI_SALES_AGENT.md](docs/AI_SALES_AGENT.md) for setup, security model and next steps.
 
 **Still not built:** WhatsApp/AI live integrations, workflow builder, marketing campaigns, reputation, website builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred. See `src/app/config/navigation.ts` for the planned module map.
 
@@ -148,8 +149,11 @@ For the hosted project already configured in `.env.local`, the SQL files were ru
 12. `0011_fix_booking_notifications.sql`
 13. `0012_prevent_appointment_overlaps.sql`
 14. `0013_crm_lead_enrichment.sql`
+15. `0015`–`0016` (hosted prerequisite fixes)
+16. `0017_ai_sales_agent.sql` (hosted variant fixed first; see commit `ccddd6c`)
+17. `0018_sales_prospect_contact_conversion.sql`
 
-`0004` already contains the `0005` visibility fix for fresh installs; `0005` exists so an already-migrated database can be patched on its own. `0007`–`0009` are hotfixes that replace earlier import definitions. `0010` already contains the `0011` and `0012` fixes for fresh installs; `0011` only replaces three RPCs and `0012` adds one exclusion constraint on databases that already ran `0010`. Fresh installs must apply the whole sequence in order. There is no `supabase/config.toml`, so hosted migrations were applied manually through the SQL Editor.
+`0004` already contains the `0005` visibility fix for fresh installs; `0005` exists so an already-migrated database can be patched on its own. `0007`–`0009` are hotfixes that replace earlier import definitions. `0010` already contains the `0011` and `0012` fixes for fresh installs; `0011` only replaces three RPCs and `0012` adds one exclusion constraint on databases that already ran `0010`. Fresh installs must apply the whole sequence in order. There is no `supabase/config.toml`, so hosted migrations were applied manually (via `supabase db query --remote`, never `db push`, because the hosted migration history table was empty).
 
 Email auth is enabled. Redirect URLs allow `http://localhost:5173/**` and `http://127.0.0.1:5173/**`, and the Site URL is `http://localhost:5173`. Add your production origin before deploying.
 

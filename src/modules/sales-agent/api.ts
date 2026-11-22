@@ -144,6 +144,18 @@ export async function setProspectLeadStatus(
   if (error) throw error
 }
 
+/** Convert a prospect into a CRM contact. Idempotent and duplicate-safe on the server. */
+export async function convertProspectToContact(tenantId: string, prospectId: string): Promise<string> {
+  const supabase = requireSupabase()
+  const { data, error } = await supabase.rpc('sales_convert_prospect_to_contact', {
+    p_tenant: tenantId,
+    p_prospect: prospectId,
+  })
+  if (error) throw error
+  if (typeof data !== 'string') throw new Error('The conversion did not return a contact.')
+  return data
+}
+
 export async function deleteProspect(tenantId: string, prospectId: string): Promise<void> {
   const supabase = requireSupabase()
   const { error } = await supabase.rpc('sales_delete_prospect', {

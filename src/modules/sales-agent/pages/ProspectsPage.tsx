@@ -13,7 +13,7 @@ import { getErrorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { parseWorkbook } from '@/modules/crm/data-exchange/parse'
 import type { ProspectRow, SalesImportResult, SalesLeadStatus } from '@/types/database'
-import { deleteProspect, importProspects, setProspectLeadStatus } from '../api'
+import { convertProspectToContact, deleteProspect, importProspects, setProspectLeadStatus } from '../api'
 import { useProspects, useSalesAgentInvalidate, useSalesMembers } from '../hooks'
 import { leadStatusOptions, verificationStatusOptions } from '../schemas'
 import { IMPORT_TEMPLATE_HEADERS, mapImportSheet } from '../utils'
@@ -55,6 +55,8 @@ export function ProspectsPage() {
   const [editing, setEditing] = useState<ProspectRow | null>(null)
   const [deleting, setDeleting] = useState<ProspectRow | null>(null)
   const [deletingBusy, setDeletingBusy] = useState(false)
+  const [converting, setConverting] = useState<ProspectRow | null>(null)
+  const [convertingBusy, setConvertingBusy] = useState(false)
   const [importResult, setImportResult] = useState<SalesImportResult | null>(null)
   const [importing, setImporting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -86,6 +88,24 @@ export function ProspectsPage() {
       invalidate()
     } catch (error) {
       toast({ title: 'Could not update status', description: getErrorMessage(error), variant: 'error' })
+    }
+  }
+
+  async function handleConvert() {
+    if (!converting) return
+    setConvertingBusy(true)
+    try {
+      await convertProspectToContact(tenantId as string, converting.id)
+      toast({
+        title: 'Prospect added to CRM',
+        description: `${converting.business_name} is now a contact. An existing contact was reused when the email already matched.`,
+      })
+      setConverting(null)
+      invalidate()
+    } catch (error) {
+      toast({ title: 'Could not convert prospect', description: getErrorMessage(error), variant: 'error' })
+    } finally {
+      setConvertingBusy(false)
     }
   }
 
@@ -307,6 +327,11 @@ export function ProspectsPage() {
                           >
                             Edit
                           </Button>
+                          {prospect.converted_contact_id ? (
+                            <Badge variant="success">In CRM</Badge>
+                          ) : (
+                            <Button variant="ghost" size="sm" onClick={() => setConverting(prospect)}>Convert</Button>
+                          )}
                           {canManage ? (
                             <Button variant="ghost" size="sm" onClick={() => setDeleting(prospect)}>Delete</Button>
                           ) : null}
@@ -330,6 +355,19 @@ export function ProspectsPage() {
         prospect={editing}
         onSaved={invalidate}
       />
+
+      <Modal
+        open={Boolean(converting)}
+        onClose={() => setConverting(null)}
+        title="Add prospect to CRM"
+        description={`Create or reuse a CRM contact for “${converting?.business_name ?? ''}”? The prospect will be marked converted.`}
+        className="max-w-md"
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setConverting(null)}>Cancel</Button>
+          <Button loading={convertingBusy} onClick={() => void handleConvert()}>Convert to contact</Button>
+        </div>
+      </Modal>
 
       <Modal
         open={Boolean(deleting)}
