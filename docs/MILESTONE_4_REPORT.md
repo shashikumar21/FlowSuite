@@ -71,6 +71,27 @@ Server-only Supabase secrets required before any deployment:
 
 No secrets are present in the repository or in any local `.env` file.
 
+### Free provider option (Groq)
+
+The OpenAI adapter is transport-compatible with any OpenAI-style chat endpoint.
+For a no-cost deployment, point it at Groq's free tier instead of OpenAI — no
+code change is required:
+
+```bash
+supabase secrets set \
+  OPENAI_BASE_URL='https://api.groq.com/openai/v1' \
+  OPENAI_MODEL='openai/gpt-oss-120b' \
+  OPENAI_API_KEY='<groq gsk_ key>' \
+  --yes
+supabase functions deploy ai-chat --no-verify-jwt --yes \
+  --import-map supabase/functions/import_map.json
+```
+
+`AI_PROVIDER` stays `openai` — it selects the adapter, not the vendor. Free-tier
+limits are per organization (Groq's current free plan: 30 RPM / 1,000 RPD for
+`gpt-oss` models); check the provider's rate-limit page before going live. The
+`gpt-oss` models support strict JSON schemas, which `ai-chat` requires.
+
 ## 4. External accounts and permissions needed before live use
 
 - **OpenAI** API key with access to a structured-output-capable chat model; billing/limit configured.
