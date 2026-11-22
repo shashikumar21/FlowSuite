@@ -44,26 +44,46 @@ export function withTemplateDefaults(data: Partial<WebsiteTemplateData>): Websit
   return { ...d, businessName: d.businessName || defaults.businessName, phone: d.phone || defaults.phone, email: d.email || defaults.email, headline: d.headline || defaults.headline, subheadline: d.subheadline || defaults.subheadline, ctaText: d.ctaText || defaults.ctaText, services }
 }
 
-const base = (title: string, accent: string, body: string) => `<!doctype html>
+const base = (title: string, accent: string, body: string, opts?: { bg?: string; ink?: string; muted?: string; card?: string; border?: string }) => `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${esc(title)}</title>
   <style>
-    :root{--accent:${accent};--ink:#1f2937;--muted:#6b7280;--bg:#f8fafc;--card:#ffffff}
+    :root{--accent:${accent};--ink:${opts?.ink ?? '#1f2937'};--muted:${opts?.muted ?? '#6b7280'};--bg:${opts?.bg ?? '#f8fafc'};--card:${opts?.card ?? '#ffffff'};--border:${opts?.border ?? '#e5e7eb'}}
     *{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5}
     .wrap{max-width:1040px;margin:0 auto;padding:24px} .btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:600;border:none;cursor:pointer}
-    .btn.alt{background:#fff;color:var(--accent);border:1px solid #cbd5e1} .card{background:var(--card);border:1px solid #e5e7eb;border-radius:16px;padding:20px}
+    .btn.alt{background:transparent;color:var(--accent);border:1px solid var(--border)} .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px}
     .muted{color:var(--muted)} .grid{display:grid;gap:16px} @media(min-width:768px){.grid3{grid-template-columns:repeat(3,1fr)} .grid2{grid-template-columns:repeat(2,1fr)}}
     footer{padding:32px 24px;text-align:center;color:var(--muted);font-size:14px}
-    input,textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;font:inherit}
+    input,textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;margin-top:4px;font:inherit;background:var(--card);color:var(--ink)}
   </style>
 </head>
 <body>${body}<footer>© ${new Date().getFullYear()} ${esc(title)}. All rights reserved.</footer></body></html>`
 
 function serviceCards(services: WebsiteTemplateData['services'], accent = 'var(--accent)') {
   return services.map((s) => `<div class="card"><h3 style="margin:0">${esc(s.name)}</h3><p style="font-size:28px;font-weight:700;color:${accent};margin:12px 0">${esc(s.price)}</p><p class="muted" style="margin:0">${esc(s.description)}</p></div>`).join('')
+}
+
+type CombinedTheme = { accent: string; accent2: string; bg: string; heroText: string; navBg: string; cardStyle?: string; baseOpts?: { bg?: string; ink?: string; muted?: string; card?: string; border?: string } }
+function combinedBody(d: WebsiteTemplateData, t: CombinedTheme) {
+  const b = esc(d.businessName), p = esc(d.phone), e = esc(d.email)
+  const card = t.cardStyle ?? ''
+  return `
+  <header style="background:${t.navBg};color:${t.heroText}"><div class="wrap" style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;padding:16px 24px"><strong style="font-size:20px">${b}</strong><nav style="display:flex;gap:14px;font-size:14px;flex-wrap:wrap"><a href="#services" style="color:${t.heroText};text-decoration:none;opacity:.9">Services</a><a href="#pricing" style="color:${t.heroText};text-decoration:none;opacity:.9">Pricing</a><a href="#contact" style="color:${t.heroText};text-decoration:none;opacity:.9">Contact</a></nav></div></header>
+  <section style="background:linear-gradient(135deg,${t.accent},${t.accent2});color:${t.heroText}"><div class="wrap" style="padding:64px 24px"><p style="opacity:.9;font-weight:700;letter-spacing:.04em;margin:0">WELCOME TO ${b.toUpperCase()}</p><h1 style="font-size:44px;line-height:1.1;margin:10px 0 16px;max-width:760px">${esc(d.headline)}</h1><p style="max-width:680px;font-size:18px;opacity:.95;margin:0 0 24px">${esc(d.subheadline)}</p><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn" style="background:#fff;color:${t.accent}" href="#contact">${esc(d.ctaText)}</a><a class="btn alt" style="border-color:rgba(255,255,255,.45);color:#fff;background:transparent" href="tel:${p}">Call ${p}</a></div></div></section>
+  <main>
+    <section id="services" class="wrap" style="padding-top:48px"><p style="color:${t.accent};font-weight:700;margin:0">SERVICES</p><h2 style="margin:6px 0 16px;font-size:32px">Care & services</h2><div class="grid grid3">${serviceCards(d.services, t.accent)}</div></section>
+    <section id="pricing" class="wrap"><div class="card" style="${card}"><p style="color:${t.accent};font-weight:700;margin:0">PRICING</p><h2 style="margin:6px 0 8px">Transparent pricing</h2><p class="muted" style="margin:0 0 16px">Simple pricing with no surprises. Contact us for custom packages or insurance questions.</p><div class="grid grid3">${d.services.map((s) => `<div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--card)"><div style="font-weight:600">${esc(s.name)}</div><div style="font-size:24px;font-weight:700;color:${t.accent};margin:6px 0">${esc(s.price)}</div><div class="muted" style="font-size:13px">${esc(s.description)}</div></div>`).join('')}</div></div></section>
+    <section id="contact" class="wrap" style="padding-bottom:56px"><div class="grid grid2">
+      <div><p style="color:${t.accent};font-weight:700;margin:0">CONTACT</p><h2 style="margin:6px 0 12px;font-size:32px">Get in touch with ${b}</h2><p class="muted" style="margin:0 0 16px">Have a question or want to book? Send us a message and we’ll respond soon.</p><div class="card" style="${card}"><p style="margin:0 0 8px"><strong>Phone:</strong> <a href="tel:${p}" style="color:${t.accent}">${p}</a></p><p style="margin:0 0 8px"><strong>Email:</strong> <a href="mailto:${e}" style="color:${t.accent}">${e}</a></p><p style="margin:0" class="muted">Hours: Mon–Sat, 9:00 AM – 6:00 PM</p></div></div>
+      <div class="card" style="${card}"><h3 style="margin-top:0">${esc(d.ctaText)}</h3><form action="mailto:${e}" method="post" enctype="text/plain" class="grid" style="gap:12px"><label>Full name<br/><input name="name" required /></label><label>Phone<br/><input name="phone" /></label><label>Message<br/><textarea name="message" rows="4" required></textarea></label><button class="btn" type="submit">Send message</button><p class="muted" style="font-size:12px;margin:0">Static mailto form. Connect a backend/form provider for real capture.</p></form></div>
+    </div></section>
+  </main>`
+}
+function combinedTemplate(id: string, name: string, description: string, theme: CombinedTheme): WebsiteTemplate {
+  return { id, name, description, accent: theme.accent, build: (raw) => { const d = withTemplateDefaults(raw); return base(d.businessName, theme.accent, combinedBody(d, theme), theme.baseOpts) } }
 }
 
 export const websiteTemplates: WebsiteTemplate[] = [
@@ -195,6 +215,12 @@ export const websiteTemplates: WebsiteTemplate[] = [
   </main>`)
     },
   },
+  combinedTemplate('combined-teal', 'All-in-One Teal Clinic', 'Combined Landing + Services/Pricing + Contact in a clean teal clinic theme.', { accent: '#0f766e', accent2: '#134e4a', bg: '#f8fafc', heroText: '#ffffff', navBg: '#0f766e' }),
+  combinedTemplate('combined-indigo', 'All-in-One Indigo Modern', 'Combined Landing + Services/Pricing + Contact in a modern indigo style.', { accent: '#4f46e5', accent2: '#7c3aed', bg: '#eef2ff', heroText: '#ffffff', navBg: '#4338ca' }),
+  combinedTemplate('combined-sunset', 'All-in-One Warm Sunset', 'Combined Landing + Services/Pricing + Contact in a warm orange/rose theme.', { accent: '#ea580c', accent2: '#be123c', bg: '#fff7ed', heroText: '#ffffff', navBg: '#c2410c' }),
+  combinedTemplate('combined-dark', 'All-in-One Dark Elegant', 'Combined Landing + Services/Pricing + Contact in a dark premium style.', { accent: '#22c55e', accent2: '#0f766e', bg: '#0b1220', heroText: '#f8fafc', navBg: '#111827', cardStyle: 'background:#111827;color:#e5e7eb;border-color:#1f2937', baseOpts: { bg: '#0b1220', ink: '#e5e7eb', muted: '#94a3b8', card: '#111827', border: '#1f2937' } }),
+  combinedTemplate('combined-green', 'All-in-One Fresh Green', 'Combined Landing + Services/Pricing + Contact in a fresh wellness green theme.', { accent: '#16a34a', accent2: '#15803d', bg: '#f0fdf4', heroText: '#ffffff', navBg: '#166534' }),
+  combinedTemplate('combined-minimal', 'All-in-One Minimal Slate', 'Combined Landing + Services/Pricing + Contact in a minimal slate/professional theme.', { accent: '#334155', accent2: '#0f172a', bg: '#f8fafc', heroText: '#ffffff', navBg: '#1e293b' }),
 ]
 
 function crc32(buf: Uint8Array): number {
