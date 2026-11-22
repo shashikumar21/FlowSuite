@@ -1,13 +1,14 @@
 export type WorkflowStatus = 'draft' | 'active' | 'paused'
 export type WorkflowTriggerType =
   | 'appointment_created'
+  | 'appointment_completed'
   | 'appointment_cancelled'
   | 'appointment_rescheduled'
   | 'lead_created'
   | 'contact_created'
   | 'manual'
 
-export type WorkflowActionType = 'create_task' | 'notify_team' | 'add_tag' | 'webhook_placeholder'
+export type WorkflowActionType = 'create_task' | 'notify_team' | 'add_tag' | 'webhook_placeholder' | 'send_review_request'
 
 export interface WorkflowAction {
   type: WorkflowActionType

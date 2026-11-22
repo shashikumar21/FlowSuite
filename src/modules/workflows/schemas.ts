@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const workflowTriggerTypes = [
   'appointment_created',
+  'appointment_completed',
   'appointment_cancelled',
   'appointment_rescheduled',
   'lead_created',
@@ -10,7 +11,7 @@ export const workflowTriggerTypes = [
 ] as const
 
 export const workflowStatuses = ['draft', 'active', 'paused'] as const
-export const workflowActionTypes = ['create_task', 'notify_team', 'add_tag', 'webhook_placeholder'] as const
+export const workflowActionTypes = ['create_task', 'notify_team', 'add_tag', 'webhook_placeholder', 'send_review_request'] as const
 
 export const workflowActionSchema = z.object({
   type: z.enum(workflowActionTypes),

@@ -18,6 +18,7 @@ import type { WorkflowRow, WorkflowStatus, WorkflowTriggerType } from '../types'
 
 const triggerLabels: Record<WorkflowTriggerType, string> = {
   appointment_created: 'Appointment created',
+  appointment_completed: 'Appointment completed',
   appointment_cancelled: 'Appointment cancelled',
   appointment_rescheduled: 'Appointment rescheduled',
   lead_created: 'Lead created',
@@ -30,6 +31,7 @@ const actionLabels: Record<string, string> = {
   notify_team: 'Notify team',
   add_tag: 'Add tag',
   webhook_placeholder: 'Webhook (placeholder)',
+  send_review_request: 'Send review request (approval required)',
 }
 
 const statusVariant: Record<WorkflowStatus, 'success' | 'neutral' | 'warning'> = {
@@ -191,7 +193,9 @@ export function WorkflowsPage() {
               <Button type="button" variant="outline" size="sm" onClick={() => actions.append({ type: 'notify_team', label: 'Notify team', config: { value: '' } })}><Plus className="size-4" /> Add action</Button>
             </div>
             {form.formState.errors.actions?.message ? <p className="text-xs text-red-600">{form.formState.errors.actions.message}</p> : null}
-            {actions.fields.map((field, idx) => (
+            {actions.fields.map((field, idx) => {
+              const type = form.watch(`actions.${idx}.type` as const)
+              return (
               <div key={field.id} className="rounded-lg border border-line-200 p-3 space-y-2">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <select className="w-full rounded-lg border border-line-200 px-3 py-2 text-sm" {...form.register(`actions.${idx}.type` as const)}>
@@ -199,10 +203,39 @@ export function WorkflowsPage() {
                   </select>
                   <Input placeholder="Action label" {...form.register(`actions.${idx}.label` as const)} />
                 </div>
-                <Input placeholder="Config/value (e.g. message, tag, or URL placeholder)" {...form.register(`actions.${idx}.config.value` as const)} />
+                {type === 'send_review_request' ? (
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div>
+                      <Label>Channel</Label>
+                      <select className="w-full rounded-lg border border-line-200 px-3 py-2 text-sm" {...form.register(`actions.${idx}.config.channel` as const)}>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="sms">SMS</option>
+                        <option value="email">Email</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label>Delay (hours)</Label>
+                      <Input type="number" min={0} step={1} {...form.register(`actions.${idx}.config.delay_hours` as const)} />
+                    </div>
+                    <div>
+                      <Label>Review link</Label>
+                      <select className="w-full rounded-lg border border-line-200 px-3 py-2 text-sm" {...form.register(`actions.${idx}.config.review_link_type` as const)}>
+                        <option value="flowsuite">FlowSuite review link</option>
+                        <option value="google">Google review URL</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-3">
+                      <Label>Review URL (if Google/Custom)</Label>
+                      <Input placeholder="https://..." {...form.register(`actions.${idx}.config.review_url` as const)} />
+                      <p className="mt-1 text-xs text-ink-500">Safe v1: creates a pending approval/request record. No auto-send until provider setup and explicit approval.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Input placeholder="Config/value (e.g. message, tag, or URL placeholder)" {...form.register(`actions.${idx}.config.value` as const)} />
+                )}
                 <div className="flex justify-end"><Button type="button" variant="ghost" size="sm" onClick={() => actions.remove(idx)} disabled={actions.fields.length === 1}>Remove</Button></div>
               </div>
-            ))}
+            )})}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
