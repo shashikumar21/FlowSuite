@@ -116,7 +116,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Tasks', to: '/app/tasks', icon: FileText, available: true },
       { label: 'Team', to: '/app/team', icon: Users, available: true },
-      planned('Payments', 'payments', Receipt),
+      { label: 'Payments', to: '/app/payments', icon: Receipt, available: true },
       planned('Reports', 'reports', BarChart3),
     ],
   },
