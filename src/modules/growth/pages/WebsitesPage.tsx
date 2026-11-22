@@ -1,19 +1,19 @@
 import { useState } from 'react'
-import { Copy, Download, Eye, Globe, Pencil, Plus, Rocket, Trash2 } from 'lucide-react'
+import { Copy, Download, Eye, Globe, Package, Pencil, Plus, Rocket, Settings2, Trash2 } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
-import { Select } from '@/components/ui/Input'
+import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import type { GrowthSiteRow, GrowthSubmissionRow } from '@/types/database'
 import { SiteFormModal } from '../components/SiteFormModal'
 import { SubmissionFormModal } from '../components/SubmissionFormModal'
-import { websiteTemplates, type WebsiteTemplate } from '../websiteTemplates'
+import { makeDeployPack, websiteTemplates, withTemplateDefaults, type WebsiteTemplate, type WebsiteTemplateData } from '../websiteTemplates'
 import {
   useDeleteGrowthSite,
   useDeleteGrowthSubmission,
@@ -42,31 +42,43 @@ export function WebsitesPage() {
   const [defaultWebsiteId, setDefaultWebsiteId] = useState<string | undefined>()
   const [previewTemplate, setPreviewTemplate] = useState<WebsiteTemplate | null>(null)
   const [deployTemplate, setDeployTemplate] = useState<WebsiteTemplate | null>(null)
+  const [customizeOpen, setCustomizeOpen] = useState(false)
+  const [custom, setCustom] = useState({ headline: '', subheadline: '', ctaText: 'Book appointment', s1n: 'Consultation', s1p: '₹500', s1d: 'Initial assessment and treatment plan.', s2n: 'Cleaning / Care', s2p: '₹1,200', s2d: 'Routine care with professional guidance.', s3n: 'Follow-up', s3p: '₹300', s3d: 'Review progress and adjust plan.' })
 
-  const templateData = {
+  const templateData: WebsiteTemplateData = withTemplateDefaults({
     businessName: activeTenant?.businesses?.name ?? 'Your Business',
     phone: activeTenant?.businesses?.phone ?? '',
     email: activeTenant?.businesses?.email ?? '',
-  }
+    headline: custom.headline || undefined,
+    subheadline: custom.subheadline || undefined,
+    ctaText: custom.ctaText || undefined,
+    services: [
+      { name: custom.s1n, price: custom.s1p, description: custom.s1d },
+      { name: custom.s2n, price: custom.s2p, description: custom.s2d },
+      { name: custom.s3n, price: custom.s3p, description: custom.s3d },
+    ],
+  } as Partial<WebsiteTemplateData>)
   const buildTemplate = (tpl: WebsiteTemplate) => tpl.build(templateData)
   const downloadTemplate = (tpl: WebsiteTemplate) => {
     const html = buildTemplate(tpl)
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
-    a.download = `${tpl.id}.html`
-    a.click()
+    a.href = url; a.download = `${tpl.id}.html`; a.click()
     URL.revokeObjectURL(url)
-    toast({ title: 'Template downloaded', description: `${tpl.id}.html saved. You can deploy it to Netlify, Vercel, or any static host.` })
+    toast({ title: 'Template downloaded', description: `${tpl.id}.html saved.` })
+  }
+  const downloadDeployPack = (tpl: WebsiteTemplate) => {
+    const blob = makeDeployPack(tpl, templateData)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `${tpl.id}-deploy-pack.zip`; a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: 'Deploy pack downloaded', description: 'Zip includes index.html and README.md. Deploy the folder to any static host.' })
   }
   const copyTemplate = async (tpl: WebsiteTemplate) => {
-    try {
-      await navigator.clipboard.writeText(buildTemplate(tpl))
-      toast({ title: 'Template copied', description: 'HTML copied to clipboard.' })
-    } catch {
-      toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'error' })
-    }
+    try { await navigator.clipboard.writeText(buildTemplate(tpl)); toast({ title: 'Template copied', description: 'HTML copied to clipboard.' }) }
+    catch { toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'error' }) }
   }
 
   if (!tenantId) return <ErrorState message="Select a business to manage its website records." />
@@ -140,8 +152,13 @@ export function WebsitesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>AI website templates</CardTitle>
-          <CardDescription>Choose a template, preview it, download/copy the HTML, or follow deploy steps. These are static starter files - FlowSuite does not host custom website files yet.</CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>AI website templates</CardTitle>
+              <CardDescription>Choose a template, customize it, preview, download HTML/copy, or download a deploy-ready zip. FlowSuite does not host custom website files yet.</CardDescription>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setCustomizeOpen(true)}><Settings2 className="size-4" /> Customize</Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
@@ -156,8 +173,9 @@ export function WebsitesPage() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => setPreviewTemplate(tpl)}><Eye className="size-4" /> Preview</Button>
-                  <Button size="sm" variant="outline" onClick={() => downloadTemplate(tpl)}><Download className="size-4" /> Download</Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadTemplate(tpl)}><Download className="size-4" /> HTML</Button>
                   <Button size="sm" variant="outline" onClick={() => void copyTemplate(tpl)}><Copy className="size-4" /> Copy</Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadDeployPack(tpl)}><Package className="size-4" /> Zip</Button>
                   <Button size="sm" variant="ghost" onClick={() => setDeployTemplate(tpl)}><Rocket className="size-4" /> Deploy</Button>
                 </div>
               </div>
@@ -278,39 +296,46 @@ export function WebsitesPage() {
         />
       ) : null}
 
-      <Modal open={Boolean(previewTemplate)} onClose={() => setPreviewTemplate(null)} title={previewTemplate?.name ?? 'Template preview'} description="Preview of the static HTML template. Download or copy to use it.">
+      <Modal open={Boolean(previewTemplate)} onClose={() => setPreviewTemplate(null)} title={previewTemplate?.name ?? 'Template preview'} description="Preview uses your current customization. Download HTML or a deploy-ready zip.">
         {previewTemplate ? (
           <div className="space-y-3">
             <iframe title="Template preview" srcDoc={buildTemplate(previewTemplate)} className="h-[420px] w-full rounded-lg border border-ink-200 bg-white" />
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => void copyTemplate(previewTemplate)}><Copy className="size-4" /> Copy HTML</Button>
-              <Button onClick={() => downloadTemplate(previewTemplate)}><Download className="size-4" /> Download HTML</Button>
+              <Button variant="outline" onClick={() => downloadTemplate(previewTemplate)}><Download className="size-4" /> HTML</Button>
+              <Button onClick={() => downloadDeployPack(previewTemplate)}><Package className="size-4" /> Deploy pack (.zip)</Button>
             </div>
           </div>
         ) : null}
       </Modal>
 
-      <Modal open={Boolean(deployTemplate)} onClose={() => setDeployTemplate(null)} title="Deploy website template" description="FlowSuite does not host custom website files yet. Download the HTML and deploy it with a static host.">
+      <Modal open={Boolean(deployTemplate)} onClose={() => setDeployTemplate(null)} title="Deploy website template" description="FlowSuite does not host custom website files yet. Download a deploy-ready pack and host it externally.">
         {deployTemplate ? (
           <div className="space-y-4 text-sm text-ink-700">
-            <div className="rounded-lg border border-ink-200 bg-ink-50 p-3">
-              <p className="font-semibold text-ink-900">Option A - Netlify Drop (quick)</p>
-              <p className="mt-1 text-ink-600">Download the HTML, rename it to <code>index.html</code> if needed, then drag-drop the folder/file in Netlify Drop.</p>
-            </div>
-            <div className="rounded-lg border border-ink-200 bg-ink-50 p-3">
-              <p className="font-semibold text-ink-900">Option B - Vercel / GitHub Pages</p>
-              <p className="mt-1 text-ink-600">Put the HTML file in a repo/folder as <code>index.html</code> and deploy as a static site. No build step required.</p>
-            </div>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
-              <p className="font-semibold">Inside FlowSuite now</p>
-              <p className="mt-1">You can store website records and submissions in this section, and use the public Booking page at <code>/book/:slug</code>. Custom file hosting/deploy inside FlowSuite is not configured.</p>
-            </div>
-            <div className="flex justify-end gap-2">
+            <div className="rounded-lg border border-ink-200 bg-ink-50 p-3"><p className="font-semibold text-ink-900">Option A - Netlify Drop (quick)</p><p className="mt-1 text-ink-600">Download the deploy pack, unzip, and drag-drop the folder into Netlify Drop. <code>index.html</code> is included.</p></div>
+            <div className="rounded-lg border border-ink-200 bg-ink-50 p-3"><p className="font-semibold text-ink-900">Option B - Vercel / GitHub Pages</p><p className="mt-1 text-ink-600">Push the unzipped folder to a repo or import into Vercel as a static site. No build step required.</p></div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900"><p className="font-semibold">Inside FlowSuite now</p><p className="mt-1">Use this Websites section for records/submissions and the public Booking page at <code>/book/:slug</code>. Custom file hosting inside FlowSuite is not configured.</p></div>
+            <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => setDeployTemplate(null)}>Close</Button>
-              <Button onClick={() => downloadTemplate(deployTemplate)}><Download className="size-4" /> Download {deployTemplate.name}</Button>
+              <Button variant="outline" onClick={() => downloadTemplate(deployTemplate)}><Download className="size-4" /> HTML</Button>
+              <Button onClick={() => downloadDeployPack(deployTemplate)}><Package className="size-4" /> Deploy pack (.zip)</Button>
             </div>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal open={customizeOpen} onClose={() => setCustomizeOpen(false)} title="Customize website template" description="These values are used for preview, download, copy, and deploy pack. They are not saved to the database.">
+        <div className="space-y-4">
+          <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">Headline</span><Input value={custom.headline} onChange={(e) => setCustom((c) => ({ ...c, headline: e.target.value }))} placeholder="Healthy smiles at your clinic" /></label>
+          <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">Subheadline</span><Textarea value={custom.subheadline} onChange={(e) => setCustom((c) => ({ ...c, subheadline: e.target.value }))} /></label>
+          <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">CTA button text</span><Input value={custom.ctaText} onChange={(e) => setCustom((c) => ({ ...c, ctaText: e.target.value }))} /></label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-2 rounded-lg border border-ink-100 p-3"><p className="text-xs font-semibold text-ink-700">Service 1</p><Input value={custom.s1n} onChange={(e) => setCustom((c) => ({ ...c, s1n: e.target.value }))} placeholder="Name" /><Input value={custom.s1p} onChange={(e) => setCustom((c) => ({ ...c, s1p: e.target.value }))} placeholder="Price" /><Input value={custom.s1d} onChange={(e) => setCustom((c) => ({ ...c, s1d: e.target.value }))} placeholder="Description" /></div>
+            <div className="space-y-2 rounded-lg border border-ink-100 p-3"><p className="text-xs font-semibold text-ink-700">Service 2</p><Input value={custom.s2n} onChange={(e) => setCustom((c) => ({ ...c, s2n: e.target.value }))} placeholder="Name" /><Input value={custom.s2p} onChange={(e) => setCustom((c) => ({ ...c, s2p: e.target.value }))} placeholder="Price" /><Input value={custom.s2d} onChange={(e) => setCustom((c) => ({ ...c, s2d: e.target.value }))} placeholder="Description" /></div>
+            <div className="space-y-2 rounded-lg border border-ink-100 p-3"><p className="text-xs font-semibold text-ink-700">Service 3</p><Input value={custom.s3n} onChange={(e) => setCustom((c) => ({ ...c, s3n: e.target.value }))} placeholder="Name" /><Input value={custom.s3p} onChange={(e) => setCustom((c) => ({ ...c, s3p: e.target.value }))} placeholder="Price" /><Input value={custom.s3d} onChange={(e) => setCustom((c) => ({ ...c, s3d: e.target.value }))} placeholder="Description" /></div>
+          </div>
+          <div className="flex justify-end"><Button onClick={() => { setCustomizeOpen(false); toast({ title: 'Customization applied', description: 'Preview/download will use these values.' }) }}>Apply</Button></div>
+        </div>
       </Modal>
     </div>
   )
