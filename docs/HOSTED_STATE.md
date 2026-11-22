@@ -14,6 +14,7 @@ Snapshot taken: 2026-11-22.
 | Project name | `FlowSuite` |
 | URL | `https://grkzontnyjnhijmphypo.supabase.co` |
 | Primary tenant | `06a77082-53a2-4e9c-9c35-3214a76c9ba6` (Abhishek Dental Care and Poly Clinic) |
+| Demo tenant | `09902c67-e585-427c-98be-df91c211e864` (`Demo Dental Clinic`), demo user `ce68894b-0ae5-44d8-9d75-f1fa10bf2cba` |
 | Catalog inventory | 64 public tables, all with RLS enabled; 115 `SECURITY DEFINER` functions; 12 `sales_*`/`can_manage_sales_agent` RPCs |
 
 ## Migrations already applied to hosted
@@ -59,7 +60,7 @@ before considering any future change. Other function folders in the repo
 - `OPENAI_BASE_URL` — currently the Groq OpenAI-compatible endpoint
 - `OPENAI_MODEL` — currently `openai/gpt-oss-120b`
 - `OPENAI_API_KEY` — currently a Groq key
-- `AI_CHAT_ALLOWED_ORIGINS` — `http://localhost:5173,http://127.0.0.1:5173,https://testingdemo45.netlify.app`
+- `AI_CHAT_ALLOWED_ORIGINS` — `http://localhost:5173,http://127.0.0.1:5173,https://testingdemo45.netlify.app,https://rococo-florentine-8dbe2c.netlify.app` (new FlowSuite origin added 2026-11-22; no function redeploy needed)
 
 Secrets are referenced by name only in source. No provider key belongs in a
 `VITE_*` variable. Random origins receive `403 {"error":{"code":"origin_not_allowed"}}`.
@@ -78,6 +79,42 @@ machine (`DockerRunError`). No backup file was produced.
 Until Docker or `pg_dump` is available, take a backup from the Supabase
 dashboard: **Project → Database → Backups**, or use the dashboard SQL editor.
 Do not store a data dump containing real customer records inside the git repo.
+
+## Demo account and write-path validation (2026-11-22)
+
+A separate demo user and tenant were created with explicit approval; the owner
+login is never used for demos:
+
+- `demo@flowsuite.app` / `FlowSuiteDemo@2026`
+- user `ce68894b-0ae5-44d8-9d75-f1fa10bf2cba`
+- tenant `09902c67-e585-427c-98be-df91c211e864` (`Demo Dental Clinic`)
+- seeded: 5 contacts, 2 deals, 3 appointments, 3 conversations, 3 messages, 3 tasks
+
+Validated with the demo login on the live Netlify site:
+
+- Contacts: create, edit, assign, log activity and archive all persisted.
+- Deals: create with value, move stage and change owner all persisted. There is
+  no UI to edit a deal value after creation or to delete a deal.
+- Appointments: status change persisted. Reschedule/assign are blocked by the
+  absence of seeded bookable resources and availability rules, not by RLS.
+- Inbox: mark-read, status change and internal note all persisted. No external
+  email was sent. An internal note reopens a closed thread.
+- Tasks: create, edit, delete and status actions still fail with missing
+  `public.tasks_*` RPC errors, confirming `0022` is not hosted.
+- Growth websites: the list returns `Could not find the table
+  'public.growth_websites'` and the New website form returns `Could not find the
+  function public.growth_create_site(...) in the schema cache`. Client-side Zod
+  validation works and no fake record is created. `Record submission` stays
+  disabled because no site records can load.
+- Tenant isolation: demo-token reads of the original owner tenant returned zero
+  rows across contacts, deals, appointments, conversations, tasks and
+  businesses. Demo user has one active membership: owner of the demo tenant.
+
+All write-test artifacts were deleted or restored; the demo tenant is back to
+its seeded state. This login is safe to use for guided sales demos, but the
+product is not ready to sell as a finished multi-tenant SaaS until the hosted
+migrations/RPC promotion, RLS hardening, billing, custom domain, backups and
+legal pages are in place.
 
 ## Local-only work not present on hosted (do not assume it exists)
 
