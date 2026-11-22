@@ -20,7 +20,8 @@
 --   their workflows arrive in Phase 3/4. No sending is possible from this
 --   migration.
 --
--- LOCAL ONLY: not applied to the hosted project.
+-- Applied to the hosted project after validating dependencies and the
+-- suppression expression index against the live schema.
 
 begin;
 
@@ -40,26 +41,6 @@ $$;
 
 comment on function public.can_manage_sales_agent(uuid) is
   'True for owner/admin of an active membership. Sales Agent destructive/config changes only.';
-
--- Server-authoritative suppression lookup. Phase 3 sending MUST call this or
--- re-check the same table; the browser is never trusted to skip suppression.
-create or replace function public.sales_is_suppressed(p_tenant uuid, p_email text)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select p_email is not null
-    and exists (
-      select 1 from public.suppression_list s
-      where s.tenant_id = p_tenant
-        and lower(s.email) = lower(btrim(p_email))
-    );
-$$;
-
-comment on function public.sales_is_suppressed(uuid, text) is
-  'True when the tenant has suppressed this email. Check server-side before any send.';
 
 -- ---------------------------------------------------------------------------
 -- 2. Tables
@@ -372,10 +353,36 @@ create table public.suppression_list (
   source text,
   created_by uuid,
   created_at timestamptz not null default now(),
-  unique (tenant_id, lower(email)),
   foreign key (tenant_id, created_by)
     references public.business_members(tenant_id, user_id) on delete set null
 );
+
+-- Expression uniqueness must be a unique index; UNIQUE (tenant_id, lower(email))
+-- is not valid table-constraint syntax in PostgreSQL.
+create unique index suppression_list_tenant_email_idx
+  on public.suppression_list(tenant_id, lower(email));
+
+-- Server-authoritative suppression lookup. Phase 3 sending MUST call this or
+-- re-check the same table; the browser is never trusted to skip suppression.
+-- Defined after suppression_list because SQL function bodies are parsed at
+-- creation time.
+create or replace function public.sales_is_suppressed(p_tenant uuid, p_email text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_email is not null
+    and exists (
+      select 1 from public.suppression_list s
+      where s.tenant_id = p_tenant
+        and lower(s.email) = lower(btrim(p_email))
+    );
+$$;
+
+comment on function public.sales_is_suppressed(uuid, text) is
+  'True when the tenant has suppressed this email. Check server-side before any send.';
 
 -- ---------------------------------------------------------------------------
 -- 4. RLS and table grants
@@ -425,7 +432,7 @@ revoke all on public.prospect_searches,
   public.outreach_messages,
   public.outreach_outbox,
   public.outreach_replies,
-  public.suppression_list from anon;
+  public.suppression_list from anon, authenticated;
 
 grant select on public.prospect_searches,
   public.prospects,
@@ -900,17 +907,20 @@ $$;
 -- 6. Function privileges
 -- ---------------------------------------------------------------------------
 
-revoke all on function public.can_manage_sales_agent(uuid) from public;
-revoke all on function public.sales_is_suppressed(uuid, text) from public;
-revoke all on function public.sales_normalize_website(text) from public;
-revoke all on function public.sales_find_duplicate_prospect(uuid, text, text, text, text, text) from public;
-revoke all on function public.sales_create_prospect(uuid, text, text, text, text, text, text, text, text, text, text, text, uuid, uuid, text) from public;
-revoke all on function public.sales_update_prospect(uuid, uuid, text, text, text, text, text, text, text, text, text, text, uuid, text) from public;
-revoke all on function public.sales_set_prospect_lead_status(uuid, uuid, text) from public;
-revoke all on function public.sales_delete_prospect(uuid, uuid) from public;
-revoke all on function public.sales_save_search(uuid, text, jsonb, text, uuid) from public;
-revoke all on function public.sales_import_prospects(uuid, jsonb, text) from public;
-revoke all on function public.sales_dashboard_metrics(uuid) from public;
+-- Supabase applies default privileges that grant EXECUTE explicitly to anon,
+-- authenticated and service_role when a function is created. REVOKE FROM PUBLIC
+-- alone does not remove those explicit grants, so revoke anon explicitly too.
+revoke all on function public.can_manage_sales_agent(uuid) from public, anon;
+revoke all on function public.sales_is_suppressed(uuid, text) from public, anon;
+revoke all on function public.sales_normalize_website(text) from public, anon;
+revoke all on function public.sales_find_duplicate_prospect(uuid, text, text, text, text, text) from public, anon;
+revoke all on function public.sales_create_prospect(uuid, text, text, text, text, text, text, text, text, text, text, text, uuid, uuid, text) from public, anon;
+revoke all on function public.sales_update_prospect(uuid, uuid, text, text, text, text, text, text, text, text, text, text, uuid, text) from public, anon;
+revoke all on function public.sales_set_prospect_lead_status(uuid, uuid, text) from public, anon;
+revoke all on function public.sales_delete_prospect(uuid, uuid) from public, anon;
+revoke all on function public.sales_save_search(uuid, text, jsonb, text, uuid) from public, anon;
+revoke all on function public.sales_import_prospects(uuid, jsonb, text) from public, anon;
+revoke all on function public.sales_dashboard_metrics(uuid) from public, anon;
 
 grant execute on function public.can_manage_sales_agent(uuid),
   public.sales_is_suppressed(uuid, text),
