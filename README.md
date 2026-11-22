@@ -116,7 +116,20 @@ Migration `0019_phase3_email_outreach.sql` is local-only and extends `0017` with
 
 Migration `0020_phase4_contacts_replies.sql` is local-only and adds RPCs only — it does not recreate or destructively alter any `0017` table. See [docs/PHASE4_PLAN.md](docs/PHASE4_PLAN.md) for the file-by-file plan. Nothing was promoted to hosted, no provider was configured and no email was sent.
 
-**Still not built:** WhatsApp/AI live integrations, workflow builder, marketing campaigns, reputation, website builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred. See `src/app/config/navigation.ts` for the planned module map.
+### Growth (local only)
+
+| Area | Status |
+| --- | --- |
+| Growth overview with counts from the six real tenant-scoped tables | Code complete locally; needs migration `0021` |
+| Marketing: campaign copy for WhatsApp/SMS/ads/social with no broadcast provider | Code complete locally; needs migration `0021`. **Nothing is sent** |
+| Campaigns: multi-channel plans, dates, status and real creative counts | Code complete locally; needs migration `0021`. **No delivery metrics** |
+| Websites: page records and manually recorded form submissions | Code complete locally; needs migration `0021`. **No hosting or custom domains** |
+| Reputation: reviews, server-stamped responses and direct feedback | Code complete locally; needs migration `0021`. **No review provider or posting** |
+| Hosted database / deployed functions | Unchanged — `0021` not applied; no new function deployed |
+
+Migration `0021_growth_modules.sql` is local-only and creates six new tables without editing any earlier migration. Browser code has SELECT only; all writes go through 18 trusted, tenant-scoped RPCs. Deletes and owner/admin checks are enforced server-side, and a review response is stamped with `auth.uid()` by the RPC. See [docs/GROWTH_PLAN.md](docs/GROWTH_PLAN.md) and [docs/GROWTH.md](docs/GROWTH.md).
+
+**Still not built:** hosted promotion of `0019`, `0020` and `0021`, WhatsApp/AI live integrations, workflow builder, Razorpay billing and advanced analytics. Automated email dispatch is intentionally deferred. See `src/app/config/navigation.ts` for the remaining planned modules.
 
 ---
 

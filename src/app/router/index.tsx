@@ -25,6 +25,11 @@ import { CrmSettingsPage } from '@/modules/crm/pages/CrmSettingsPage'
 import { DealsPage } from '@/modules/crm/pages/DealsPage'
 import { ImportHistoryPage } from '@/modules/crm/pages/ImportHistoryPage'
 import { DashboardPage } from '@/modules/dashboard/pages/DashboardPage'
+import { GrowthOverviewPage } from '@/modules/growth/pages/GrowthOverviewPage'
+import { MarketingPage } from '@/modules/growth/pages/MarketingPage'
+import { CampaignsPage as GrowthCampaignsPage } from '@/modules/growth/pages/CampaignsPage'
+import { WebsitesPage } from '@/modules/growth/pages/WebsitesPage'
+import { ReputationPage } from '@/modules/growth/pages/ReputationPage'
 import { InboxPage } from '@/modules/inbox/pages/InboxPage'
 import { NotificationsPage } from '@/modules/notifications/pages/NotificationsPage'
 import { ModulePlaceholderPage } from '@/modules/dashboard/pages/ModulePlaceholderPage'
@@ -89,6 +94,11 @@ export function AppRouter() {
           <Route path="sales-agent/sending" element={<SendingPage />} />
           <Route path="sales-agent/decision-makers" element={<DecisionMakersPage />} />
           <Route path="sales-agent/replies" element={<RepliesPage />} />
+          <Route path="growth" element={<GrowthOverviewPage />} />
+          <Route path="growth/marketing" element={<MarketingPage />} />
+          <Route path="growth/campaigns" element={<GrowthCampaignsPage />} />
+          <Route path="growth/websites" element={<WebsitesPage />} />
+          <Route path="growth/reputation" element={<ReputationPage />} />
           <Route path="settings/business" element={<BusinessSettingsPage />} />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
           <Route path="settings/profile" element={<ProfileSettingsPage />} />

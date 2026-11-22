@@ -206,6 +206,12 @@ export function DashboardPage() {
                 <Link to="/app/crm" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
                   CRM overview <ArrowRight className="size-3.5" />
                 </Link>
+                <Link to="/app/sales-agent" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  Sales agent <ArrowRight className="size-3.5" />
+                </Link>
+                <Link to="/app/growth" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+                  Growth overview <ArrowRight className="size-3.5" />
+                </Link>
                 <Link to="/app/contacts" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
                   Add a contact <ArrowRight className="size-3.5" />
                 </Link>

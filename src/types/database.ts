@@ -1302,6 +1302,102 @@ export type SalesImportResult = {
   }>
 }
 
+/* Growth — local-only 0021. SELECT-only for browser code; writes via RPCs. */
+export type GrowthChannel = 'whatsapp' | 'sms' | 'ads' | 'social' | 'email' | 'other'
+export type GrowthCampaignStatus = 'draft' | 'planned' | 'active' | 'paused' | 'completed' | 'cancelled'
+export type GrowthCreativeStatus = 'draft' | 'ready' | 'used' | 'archived'
+export type GrowthSiteStatus = 'draft' | 'published' | 'archived'
+export type GrowthSubmissionStatus = 'new' | 'reviewed' | 'archived'
+export type GrowthReviewStatus = 'new' | 'reviewed' | 'responded' | 'archived'
+export type GrowthReviewSource = 'google' | 'facebook' | 'website' | 'other'
+export type GrowthFeedbackSource = 'in_person' | 'website' | 'whatsapp' | 'other'
+
+export type GrowthCampaignRow = {
+  id: string
+  tenant_id: string
+  name: string
+  channel: GrowthChannel
+  objective: string
+  status: GrowthCampaignStatus
+  starts_on: string | null
+  ends_on: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GrowthCreativeRow = {
+  id: string
+  tenant_id: string
+  campaign_id: string
+  name: string
+  channel: GrowthChannel
+  headline: string | null
+  message: string
+  cta: string | null
+  status: GrowthCreativeStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GrowthSiteRow = {
+  id: string
+  tenant_id: string
+  name: string
+  slug: string
+  domain: string | null
+  status: GrowthSiteStatus
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GrowthSubmissionRow = {
+  id: string
+  tenant_id: string
+  website_id: string
+  full_name: string
+  email: string
+  message: string | null
+  status: GrowthSubmissionStatus
+  recorded_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GrowthReviewRow = {
+  id: string
+  tenant_id: string
+  source: GrowthReviewSource
+  author: string
+  rating: number
+  title: string | null
+  body: string | null
+  review_date: string | null
+  status: GrowthReviewStatus
+  response: string | null
+  responded_by: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type GrowthFeedbackRow = {
+  id: string
+  tenant_id: string
+  source: GrowthFeedbackSource
+  customer: string
+  rating: number
+  comment: string | null
+  status: GrowthSubmissionStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -1597,6 +1693,14 @@ export interface Database {
       outreach_replies: Table<OutreachReplyRow, Partial<OutreachReplyRow>, Partial<OutreachReplyRow>>
       suppression_list: Table<SuppressionRow, Partial<SuppressionRow>, Partial<SuppressionRow>>
       sales_email_approvals: Table<SalesEmailApprovalRow, Partial<SalesEmailApprovalRow>, Partial<SalesEmailApprovalRow>>
+
+      /* Growth — SELECT-only for browser code. Writes go via trusted RPCs. */
+      growth_campaigns: Table<GrowthCampaignRow, Partial<GrowthCampaignRow>, Partial<GrowthCampaignRow>>
+      growth_creatives: Table<GrowthCreativeRow, Partial<GrowthCreativeRow>, Partial<GrowthCreativeRow>>
+      growth_websites: Table<GrowthSiteRow, Partial<GrowthSiteRow>, Partial<GrowthSiteRow>>
+      growth_form_submissions: Table<GrowthSubmissionRow, Partial<GrowthSubmissionRow>, Partial<GrowthSubmissionRow>>
+      growth_reviews: Table<GrowthReviewRow, Partial<GrowthReviewRow>, Partial<GrowthReviewRow>>
+      growth_feedback: Table<GrowthFeedbackRow, Partial<GrowthFeedbackRow>, Partial<GrowthFeedbackRow>>
     }
     Views: Record<string, never>
     Functions: {
@@ -2533,6 +2637,137 @@ export interface Database {
         Returns: undefined
       }
       sales_delete_reply: { Args: { p_tenant: string; p_reply: string }; Returns: undefined }
+
+      /* Growth — local-only 0021. Every write is tenant scoped and audited. */
+      growth_create_campaign: {
+        Args: {
+          p_tenant: string
+          p_name: string
+          p_channel: GrowthChannel
+          p_objective: string
+          p_status: GrowthCampaignStatus
+          p_starts_on: string | null
+          p_ends_on: string | null
+          p_notes: string | null
+        }
+        Returns: string
+      }
+      growth_update_campaign: {
+        Args: {
+          p_tenant: string
+          p_campaign: string
+          p_name: string
+          p_channel: GrowthChannel
+          p_objective: string
+          p_status: GrowthCampaignStatus
+          p_starts_on: string | null
+          p_ends_on: string | null
+          p_notes: string | null
+        }
+        Returns: undefined
+      }
+      growth_delete_campaign: { Args: { p_tenant: string; p_campaign: string }; Returns: undefined }
+      growth_create_creative: {
+        Args: {
+          p_tenant: string
+          p_campaign: string
+          p_name: string
+          p_channel: GrowthChannel
+          p_headline: string | null
+          p_message: string
+          p_cta: string | null
+          p_status: GrowthCreativeStatus
+        }
+        Returns: string
+      }
+      growth_update_creative: {
+        Args: {
+          p_tenant: string
+          p_creative: string
+          p_name: string
+          p_channel: GrowthChannel
+          p_headline: string | null
+          p_message: string
+          p_cta: string | null
+          p_status: GrowthCreativeStatus
+        }
+        Returns: undefined
+      }
+      growth_delete_creative: { Args: { p_tenant: string; p_creative: string }; Returns: undefined }
+      growth_create_site: {
+        Args: {
+          p_tenant: string
+          p_name: string
+          p_slug: string
+          p_domain: string | null
+          p_status: GrowthSiteStatus
+          p_notes: string | null
+        }
+        Returns: string
+      }
+      growth_update_site: {
+        Args: {
+          p_tenant: string
+          p_site: string
+          p_name: string
+          p_slug: string
+          p_domain: string | null
+          p_status: GrowthSiteStatus
+          p_notes: string | null
+        }
+        Returns: undefined
+      }
+      growth_delete_site: { Args: { p_tenant: string; p_site: string }; Returns: undefined }
+      growth_record_submission: {
+        Args: {
+          p_tenant: string
+          p_site: string
+          p_full_name: string
+          p_email: string
+          p_message: string | null
+          p_status: GrowthSubmissionStatus
+        }
+        Returns: string
+      }
+      growth_update_submission: {
+        Args: { p_tenant: string; p_submission: string; p_status: GrowthSubmissionStatus }
+        Returns: undefined
+      }
+      growth_delete_submission: { Args: { p_tenant: string; p_submission: string }; Returns: undefined }
+      growth_record_review: {
+        Args: {
+          p_tenant: string
+          p_source: GrowthReviewSource
+          p_author: string
+          p_rating: number
+          p_title: string | null
+          p_body: string | null
+          p_review_date: string | null
+          p_status: GrowthReviewStatus
+        }
+        Returns: string
+      }
+      growth_update_review: {
+        Args: { p_tenant: string; p_review: string; p_status: GrowthReviewStatus; p_response: string | null }
+        Returns: undefined
+      }
+      growth_delete_review: { Args: { p_tenant: string; p_review: string }; Returns: undefined }
+      growth_record_feedback: {
+        Args: {
+          p_tenant: string
+          p_source: GrowthFeedbackSource
+          p_customer: string
+          p_rating: number
+          p_comment: string | null
+          p_status: GrowthSubmissionStatus
+        }
+        Returns: string
+      }
+      growth_update_feedback: {
+        Args: { p_tenant: string; p_feedback: string; p_status: GrowthSubmissionStatus }
+        Returns: undefined
+      }
+      growth_delete_feedback: { Args: { p_tenant: string; p_feedback: string }; Returns: undefined }
 
       admin_list_businesses: {
         Args: Record<string, never>

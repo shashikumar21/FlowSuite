@@ -79,10 +79,11 @@ export const navigation: NavGroup[] = [
   {
     label: 'Growth',
     items: [
-      planned('Marketing', 'marketing', Megaphone),
-      planned('Campaigns', 'campaigns', Inbox),
-      planned('Websites', 'websites', Globe),
-      planned('Reputation', 'reputation', Star),
+      { label: 'Overview', to: '/app/growth', icon: BarChart3, available: true },
+      { label: 'Marketing', to: '/app/growth/marketing', icon: Megaphone, available: true },
+      { label: 'Campaigns', to: '/app/growth/campaigns', icon: Inbox, available: true },
+      { label: 'Websites', to: '/app/growth/websites', icon: Globe, available: true },
+      { label: 'Reputation', to: '/app/growth/reputation', icon: Star, available: true },
     ],
   },
   {
@@ -129,10 +130,10 @@ export const navigation: NavGroup[] = [
 ]
 
 export const moduleTitles: Record<string, { title: string; description: string; icon: LucideIcon; phase: string }> = {
-  marketing: { title: 'Marketing', description: 'Campaigns, WhatsApp broadcasts and ad creatives.', icon: Megaphone, phase: 'Phase 3' },
-  campaigns: { title: 'Campaigns', description: 'Create and measure multi-channel campaigns.', icon: Inbox, phase: 'Phase 3' },
-  websites: { title: 'Websites', description: 'Landing pages, forms and custom domains.', icon: Globe, phase: 'Phase 3' },
-  reputation: { title: 'Reputation', description: 'Reviews, AI replies and feedback collection.', icon: Star, phase: 'Phase 3' },
+  marketing: { title: 'Marketing', description: 'Save channel copy for planned campaigns. No broadcast provider.', icon: Megaphone, phase: 'Growth (local)' },
+  campaigns: { title: 'Campaigns', description: 'Plan multi-channel campaigns. No sends or delivery metrics.', icon: Inbox, phase: 'Growth (local)' },
+  websites: { title: 'Websites', description: 'Record pages and form leads. No hosting or custom domains.', icon: Globe, phase: 'Growth (local)' },
+  reputation: { title: 'Reputation', description: 'Record reviews, responses and feedback. No provider posts.', icon: Star, phase: 'Growth (local)' },
   workflows: { title: 'Workflows', description: 'Triggers, conditions, actions and delays.', icon: Workflow, phase: 'Phase 3' },
   'sales-decision-makers': { title: 'Decision makers', description: 'Research contacts within each sales prospect.', icon: UserCog, phase: 'Phase 4' },
   'sales-email-writer': { title: 'AI email writer', description: 'Draft outreach from saved prospect context.', icon: MessageSquare, phase: 'Phase 3' },
