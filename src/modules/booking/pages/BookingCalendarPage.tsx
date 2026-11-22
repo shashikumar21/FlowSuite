@@ -60,7 +60,7 @@ export function BookingCalendarPage() {
     const connected = params.get('calendar_connected')
     const calendarError = params.get('calendar_error')
     if (connected === 'google') {
-      toast({ title: 'Google Calendar connected', description: 'Your Google account is connected. Appointment sync can be enabled in Phase 2.' })
+      toast({ title: 'Google Calendar connected', description: 'Your Google account is connected. FlowSuite → Google sync will activate after Phase 2 migration/function are deployed.' })
       params.delete('calendar_connected'); setParams(params, { replace: true })
       void loadStatus()
     } else if (calendarError) {
@@ -108,7 +108,7 @@ export function BookingCalendarPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Booking</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Calendar</h1>
-          <p className="mt-1 text-sm text-ink-500">Connect external calendars. Google Calendar Phase 1 connection is available (sync is Phase 2).</p>
+          <p className="mt-1 text-sm text-ink-500">Connect external calendars. Google Calendar Phase 1 connection is available; Phase 2 FlowSuite → Google sync is drafted locally (needs hosted migration/function deploy approvals).</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void loadStatus()} loading={loading}><RefreshCw className="size-4" /> Refresh</Button>
       </div>
@@ -117,8 +117,8 @@ export function BookingCalendarPage() {
         <CardContent className="flex items-start gap-3 py-4">
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
           <div className="text-sm text-amber-900">
-            <p className="font-semibold">Phase 1: connection only</p>
-            <p className="mt-1 text-amber-800">Google OAuth connect/disconnect is wired. Appointment sync (FlowSuite → Google) is Phase 2 and not enabled yet. Tokens are server-side only.</p>
+            <p className="font-semibold">Phase 1 connected, Phase 2 sync drafted</p>
+            <p className="mt-1 text-amber-800">Google OAuth connect/disconnect is live when deployed. Phase 2 FlowSuite → Google sync code is drafted locally (create/reschedule/cancel). It requires approved hosted migration + Edge Function deploy before it runs. Tokens remain server-side only.</p>
           </div>
         </CardContent>
       </Card>

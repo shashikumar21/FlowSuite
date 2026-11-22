@@ -472,6 +472,7 @@ export async function createStaffAppointment(tenantId: string, values: StaffAppo
     p_idempotency_key: values.idempotency_key,
   })
   if (error) throw error
+  void syncAppointmentToCalendar({ tenantId, appointmentId: data })
   return data
 }
 
@@ -488,6 +489,7 @@ export async function setAppointmentStatus(
     p_reason: reason ?? null,
   })
   if (error) throw error
+  void syncAppointmentToCalendar({ tenantId, appointmentId })
 }
 
 export async function rescheduleAppointment(
@@ -503,6 +505,7 @@ export async function rescheduleAppointment(
     p_reason: reason ?? null,
   })
   if (error) throw error
+  void syncAppointmentToCalendar({ tenantId, appointmentId })
 }
 
 export async function assignAppointment(
@@ -518,6 +521,29 @@ export async function assignAppointment(
     p_user_id: userId,
   })
   if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Calendar sync (Phase 2 v1, best-effort). Failures should not break booking.
+// ---------------------------------------------------------------------------
+
+export async function syncAppointmentToCalendar(input: {
+  tenantId?: string
+  appointmentId: string
+  manageToken?: string
+}): Promise<void> {
+  try {
+    const { error } = await requireSupabase().functions.invoke('calendar-sync-appointment', {
+      body: {
+        tenant_id: input.tenantId,
+        appointment_id: input.appointmentId,
+        manage_token: input.manageToken,
+      },
+    })
+    if (error) console.warn('Calendar sync failed', error.message)
+  } catch (e) {
+    console.warn('Calendar sync failed', e)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -565,6 +591,7 @@ export async function createPublicBooking(values: PublicBookingInput): Promise<P
     p_idempotency_key: values.idempotency_key,
   })
   if (error) throw error
+  void syncAppointmentToCalendar({ appointmentId: data.id, manageToken: data.manage_token })
   return data
 }
 
@@ -581,5 +608,6 @@ export async function managePublicBooking(input: {
     p_reason: input.reason ?? null,
   })
   if (error) throw error
+  void syncAppointmentToCalendar({ appointmentId: data.id, manageToken: input.token })
   return data
 }
