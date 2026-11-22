@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { AlertTriangle, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -52,18 +52,8 @@ export function DraftEditor({
   const suppressed = isSuppressed(message.recipient_email ?? '', suppression)
   const availableDecisionMakers = decisionMakers.filter((item) => item.prospect_id === message.prospect_id)
 
-  useEffect(() => {
-    setSubject(message.subject)
-    setOpening(message.opening ?? '')
-    setBody(message.body)
-    setCta(message.cta ?? '')
-    setFollowUpSubject(message.follow_up_subject ?? '')
-    setFollowUpBody(message.follow_up_body ?? '')
-    setDecisionMakerId(message.decision_maker_id ?? '')
-    setGenerationSource(message.generation_source)
-    setNotice(null)
-    setError(null)
-  }, [message])
+  // No state-sync effect: EmailWriterPage keys this editor by message id, so a
+  // different message remounts it. A refetch of the same id keeps local edits.
 
   function buildValues() {
     return {

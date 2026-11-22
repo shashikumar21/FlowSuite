@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, Check, History, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -33,13 +33,8 @@ export function ApprovalRow({
   const [showHistory, setShowHistory] = useState(false)
   const review = useReviewDraft(tenantId)
 
-  useEffect(() => {
-    setSubject(message.subject)
-    setBody(message.body)
-    setEditing(false)
-    setReason('')
-    setError(null)
-  }, [message])
+  // No state-sync effect: ApprovalsPage keys this row by message id, so a
+  // different message remounts it. A refetch of the same id keeps local edits.
 
   async function decide(decision: 'approve' | 'reject') {
     setError(null)
