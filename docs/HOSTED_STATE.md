@@ -216,6 +216,17 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   approval via
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0027_workflows.sql`.
   No workflow execution/webhooks/external actions enabled.
+- `supabase/migrations/0028_workflows_phase_a.sql` — Workflows Phase A run logs:
+  `workflow_runs` and `workflow_run_steps` tables, SELECT-only RLS. **Applied to
+  hosted 2026-11-22** with explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0028_workflows_phase_a.sql`.
+  No runner/execution enabled.
+- `supabase/migrations/0029_workflows_review_requests.sql` — adds
+  `appointment_completed` workflow trigger support and `review_requests` outbox
+  table (`pending_approval` default; no auto-send). **Applied to hosted 2026-11-22**
+  with explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0029_workflows_review_requests.sql`.
+  No WhatsApp/provider sending enabled.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
@@ -223,7 +234,7 @@ Hosted therefore still has exactly 10 Sales Agent tables and 12
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
-1 workflows table and 4 `workflows_*` RPCs (from `0027`, applied 2026-11-22; no execution engine),
+4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs (from `0027`-`0029`, applied 2026-11-22; no execution/sending),
 and no `tasks_*` RPCs. The Phase 3,
 Phase 4, and Tasks pages in this repo run against the hosted project through
 `.env.local` and correctly show schema-cache errors until a deliberate promotion
