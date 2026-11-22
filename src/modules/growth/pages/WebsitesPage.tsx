@@ -188,19 +188,54 @@ export function WebsitesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Sparkles className="size-4 text-brand-600" /> AI Website Builder</CardTitle>
-          <CardDescription>Describe the website you want, like you would to ChatGPT/Claude. Generates a static HTML website (requires deployed <code>website-generate</code> Edge Function and server-side AI provider config).</CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2"><Sparkles className="size-4 text-brand-600" /> AI Website Builder</CardTitle>
+              <CardDescription>Describe the website you want in plain language. Generate a static HTML draft, then preview, download, or deploy it.</CardDescription>
+            </div>
+            <Badge variant={aiHtml ? 'success' : 'warning'}>{aiHtml ? 'Draft ready' : 'AI keys needed for generation'}</Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} rows={4} placeholder="Example: Build a modern dental clinic website for Demo Dental Clinic with hero, services, testimonials, FAQ, and a contact form. Use teal colors and a professional tone." />
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void generateWebsite()} loading={aiGenerating}><Sparkles className="size-4" /> Generate website</Button>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">Try an example</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                'Build a modern dental clinic website with hero, services, testimonials, FAQ, and a booking CTA. Use a clean teal theme.',
+                'Create a simple one-page website for my business with services, pricing, about section, and contact form.',
+                'Make a premium landing page for a clinic with before/after care tips, doctor intro, reviews, and WhatsApp call-to-action.',
+              ].map((ex) => (
+                <button key={ex} type="button" onClick={() => setAiPrompt(ex)} className="rounded-full border border-ink-200 bg-white px-3 py-1.5 text-left text-xs text-ink-600 hover:border-brand-300 hover:text-brand-700">
+                  {ex.length > 70 ? `${ex.slice(0, 70)}…` : ex}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-ink-700">Website prompt</span>
+            <Textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} rows={5} placeholder="Example: Build a modern dental clinic website for Demo Dental Clinic with hero, services, testimonials, FAQ, and a contact form. Use teal colors and a professional tone." />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => void generateWebsite()} loading={aiGenerating} disabled={aiGenerating || aiPrompt.trim().length < 10}><Sparkles className="size-4" /> Generate website</Button>
             {aiHtml ? <Button variant="outline" onClick={downloadAiHtml}><Download className="size-4" /> Download HTML</Button> : null}
             {aiHtml ? <Button variant="outline" onClick={downloadAiZip}><Package className="size-4" /> Deploy pack (.zip)</Button> : null}
             {aiHtml ? <Button variant="outline" onClick={() => { void navigator.clipboard.writeText(aiHtml); toast({ title: 'Copied' }) }}><Copy className="size-4" /> Copy HTML</Button> : null}
+            {aiHtml ? <Button variant="ghost" onClick={() => setAiHtml(null)}>Clear preview</Button> : null}
           </div>
-          {aiHtml ? <iframe title="AI generated website preview" srcDoc={aiHtml} className="h-[420px] w-full rounded-lg border border-ink-200 bg-white" /> : null}
-          <p className="text-xs text-ink-500">No AI provider is configured by this change. If generation is unavailable, deploy <code>supabase/functions/website-generate</code> and set server-side AI secrets with explicit approval.</p>
+          <div className="rounded-xl border border-ink-200 bg-ink-50/40 p-3">
+            {aiHtml ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-ink-900">Preview</p><p className="text-xs text-ink-500">Static HTML draft</p></div>
+                <iframe title="AI generated website preview" srcDoc={aiHtml} className="h-[460px] w-full rounded-lg border border-ink-200 bg-white" />
+              </div>
+            ) : (
+              <div className="flex min-h-[220px] flex-col items-center justify-center text-center">
+                <Sparkles className="size-6 text-ink-400" />
+                <p className="mt-2 text-sm font-medium text-ink-700">Your generated website preview will appear here</p>
+                <p className="mt-1 max-w-xl text-xs text-ink-500">Write a prompt or pick an example. Generation needs the deployed <code>website-generate</code> Edge Function and server-side AI provider keys.</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
