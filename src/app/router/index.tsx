@@ -43,6 +43,9 @@ const BookingCalendarPage = lazy(() =>
 const PublicBookingPage = lazy(() =>
   import('@/modules/booking/pages/PublicBookingPage').then((m) => ({ default: m.PublicBookingPage })),
 )
+const PublicReviewPage = lazy(() =>
+  import('@/modules/reviews/pages/PublicReviewPage').then((m) => ({ default: m.PublicReviewPage })),
+)
 const ResourcesPage = lazy(() =>
   import('@/modules/booking/pages/ResourcesPage').then((m) => ({ default: m.ResourcesPage })),
 )
@@ -180,6 +183,7 @@ export function AppRouter() {
         <Route path="/invite/:token" element={<AcceptInvitationPage />} />
         {/* Anonymous, slug-scoped booking page. All validation happens server-side. */}
         <Route path="/book/:slug" element={<PublicBookingPage />} />
+        <Route path="/r/:token" element={<PublicReviewPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<HomeRedirect />} />
