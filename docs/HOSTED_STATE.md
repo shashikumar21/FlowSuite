@@ -88,6 +88,9 @@ is now the source of truth; manual static drops are deprecated.
 
 - First Git production deploy: commit `2c5cfcd`, deploy
   `6b02dce9c6260b8b1b61746d`, built from `master`.
+- Final verified deploy: `master@b1fe405` (deploy `6b02de07e7fe…`), built after
+  the Netlify env vars were added. JS/CSS MIME types, immutable asset caching,
+  SPA deep links and AI-chat CORS were all confirmed on this deploy.
 - Build settings come from `netlify.toml`: `npm run build`, publish `dist`,
   Node `22`, SPA fallback and immutable `/assets/*` caching.
 - Public values (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`,
