@@ -80,6 +80,23 @@ Until Docker or `pg_dump` is available, take a backup from the Supabase
 dashboard: **Project → Database → Backups**, or use the dashboard SQL editor.
 Do not store a data dump containing real customer records inside the git repo.
 
+## Git-connected production deploy (2026-11-22)
+
+The Netlify project `rococo-florentine-8dbe2c` is linked to
+`https://github.com/shashikumar21/FlowSuite.git`, branch `master`. The Git repo
+is now the source of truth; manual static drops are deprecated.
+
+- First Git production deploy: commit `2c5cfcd`, deploy
+  `6b02dce9c6260b8b1b61746d`, built from `master`.
+- Build settings come from `netlify.toml`: `npm run build`, publish `dist`,
+  Node `22`, SPA fallback and immutable `/assets/*` caching.
+- Public values (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`,
+  `VITE_APP_NAME`, `VITE_SUPPORT_EMAIL`) are set in Netlify site configuration
+  (Keys and secrets), never committed. No service-role, database, AI or payment
+  secret is exposed to the browser.
+- Every push to `master` starts a new production build; re-deploy after changing
+  Netlify env values because they are read at build time.
+
 ## Demo account and write-path validation (2026-11-22)
 
 A separate demo user and tenant were created with explicit approval; the owner
