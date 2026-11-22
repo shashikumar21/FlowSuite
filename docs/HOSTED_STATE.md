@@ -192,13 +192,20 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   approval via `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0023_voice_call_agent.sql`.
   Verified: all 5 voice/call tables and 4 `voice_*` RPCs present. No telephony
   provider, secrets, webhooks, or calling behavior is configured.
+- `supabase/migrations/0024_payments_manual_invoices.sql` — manual invoice shell:
+  `invoices` and `invoice_payments` tables, SELECT-only RLS, server-computed
+  totals/status, and trusted RPCs (`payments_create_invoice`,
+  `payments_update_invoice`, `payments_record_payment`,
+  `payments_delete_invoice`). Never submitted to hosted. No payment provider,
+  gateway, webhook, or online collection is configured.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
 (from `0021`, applied 2026-11-22), 5 Voice/Call Agent tables and 4 `voice_*` RPCs
-(from `0023`, applied 2026-11-22), and no `tasks_*` RPCs. The Phase 3, Phase 4,
-and Tasks pages in this repo run against the hosted project through `.env.local`
-and correctly show schema-cache errors until a deliberate promotion is approved.
+(from `0023`, applied 2026-11-22), no `tasks_*` RPCs, and no invoice/payment
+tables or RPCs. The Phase 3, Phase 4, Tasks, and manual Payments pages in this
+repo run against the hosted project through `.env.local` and correctly show
+schema-cache/missing-table errors until a deliberate promotion is approved.
 
 ## Read-only verification commands
 

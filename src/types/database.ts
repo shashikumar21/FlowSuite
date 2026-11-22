@@ -1405,6 +1405,44 @@ export type GrowthFeedbackRow = {
   updated_at: string
 }
 
+export type InvoiceStatus = 'draft' | 'sent' | 'partially_paid' | 'paid' | 'void'
+export type InvoicePaymentMethod = 'cash' | 'upi' | 'card' | 'bank_transfer' | 'other'
+
+export type InvoiceRow = {
+  id: string
+  tenant_id: string
+  contact_id: string | null
+  invoice_number: string
+  title: string
+  status: InvoiceStatus
+  currency: string
+  issue_date: string
+  due_date: string | null
+  line_items: Json
+  subtotal: number
+  tax_amount: number
+  discount_amount: number
+  total_amount: number
+  amount_paid: number
+  notes: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type InvoicePaymentRow = {
+  id: string
+  tenant_id: string
+  invoice_id: string
+  amount: number
+  method: InvoicePaymentMethod
+  reference: string | null
+  paid_at: string
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+
 export type VoiceAgentStatus = 'draft' | 'active' | 'paused' | 'archived'
 export type VoiceAgentDirection = 'inbound' | 'outbound' | 'both'
 export type VoiceBookingMode = 'lead_capture' | 'booking_assist' | 'disabled'
@@ -1795,6 +1833,8 @@ export interface Database {
       growth_form_submissions: Table<GrowthSubmissionRow, Partial<GrowthSubmissionRow>, Partial<GrowthSubmissionRow>>
       growth_reviews: Table<GrowthReviewRow, Partial<GrowthReviewRow>, Partial<GrowthReviewRow>>
       growth_feedback: Table<GrowthFeedbackRow, Partial<GrowthFeedbackRow>, Partial<GrowthFeedbackRow>>
+      invoices: Table<InvoiceRow, Partial<InvoiceRow>, Partial<InvoiceRow>>
+      invoice_payments: Table<InvoicePaymentRow, Partial<InvoicePaymentRow>, Partial<InvoicePaymentRow>>
       voice_agents: Table<VoiceAgentRow, Partial<VoiceAgentRow>, Partial<VoiceAgentRow>>
       call_sessions: Table<CallSessionRow, Partial<CallSessionRow>, Partial<CallSessionRow>>
       call_transcripts: Table<CallTranscriptRow, Partial<CallTranscriptRow>, Partial<CallTranscriptRow>>
@@ -2940,6 +2980,54 @@ export interface Database {
         Returns: string
       }
       voice_resolve_handoff: { Args: { p_tenant: string; p_handoff: string }; Returns: undefined }
+
+      /* Payments manual invoices — local-only 0024. No provider integration. */
+      payments_create_invoice: {
+        Args: {
+          p_tenant: string
+          p_contact: string | null
+          p_title: string
+          p_status: 'draft' | 'sent'
+          p_currency: string
+          p_issue_date: string
+          p_due_date: string | null
+          p_line_items: Json
+          p_tax_amount: number
+          p_discount_amount: number
+          p_notes: string | null
+        }
+        Returns: string
+      }
+      payments_update_invoice: {
+        Args: {
+          p_tenant: string
+          p_invoice: string
+          p_contact: string | null
+          p_title: string
+          p_status: 'draft' | 'sent' | 'void'
+          p_currency: string
+          p_issue_date: string
+          p_due_date: string | null
+          p_line_items: Json
+          p_tax_amount: number
+          p_discount_amount: number
+          p_notes: string | null
+        }
+        Returns: undefined
+      }
+      payments_record_payment: {
+        Args: {
+          p_tenant: string
+          p_invoice: string
+          p_amount: number
+          p_method: InvoicePaymentMethod
+          p_reference: string | null
+          p_paid_at: string | null
+          p_notes: string | null
+        }
+        Returns: string
+      }
+      payments_delete_invoice: { Args: { p_tenant: string; p_invoice: string }; Returns: undefined }
 
       admin_list_businesses: {
         Args: Record<string, never>
