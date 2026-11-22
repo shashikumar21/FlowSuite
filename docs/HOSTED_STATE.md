@@ -188,15 +188,17 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   AI Call Agent foundation: `voice_agents`, `call_sessions`, `call_transcripts`,
   `call_events`, `call_handoffs` tables, SELECT-only RLS, and four trusted RPCs
   (`voice_upsert_agent`, `voice_log_call_session`, `voice_create_handoff`,
-  `voice_resolve_handoff`). Never submitted to hosted. No telephony provider,
-  secrets, webhooks, or calling behavior is configured.
+  `voice_resolve_handoff`). **Applied to hosted 2026-11-22** with explicit user
+  approval via `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0023_voice_call_agent.sql`.
+  Verified: all 5 voice/call tables and 4 `voice_*` RPCs present. No telephony
+  provider, secrets, webhooks, or calling behavior is configured.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
-(from `0021`, applied 2026-11-22), no `tasks_*` RPCs, and no `voice_*`/call-agent
-tables or RPCs. The Phase 3, Phase 4, Tasks, and Voice Call Agent pages in this
-repo run against the hosted project through `.env.local` and correctly show
-schema-cache/missing-table errors until a deliberate promotion is approved.
+(from `0021`, applied 2026-11-22), 5 Voice/Call Agent tables and 4 `voice_*` RPCs
+(from `0023`, applied 2026-11-22), and no `tasks_*` RPCs. The Phase 3, Phase 4,
+and Tasks pages in this repo run against the hosted project through `.env.local`
+and correctly show schema-cache errors until a deliberate promotion is approved.
 
 ## Read-only verification commands
 
