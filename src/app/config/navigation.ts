@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Megaphone,
   MessageSquare,
+  PhoneCall,
   Plug,
   Receipt,
   Search,
@@ -91,6 +92,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'AI Agents', to: '/app/ai/agents', icon: Bot, available: true },
       { label: 'AI Conversations', to: '/app/ai/conversations', icon: MessageSquare, available: true },
+      { label: 'AI Call Agent', to: '/app/voice-agent', icon: PhoneCall, available: true },
       planned('Workflows', 'workflows', Workflow),
     ],
   },

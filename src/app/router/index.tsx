@@ -145,6 +145,9 @@ const TeamPage = lazy(() =>
 const TasksPage = lazy(() =>
   import('@/modules/tasks/pages/TasksPage').then((m) => ({ default: m.TasksPage })),
 )
+const VoiceAgentPage = lazy(() =>
+  import('@/modules/voice-agent/pages/VoiceAgentPage').then((m) => ({ default: m.VoiceAgentPage })),
+)
 const NotFoundPage = lazy(() =>
   import('@/app/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
@@ -195,6 +198,7 @@ export function AppRouter() {
             <Route path="tasks" element={<TasksPage />} />
             <Route path="ai/agents" element={<AiAgentsPage />} />
             <Route path="ai/conversations" element={<AiConversationsPage />} />
+            <Route path="voice-agent" element={<VoiceAgentPage />} />
             <Route path="sales-agent" element={<SalesAgentOverviewPage />} />
             <Route path="sales-agent/discovery" element={<ProspectDiscoveryPage />} />
             <Route path="sales-agent/prospects" element={<ProspectsPage />} />

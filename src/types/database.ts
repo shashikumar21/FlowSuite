@@ -1405,6 +1405,93 @@ export type GrowthFeedbackRow = {
   updated_at: string
 }
 
+export type VoiceAgentStatus = 'draft' | 'active' | 'paused' | 'archived'
+export type VoiceAgentDirection = 'inbound' | 'outbound' | 'both'
+export type VoiceBookingMode = 'lead_capture' | 'booking_assist' | 'disabled'
+export type VoiceProvider = 'none' | 'exotel' | 'twilio' | 'other'
+export type CallSessionDirection = 'inbound' | 'outbound'
+export type CallSessionStatus = 'logged' | 'queued' | 'ringing' | 'in_progress' | 'completed' | 'missed' | 'failed' | 'cancelled'
+export type CallSessionProvider = 'manual' | 'exotel' | 'twilio' | 'other'
+export type CallTranscriptSpeaker = 'caller' | 'agent' | 'staff' | 'system'
+export type CallHandoffStatus = 'open' | 'assigned' | 'resolved' | 'cancelled'
+
+export type VoiceAgentRow = {
+  id: string
+  tenant_id: string
+  name: string
+  status: VoiceAgentStatus
+  direction: VoiceAgentDirection
+  languages: string[]
+  greeting: string | null
+  faq_summary: string | null
+  booking_mode: VoiceBookingMode
+  handoff_phone: string | null
+  provider: VoiceProvider
+  provider_phone_number: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CallSessionRow = {
+  id: string
+  tenant_id: string
+  agent_id: string | null
+  contact_id: string | null
+  direction: CallSessionDirection
+  status: CallSessionStatus
+  provider: CallSessionProvider
+  provider_call_id: string | null
+  from_number: string | null
+  to_number: string | null
+  language: string | null
+  started_at: string | null
+  ended_at: string | null
+  duration_seconds: number | null
+  outcome: string | null
+  summary: string | null
+  consent_recording: boolean
+  needs_handoff: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CallTranscriptRow = {
+  id: string
+  tenant_id: string
+  call_session_id: string
+  speaker: CallTranscriptSpeaker
+  message: string
+  language: string | null
+  occurred_at: string
+  created_at: string
+}
+
+export type CallEventRow = {
+  id: string
+  tenant_id: string
+  call_session_id: string
+  event_type: string
+  payload: Json
+  created_by: string | null
+  created_at: string
+}
+
+export type CallHandoffRow = {
+  id: string
+  tenant_id: string
+  call_session_id: string
+  reason: string
+  status: CallHandoffStatus
+  assigned_to: string | null
+  notes: string | null
+  resolved_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -1708,6 +1795,11 @@ export interface Database {
       growth_form_submissions: Table<GrowthSubmissionRow, Partial<GrowthSubmissionRow>, Partial<GrowthSubmissionRow>>
       growth_reviews: Table<GrowthReviewRow, Partial<GrowthReviewRow>, Partial<GrowthReviewRow>>
       growth_feedback: Table<GrowthFeedbackRow, Partial<GrowthFeedbackRow>, Partial<GrowthFeedbackRow>>
+      voice_agents: Table<VoiceAgentRow, Partial<VoiceAgentRow>, Partial<VoiceAgentRow>>
+      call_sessions: Table<CallSessionRow, Partial<CallSessionRow>, Partial<CallSessionRow>>
+      call_transcripts: Table<CallTranscriptRow, Partial<CallTranscriptRow>, Partial<CallTranscriptRow>>
+      call_events: Table<CallEventRow, Partial<CallEventRow>, Partial<CallEventRow>>
+      call_handoffs: Table<CallHandoffRow, Partial<CallHandoffRow>, Partial<CallHandoffRow>>
     }
     Views: Record<string, never>
     Functions: {
@@ -2803,6 +2895,51 @@ export interface Database {
         Returns: undefined
       }
       tasks_delete_task: { Args: { p_tenant: string; p_task: string }; Returns: undefined }
+
+      /* Voice / AI Call Agent — local-only 0023. Provider-agnostic shell. */
+      voice_upsert_agent: {
+        Args: {
+          p_tenant: string
+          p_agent: string | null
+          p_name: string
+          p_status: VoiceAgentStatus
+          p_direction: VoiceAgentDirection
+          p_languages: string[]
+          p_greeting: string | null
+          p_faq_summary: string | null
+          p_booking_mode: VoiceBookingMode
+          p_handoff_phone: string | null
+          p_provider: VoiceProvider
+          p_provider_phone_number: string | null
+        }
+        Returns: string
+      }
+      voice_log_call_session: {
+        Args: {
+          p_tenant: string
+          p_agent: string | null
+          p_contact: string | null
+          p_direction: CallSessionDirection
+          p_status: CallSessionStatus
+          p_provider: CallSessionProvider
+          p_from_number: string | null
+          p_to_number: string | null
+          p_language: string | null
+          p_started_at: string | null
+          p_ended_at: string | null
+          p_duration_seconds: number | null
+          p_outcome: string | null
+          p_summary: string | null
+          p_consent_recording: boolean
+          p_needs_handoff: boolean
+        }
+        Returns: string
+      }
+      voice_create_handoff: {
+        Args: { p_tenant: string; p_call_session: string; p_reason: string; p_assigned_to: string | null; p_notes: string | null }
+        Returns: string
+      }
+      voice_resolve_handoff: { Args: { p_tenant: string; p_handoff: string }; Returns: undefined }
 
       admin_list_businesses: {
         Args: Record<string, never>
