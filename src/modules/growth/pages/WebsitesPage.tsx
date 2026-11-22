@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Copy, Download, Eye, Globe, Package, Pencil, Plus, Rocket, Settings2, Trash2 } from 'lucide-react'
+import { Copy, Download, Eye, Globe, Package, Pencil, Plus, Rocket, Settings2, Sparkles, Trash2 } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
+import { requireSupabase } from '@/integrations/supabase/client'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -13,7 +14,7 @@ import { formatDate } from '@/lib/format'
 import type { GrowthSiteRow, GrowthSubmissionRow } from '@/types/database'
 import { SiteFormModal } from '../components/SiteFormModal'
 import { SubmissionFormModal } from '../components/SubmissionFormModal'
-import { makeDeployPack, websiteTemplates, withTemplateDefaults, type WebsiteTemplate, type WebsiteTemplateData } from '../websiteTemplates'
+import { makeDeployPack, makeZip, websiteTemplates, withTemplateDefaults, type WebsiteTemplate, type WebsiteTemplateData } from '../websiteTemplates'
 import {
   useDeleteGrowthSite,
   useDeleteGrowthSubmission,
@@ -79,6 +80,41 @@ export function WebsitesPage() {
   const copyTemplate = async (tpl: WebsiteTemplate) => {
     try { await navigator.clipboard.writeText(buildTemplate(tpl)); toast({ title: 'Template copied', description: 'HTML copied to clipboard.' }) }
     catch { toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'error' }) }
+  }
+
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiHtml, setAiHtml] = useState<string | null>(null)
+  const generateWebsite = async () => {
+    const prompt = aiPrompt.trim()
+    if (prompt.length < 10) { toast({ title: 'Prompt too short', description: 'Describe the website you want (at least 10 characters).', variant: 'error' }); return }
+    if (!tenantId) return
+    setAiGenerating(true)
+    try {
+      const supabase = requireSupabase()
+      const { data, error } = await supabase.functions.invoke('website-generate', {
+        body: { tenant_id: tenantId, prompt, business_name: templateData.businessName, phone: templateData.phone, email: templateData.email },
+      })
+      if (error) throw error
+      const html = (data as { html?: string } | null)?.html
+      if (!html || typeof html !== 'string') throw new Error('AI did not return a website HTML document.')
+      setAiHtml(html)
+      toast({ title: 'Website generated', description: 'Preview your generated website below. You can download or copy it.' })
+    } catch (e) {
+      toast({ title: 'AI generation unavailable', description: getErrorMessage(e) || 'Deploy the website-generate Edge Function and configure server-side AI provider secrets.', variant: 'error' })
+    } finally { setAiGenerating(false) }
+  }
+  const downloadAiHtml = () => {
+    if (!aiHtml) return
+    const blob = new Blob([aiHtml], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'ai-website.html'; a.click(); URL.revokeObjectURL(url)
+  }
+  const downloadAiZip = () => {
+    if (!aiHtml) return
+    const blob = makeZip([{ name: 'index.html', content: aiHtml }, { name: 'README.md', content: `# AI Generated Website\n\nGenerated from FlowSuite prompt.\n\nDeploy the folder as a static site (Netlify Drop/Vercel/GitHub Pages). Keep index.html at root.\n` }])
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'ai-website-deploy-pack.zip'; a.click(); URL.revokeObjectURL(url)
   }
 
   if (!tenantId) return <ErrorState message="Select a business to manage its website records." />
@@ -149,6 +185,24 @@ export function WebsitesPage() {
           </Button>
         </div>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Sparkles className="size-4 text-brand-600" /> AI Website Builder</CardTitle>
+          <CardDescription>Describe the website you want, like you would to ChatGPT/Claude. Generates a static HTML website (requires deployed <code>website-generate</code> Edge Function and server-side AI provider config).</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} rows={4} placeholder="Example: Build a modern dental clinic website for Demo Dental Clinic with hero, services, testimonials, FAQ, and a contact form. Use teal colors and a professional tone." />
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void generateWebsite()} loading={aiGenerating}><Sparkles className="size-4" /> Generate website</Button>
+            {aiHtml ? <Button variant="outline" onClick={downloadAiHtml}><Download className="size-4" /> Download HTML</Button> : null}
+            {aiHtml ? <Button variant="outline" onClick={downloadAiZip}><Package className="size-4" /> Deploy pack (.zip)</Button> : null}
+            {aiHtml ? <Button variant="outline" onClick={() => { void navigator.clipboard.writeText(aiHtml); toast({ title: 'Copied' }) }}><Copy className="size-4" /> Copy HTML</Button> : null}
+          </div>
+          {aiHtml ? <iframe title="AI generated website preview" srcDoc={aiHtml} className="h-[420px] w-full rounded-lg border border-ink-200 bg-white" /> : null}
+          <p className="text-xs text-ink-500">No AI provider is configured by this change. If generation is unavailable, deploy <code>supabase/functions/website-generate</code> and set server-side AI secrets with explicit approval.</p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
