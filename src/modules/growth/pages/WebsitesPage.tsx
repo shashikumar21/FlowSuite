@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Copy, Download, Eye, FileUp, FolderUp, Globe, Package, Pencil, Plus, Rocket, Settings2, Sparkles, Trash2, Upload } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
@@ -119,14 +119,18 @@ export function WebsitesPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const folderInputRef = useRef<HTMLInputElement | null>(null)
+  const importedBlobUrlsRef = useRef<string[]>([])
   const [githubOpen, setGithubOpen] = useState(false)
   const [githubUrl, setGithubUrl] = useState('')
   const [importedHtml, setImportedHtml] = useState<string | null>(null)
+  const [importedPreviewHtml, setImportedPreviewHtml] = useState<string | null>(null)
   const [importedName, setImportedName] = useState<string | null>(null)
   const [importedFiles, setImportedFiles] = useState<Array<{ name: string; content: Uint8Array }> | null>(null)
   const [importNotice, setImportNotice] = useState<string | null>(null)
 
-  const resetImported = () => { setImportedHtml(null); setImportedName(null); setImportedFiles(null); setImportNotice(null) }
+  const revokeImportedBlobs = () => { for (const u of importedBlobUrlsRef.current) URL.revokeObjectURL(u); importedBlobUrlsRef.current = [] }
+  const resetImported = () => { revokeImportedBlobs(); setImportedHtml(null); setImportedPreviewHtml(null); setImportedName(null); setImportedFiles(null); setImportNotice(null) }
+  useEffect(() => () => revokeImportedBlobs(), [])
 
   const handleFileUpload = async (file: File | undefined) => {
     if (!file) return
@@ -134,11 +138,102 @@ export function WebsitesPage() {
     const name = file.name.toLowerCase()
     if (!name.endsWith('.html') && !name.endsWith('.htm')) { toast({ title: 'Unsupported file', description: 'Upload a .html file. For folders/zips, use the folder option or download a deploy pack.', variant: 'error' }); return }
     const html = await file.text()
+    revokeImportedBlobs()
     setImportedFiles(null)
     setImportedName(file.name)
     setImportedHtml(html)
+    setImportedPreviewHtml(html)
     setImportNotice('Previewing uploaded HTML file locally. FlowSuite does not host custom website files yet.')
     toast({ title: 'File loaded', description: `${file.name} ready for preview.` })
+  }
+
+  const buildFolderPreview = (files: Array<{ name: string; content: Uint8Array }>, indexName: string, html: string) => {
+    revokeImportedBlobs()
+    const norm = (p: string) => p.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/\/+/g, '/')
+    const baseDir = indexName.includes('/') ? indexName.slice(0, indexName.lastIndexOf('/') + 1) : ''
+    const resolve = (ref: string) => {
+      const clean = ref.split('#')[0]?.split('?')[0] ?? ref
+      if (!clean || /^(data:|https?:|mailto:|tel:|javascript:|blob:|\/\/)/i.test(clean)) return null
+      const joined = norm((clean.startsWith('/') ? clean.slice(1) : baseDir + clean))
+      const parts: string[] = []
+      for (const part of joined.split('/')) {
+        if (!part || part === '.') continue
+        if (part === '..') parts.pop(); else parts.push(part)
+      }
+      return parts.join('/')
+    }
+    const blobMap = new Map<string, string>()
+    const mimeFor = (name: string) => {
+      const n = name.toLowerCase()
+      if (n.endsWith('.css')) return 'text/css'
+      if (n.endsWith('.js') || n.endsWith('.mjs')) return 'text/javascript'
+      if (n.endsWith('.json')) return 'application/json'
+      if (n.endsWith('.svg')) return 'image/svg+xml'
+      if (n.endsWith('.png')) return 'image/png'
+      if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg'
+      if (n.endsWith('.gif')) return 'image/gif'
+      if (n.endsWith('.webp')) return 'image/webp'
+      if (n.endsWith('.ico')) return 'image/x-icon'
+      if (n.endsWith('.woff2')) return 'font/woff2'
+      if (n.endsWith('.woff')) return 'font/woff'
+      if (n.endsWith('.ttf')) return 'font/ttf'
+      if (n.endsWith('.html') || n.endsWith('.htm')) return 'text/html'
+      return 'application/octet-stream'
+    }
+    const makeBlob = (path: string, content: Uint8Array | string, mime: string) => {
+      const buf = typeof content === 'string' ? new TextEncoder().encode(content) : new Uint8Array(content)
+      const url = URL.createObjectURL(new Blob([buf], { type: mime }))
+      blobMap.set(path, url); importedBlobUrlsRef.current.push(url); return url
+    }
+    // Create blobs for non-CSS files first
+    for (const f of files) {
+      const p = norm(f.name)
+      if (p.toLowerCase().endsWith('.css')) continue
+      makeBlob(p, f.content, mimeFor(p))
+    }
+    // Rewrite CSS url(...) then create CSS blobs
+    for (const f of files) {
+      const p = norm(f.name)
+      if (!p.toLowerCase().endsWith('.css')) continue
+      const cssDir = p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : ''
+      let css = new TextDecoder().decode(f.content)
+      css = css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (m, q, ref) => {
+        const clean = String(ref).split('#')[0]?.split('?')[0] ?? ''
+        if (!clean || /^(data:|https?:|blob:|\/\/)/i.test(clean)) return m
+        const joined = norm((clean.startsWith('/') ? clean.slice(1) : cssDir + clean))
+        const parts: string[] = []
+        for (const part of joined.split('/')) { if (!part || part === '.') continue; if (part === '..') parts.pop(); else parts.push(part) }
+        const resolved = parts.join('/')
+        const u = blobMap.get(resolved)
+        return u ? `url(${q}${u}${q})` : m
+      })
+      makeBlob(p, css, 'text/css')
+    }
+    const replaceAttr = (source: string, attr: string) =>
+      source.replace(new RegExp(`(${attr}\\s*=\\s*)(["'])([^"']+)\\2`, 'gi'), (m, pre, q, val) => {
+        const resolved = resolve(String(val))
+        const u = resolved ? blobMap.get(resolved) : null
+        return u ? `${pre}${q}${u}${q}` : m
+      })
+    let out = html
+    for (const attr of ['src', 'href', 'poster', 'data']) out = replaceAttr(out, attr)
+    out = out.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (m, q, ref) => {
+      const resolved = resolve(String(ref))
+      const u = resolved ? blobMap.get(resolved) : null
+      return u ? `url(${q}${u}${q})` : m
+    })
+    // basic srcset rewrite
+    out = out.replace(/(srcset\s*=\s*)(["'])([^"']+)\2/gi, (_m, pre, q, val) => {
+      const next = String(val).split(',').map((part) => {
+        const seg = part.trim(); if (!seg) return seg
+        const [url, ...rest] = seg.split(/\s+/)
+        const resolved = resolve(url || '')
+        const u = resolved ? blobMap.get(resolved) : null
+        return [u || url, ...rest].join(' ')
+      }).join(', ')
+      return `${pre}${q}${next}${q}`
+    })
+    return out
   }
 
   const handleFolderUpload = async (fileList: FileList | null) => {
@@ -155,11 +250,13 @@ export function WebsitesPage() {
     }
     const index = mapped.find((f) => f.name.toLowerCase() === 'index.html') || mapped.find((f) => f.name.toLowerCase().endsWith('.html'))
     let html: string | null = null
-    if (index) html = new TextDecoder().decode(index.content)
+    let previewHtml: string | null = null
+    if (index) { html = new TextDecoder().decode(index.content); previewHtml = buildFolderPreview(mapped, index.name, html) }
     setImportedFiles(mapped)
     setImportedName(index?.name ?? files[0]?.webkitRelativePath?.split('/')[0] ?? 'Uploaded folder')
     setImportedHtml(html)
-    setImportNotice(html ? 'Preview shows the selected HTML file. Relative assets (CSS/images/JS) may not render in this local srcDoc preview. You can still download the folder as a deploy pack.' : 'Folder loaded. No index.html found for preview, but you can download it as a zip.')
+    setImportedPreviewHtml(previewHtml)
+    setImportNotice(html ? 'Preview rewrites local relative assets for this folder so CSS/images/JS can render. Some complex paths may still need deploy-pack testing.' : 'Folder loaded. No index.html found for preview, but you can download it as a zip.')
     toast({ title: 'Folder loaded', description: `${mapped.length} file(s) ready.` })
   }
 
@@ -340,7 +437,7 @@ export function WebsitesPage() {
                   <Button size="sm" variant="ghost" onClick={resetImported}>Clear</Button>
                 </div>
               </div>
-              <iframe title="Imported website preview" srcDoc={importedHtml} className="h-[420px] w-full rounded-lg border border-ink-200 bg-white" sandbox="allow-same-origin" />
+              <iframe title="Imported website preview" srcDoc={importedPreviewHtml ?? importedHtml ?? ''} className="h-[420px] w-full rounded-lg border border-ink-200 bg-white" sandbox="allow-same-origin allow-scripts allow-forms allow-popups" />
             </div>
           ) : importedFiles?.length ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink-200 p-3">
