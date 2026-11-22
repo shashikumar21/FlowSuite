@@ -27,6 +27,8 @@ type Props = {
   canAssign: boolean
   contact: ContactRow | null
   onSaved: () => void
+  /** Dental clinics track patients/enquiries, not B2B companies. */
+  isDental?: boolean
 }
 
 export function ContactFormModal({
@@ -39,6 +41,7 @@ export function ContactFormModal({
   canAssign,
   contact,
   onSaved,
+  isDental = false,
 }: Props) {
   const { toast } = useToast()
   const form = useForm<ContactFormValues>({
@@ -160,20 +163,54 @@ export function ContactFormModal({
             <Input id="contact-last" {...form.register('last_name')} />
             <FieldError>{form.formState.errors.last_name?.message}</FieldError>
           </div>
-          <div>
-            <Label htmlFor="contact-email">Email</Label>
-            <Input id="contact-email" type="email" {...form.register('email')} />
-            <FieldError>{form.formState.errors.email?.message}</FieldError>
-          </div>
-          <div>
-            <Label htmlFor="contact-phone">Phone</Label>
-            <Input id="contact-phone" type="tel" {...form.register('phone')} />
-            <FieldError>{form.formState.errors.phone?.message}</FieldError>
-          </div>
-          <div>
-            <Label htmlFor="contact-company">Company</Label>
-            <Input id="contact-company" {...form.register('company')} />
-          </div>
+          {isDental ? (
+            <>
+              {/* Keep the existing value on edit even though Company is hidden. */}
+              <input type="hidden" {...form.register('company')} />
+              <div>
+                <Label htmlFor="contact-mobile">Mobile (+91)</Label>
+                <Input id="contact-mobile" type="tel" placeholder="+919876543210" {...form.register('mobile')} />
+                <FieldError>{form.formState.errors.mobile?.message}</FieldError>
+              </div>
+              <div>
+                <Label htmlFor="contact-email">Email</Label>
+                <Input id="contact-email" type="email" {...form.register('email')} />
+                <FieldError>{form.formState.errors.email?.message}</FieldError>
+              </div>
+              <div>
+                <Label htmlFor="contact-clinic">Clinic</Label>
+                <Input id="contact-clinic" placeholder="Clinic name" {...form.register('clinic')} />
+                <FieldError>{form.formState.errors.clinic?.message}</FieldError>
+              </div>
+              <div>
+                <Label htmlFor="contact-area">Area</Label>
+                <Input id="contact-area" placeholder="Locality or area" {...form.register('area')} />
+                <FieldError>{form.formState.errors.area?.message}</FieldError>
+              </div>
+              <div>
+                <Label htmlFor="contact-phone">Phone</Label>
+                <Input id="contact-phone" type="tel" {...form.register('phone')} />
+                <FieldError>{form.formState.errors.phone?.message}</FieldError>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <Label htmlFor="contact-email">Email</Label>
+                <Input id="contact-email" type="email" {...form.register('email')} />
+                <FieldError>{form.formState.errors.email?.message}</FieldError>
+              </div>
+              <div>
+                <Label htmlFor="contact-phone">Phone</Label>
+                <Input id="contact-phone" type="tel" {...form.register('phone')} />
+                <FieldError>{form.formState.errors.phone?.message}</FieldError>
+              </div>
+              <div>
+                <Label htmlFor="contact-company">Company</Label>
+                <Input id="contact-company" {...form.register('company')} />
+              </div>
+            </>
+          )}
           <div>
             <Label htmlFor="contact-source">Lead source</Label>
             <Select id="contact-source" {...form.register('source_id')}>
@@ -224,23 +261,27 @@ export function ContactFormModal({
         </div>
 
         <div className="space-y-3 rounded-lg border border-ink-200 p-4">
-          <h4 className="text-sm font-semibold text-ink-900">Lead enrichment</h4>
+          <h4 className="text-sm font-semibold text-ink-900">{isDental ? 'Patient details' : 'Lead enrichment'}</h4>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="contact-clinic">Clinic</Label>
-              <Input id="contact-clinic" placeholder="Clinic name" {...form.register('clinic')} />
-              <FieldError>{form.formState.errors.clinic?.message}</FieldError>
-            </div>
-            <div>
-              <Label htmlFor="contact-area">Area</Label>
-              <Input id="contact-area" placeholder="Locality or area" {...form.register('area')} />
-              <FieldError>{form.formState.errors.area?.message}</FieldError>
-            </div>
-            <div>
-              <Label htmlFor="contact-mobile">Mobile (+91)</Label>
-              <Input id="contact-mobile" type="tel" placeholder="+919876543210" {...form.register('mobile')} />
-              <FieldError>{form.formState.errors.mobile?.message}</FieldError>
-            </div>
+            {!isDental ? (
+              <>
+                <div>
+                  <Label htmlFor="contact-clinic">Clinic</Label>
+                  <Input id="contact-clinic" placeholder="Clinic name" {...form.register('clinic')} />
+                  <FieldError>{form.formState.errors.clinic?.message}</FieldError>
+                </div>
+                <div>
+                  <Label htmlFor="contact-area">Area</Label>
+                  <Input id="contact-area" placeholder="Locality or area" {...form.register('area')} />
+                  <FieldError>{form.formState.errors.area?.message}</FieldError>
+                </div>
+                <div>
+                  <Label htmlFor="contact-mobile">Mobile (+91)</Label>
+                  <Input id="contact-mobile" type="tel" placeholder="+919876543210" {...form.register('mobile')} />
+                  <FieldError>{form.formState.errors.mobile?.message}</FieldError>
+                </div>
+              </>
+            ) : null}
             <div>
               <Label htmlFor="contact-rating">Rating (0–5)</Label>
               <Input id="contact-rating" type="number" step="0.1" min="0" max="5" placeholder="4.5" {...form.register('rating')} />

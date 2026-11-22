@@ -18,6 +18,7 @@ import { ContactFormModal } from '../components/ContactFormModal'
 import { ContactDetailModal } from '../components/ContactDetailModal'
 import { DealFormModal } from '../components/DealFormModal'
 import { contactStatuses, leadStatuses } from '../schemas'
+import { isDentalIndustry } from '../niche'
 import { ImportWizard } from '../components/ImportWizard'
 import { exportRows, fetchImportOptions } from '../data-exchange/api'
 import { downloadCsv } from '../data-exchange/csv'
@@ -34,6 +35,7 @@ export function ContactsPage() {
   const { toast } = useToast()
   const tenantId = activeTenant?.tenant_id
   const currency = activeTenant?.businesses?.currency ?? 'INR'
+  const isDental = isDentalIndustry(activeTenant?.businesses?.industry)
   const invalidate = useCrmInvalidate(tenantId)
   const canManagePipeline = can('manage_pipeline')
   const currentUserId = user?.id ?? ''
@@ -188,7 +190,9 @@ export function ContactsPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Customers</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Contacts & leads</h1>
           <p className="mt-1 text-sm text-ink-500">
-            Every record is tenant-scoped. Employees see their assigned contacts and unassigned leads.
+            {isDental
+              ? 'Patient enquiries and leads for this clinic. Employees see their assigned records and unassigned enquiries.'
+              : 'Every record is tenant-scoped. Employees see their assigned contacts and unassigned leads.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -246,7 +250,7 @@ export function ContactsPage() {
                 <Input
                   id="contact-search"
                   className="pl-9"
-                  placeholder="Name, email, phone, company"
+                  placeholder={isDental ? 'Name, email, phone, clinic' : 'Name, email, phone, company'}
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                 />
@@ -323,8 +327,9 @@ export function ContactsPage() {
                     <tr>
                       <th className="px-5 py-3 font-semibold">Name</th>
                       <th className="px-3 py-3 font-semibold">Contact</th>
-                      <th className="px-3 py-3 font-semibold">Company</th>
+                      {!isDental ? <th className="px-3 py-3 font-semibold">Company</th> : null}
                       <th className="px-3 py-3 font-semibold">Clinic</th>
+                      {isDental ? <th className="px-3 py-3 font-semibold">Area</th> : null}
                       <th className="px-3 py-3 font-semibold">Mobile (+91)</th>
                       <th className="px-3 py-3 font-semibold">Rating</th>
                       <th className="px-3 py-3 font-semibold">Sent</th>
@@ -350,8 +355,9 @@ export function ContactsPage() {
                           </div>
                         </td>
                         <td className="px-3 py-3 text-ink-600">{contact.email ?? contact.phone ?? '—'}</td>
-                        <td className="px-3 py-3 text-ink-600">{contact.company ?? '—'}</td>
+                        {!isDental ? <td className="px-3 py-3 text-ink-600">{contact.company ?? '—'}</td> : null}
                         <td className="px-3 py-3 text-xs text-ink-600">{contact.clinic ?? '—'}</td>
+                        {isDental ? <td className="px-3 py-3 text-xs text-ink-600">{contact.area ?? '—'}</td> : null}
                         <td className="px-3 py-3 text-xs text-ink-600">{contact.mobile ?? '—'}</td>
                         <td className="px-3 py-3 text-xs text-ink-600">{contact.rating == null ? '—' : contact.rating.toFixed(1)}</td>
                         <td className="px-3 py-3">
@@ -380,7 +386,11 @@ export function ContactsPage() {
                         <Avatar name={`${contact.first_name} ${contact.last_name ?? ''}`} className="size-9" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-ink-900">{contact.first_name} {contact.last_name ?? ''}</p>
-                          <p className="truncate text-xs text-ink-500">{contact.company ?? contact.email ?? contact.phone ?? 'No details'}</p>
+                          <p className="truncate text-xs text-ink-500">
+                            {isDental
+                              ? contact.clinic ?? contact.mobile ?? contact.email ?? contact.phone ?? 'No details'
+                              : contact.company ?? contact.email ?? contact.phone ?? 'No details'}
+                          </p>
                         </div>
                       </div>
                       <div className="mt-2 flex gap-2">
@@ -420,6 +430,7 @@ export function ContactsPage() {
         canAssign={canManagePipeline}
         contact={editing}
         onSaved={invalidate}
+        isDental={isDental}
       />
 
       <ContactDetailModal
@@ -433,6 +444,7 @@ export function ContactsPage() {
         onEdit={(contact) => { setDetailId(null); setEditing(contact); setFormOpen(true) }}
         onConvert={(id) => { setDetailId(null); setConvertId(id) }}
         onChanged={invalidate}
+        isDental={isDental}
       />
 
       <DealFormModal

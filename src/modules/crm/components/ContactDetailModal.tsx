@@ -37,6 +37,7 @@ type Props = {
   onEdit: (contact: ContactRow) => void
   onConvert: (contactId: string) => void
   onChanged: () => void
+  isDental?: boolean
 }
 
 export function ContactDetailModal({
@@ -50,6 +51,7 @@ export function ContactDetailModal({
   onEdit,
   onConvert,
   onChanged,
+  isDental = false,
 }: Props) {
   const { toast } = useToast()
   const [assignTarget, setAssignTarget] = useState('')
@@ -113,7 +115,7 @@ export function ContactDetailModal({
       open={open}
       onClose={onClose}
       title={contact ? `${contact.first_name} ${contact.last_name ?? ''}`.trim() : 'Contact'}
-      description={contact?.company ?? 'Contact details and activity history'}
+      description={isDental ? (contact?.clinic ?? contact?.area ?? 'Contact details and activity history') : (contact?.company ?? 'Contact details and activity history')}
       className="max-w-3xl"
     >
       {detailQuery.isLoading ? (
@@ -143,11 +145,12 @@ export function ContactDetailModal({
           <dl className="grid gap-x-6 gap-y-3 rounded-lg border border-ink-100 bg-ink-50/60 p-4 text-sm sm:grid-cols-2">
             <div><dt className="text-xs text-ink-500">Email</dt><dd className="truncate text-ink-900">{contact.email ?? '—'}</dd></div>
             <div><dt className="text-xs text-ink-500">Phone</dt><dd className="text-ink-900">{contact.phone ?? '—'}</dd></div>
+            <div><dt className="text-xs text-ink-500">Mobile (+91)</dt><dd className="text-ink-900">{contact.mobile ?? '—'}</dd></div>
             <div><dt className="text-xs text-ink-500">Source</dt><dd className="text-ink-900">{options.sources.find((source) => source.id === contact.source_id)?.name ?? contact.source ?? '—'}</dd></div>
             <div><dt className="text-xs text-ink-500">Next follow-up</dt><dd className="text-ink-900">{formatDateTime(contact.follow_up_at)}</dd></div>
             <div><dt className="text-xs text-ink-500">Clinic</dt><dd className="text-ink-900">{contact.clinic ?? '—'}</dd></div>
             <div><dt className="text-xs text-ink-500">Area</dt><dd className="text-ink-900">{contact.area ?? '—'}</dd></div>
-            <div><dt className="text-xs text-ink-500">Mobile (+91)</dt><dd className="text-ink-900">{contact.mobile ?? '—'}</dd></div>
+            {!isDental ? <div><dt className="text-xs text-ink-500">Company</dt><dd className="text-ink-900">{contact.company ?? '—'}</dd></div> : null}
             <div><dt className="text-xs text-ink-500">Rating</dt><dd className="text-ink-900">{contact.rating == null ? '—' : `${contact.rating.toFixed(1)} / 5`}</dd></div>
             <div><dt className="text-xs text-ink-500">Reviews</dt><dd className="text-ink-900">{contact.reviews ?? '—'}</dd></div>
             <div><dt className="text-xs text-ink-500">Sent?</dt><dd className="text-ink-900">{contact.sent ? 'Yes' : 'No'}</dd></div>
