@@ -256,6 +256,9 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   with explicit user approval via
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0033_integration_secret_vault.sql`.
   `integrations-vault-save` Edge Function **deployed** (v1, verify_jwt true) with explicit approval.
+- `supabase/migrations/0034_crm_delete_deal.sql` — server-side `crm_delete_deal`
+  RPC (manager+ only, audited). **Local only; not applied to hosted.** CRM UI
+  delete button added locally; requires explicit approval before hosted apply.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs

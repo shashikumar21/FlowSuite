@@ -1942,6 +1942,10 @@ export interface Database {
         Args: { p_tenant: string; p_deal: string; p_stage_id: string }
         Returns: undefined
       }
+      crm_delete_deal: {
+        Args: { p_tenant: string; p_deal: string }
+        Returns: undefined
+      }
       assign_deal: {
         Args: { p_tenant: string; p_deal: string; p_user_id: string | null }
         Returns: undefined

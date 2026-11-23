@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/Modal'
 import { DealStatusBadge } from './StatusBadges'
 import { getErrorMessage } from '@/lib/errors'
 import { formatCurrency, formatDate } from '@/lib/format'
-import { assignDeal, moveDealStage, updateDealValue, type CrmOptions, type DealWithContact } from '../api'
+import { assignDeal, deleteDeal, moveDealStage, updateDealValue, type CrmOptions, type DealWithContact } from '../api'
 import { dealValueSchema } from '../schemas'
 import { stagesForPipeline } from '../utils'
 
@@ -180,6 +180,26 @@ export function DealDetailModal({
               </Button>
             </div>
           </div>
+
+          {canManagePipeline ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-semibold text-red-900">Danger zone</p>
+              <p className="mt-1 text-xs text-red-700">Deleting a deal removes it permanently. This action is server-side and audited.</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-3 border-red-300 text-red-700 hover:bg-red-100"
+                loading={busy}
+                onClick={() => {
+                  if (!window.confirm(`Delete deal "${deal.title}"? This cannot be undone.`)) return
+                  void apply('Deal deleted', () => deleteDeal(tenantId, deal.id))
+                }}
+              >
+                Delete deal
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
     </Modal>

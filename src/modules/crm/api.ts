@@ -294,6 +294,14 @@ export async function updateDealValue(
   if (!data?.length) throw new Error('This deal is no longer available or cannot be edited.')
 }
 
+export async function deleteDeal(tenantId: string, dealId: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('crm_delete_deal', {
+    p_tenant: tenantId,
+    p_deal: dealId,
+  })
+  if (error) throw error
+}
+
 export async function moveDealStage(tenantId: string, dealId: string, stageId: string): Promise<void> {
   const { error } = await requireSupabase().rpc('move_deal_stage', {
     p_tenant: tenantId,
