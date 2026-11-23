@@ -313,6 +313,22 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   the human approval gate remains intact. `review_request_v1` is a placeholder
   name — it must match the actual Meta-approved template name before a live send
   can succeed.
+- Painter - 4 workflow link fix 2026-11-23 with explicit user approval, scoped to
+  workflow `c8518411-ae2a-4134-9701-184bbce5a9a2` in the demo tenant: the action
+  config was changed from `review_link_type='google'` with a hardcoded
+  `g.page` URL to `review_link_type='flowsuite'` with empty `review_url`, and the
+  action label updated to "Request review via FlowSuite link (approval
+  required)". An audit log `demo.workflow_review_link_changed` was written. The
+  workflow remains `active` with `trigger_type='appointment_completed'`; future
+  generated requests will use the FlowSuite review page. The existing Anita
+  Sharma request `7402cc31-4f47-4f90-aa0a-8fcb8d599b98` was NOT modified — it
+  remains `failed` from a manual send attempt at 15:54 UTC (approved_by actor
+  `ce68894b-0ae5-44d8-9d75-f1fa10bf2cba`, Meta rejected the placeholder
+  template). No message was delivered, and no new send was triggered. Also
+  confirmed there is no `cron` schema and no dispatcher/scheduler in the
+  codebase — the only workflow runner is
+  `workflows_handle_appointment_completed()`, so Painter templates 1/2/3/5
+  remain non-executing drafts by design and were left as drafts.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
