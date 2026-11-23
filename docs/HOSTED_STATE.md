@@ -126,7 +126,7 @@ Validated with the demo login on the live Netlify site:
 - Inbox: mark-read, status change and internal note all persisted. No external
   email was sent. An internal note reopens a closed thread.
 - Tasks: create, edit, delete and status actions still fail with missing
-  `public.tasks_*` RPC errors, confirming `0022` is not hosted.
+  `public.tasks_*` RPC errors, confirming `0022` was not hosted at smoke-test time. **Update 2026-11-23:** `0022` applied with explicit approval.
 - Growth websites: **updated 2026-11-22** after explicit approval and hosted
   apply of `0021_growth_modules.sql` via `supabase db query --remote --yes`.
   Growth tables/RPCs now exist on hosted; `/app/growth*` pages load genuine
@@ -160,7 +160,7 @@ was touched:
   availability rules in the hosted database; that is a hosted write and remains
   approval-gated.
 
-Still approval-gated: hosted promotion of `0019`–`0022`, RLS hardening, Groq key
+Still approval-gated: hosted promotion of `0019`, `0020`, `0026`, RLS hardening, Groq key
 rotation (provider console), deletion of the failed Netlify site and project
 rename.
 
@@ -185,8 +185,9 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   Verified: all 6 `growth_*` tables and 18 `growth_*` RPCs present.
 - `supabase/migrations/0022_tasks_module.sql` — additive actor/completion
   columns, `SELECT`-only RLS replacing the broad `0001` tasks policy, and four
-  trusted `tasks_*` RPCs. Never submitted to hosted. The hosted `tasks` table
-  keeps its original `0001` shape and `FOR ALL` policy.
+  trusted `tasks_*` RPCs. **Applied to hosted 2026-11-23** with explicit user
+  approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0022_tasks_module.sql`.
 - `supabase/migrations/0023_voice_call_agent.sql` — provider-agnostic Voice /
   AI Call Agent foundation: `voice_agents`, `call_sessions`, `call_transcripts`,
   `call_events`, `call_handoffs` tables, SELECT-only RLS, and four trusted RPCs
@@ -268,8 +269,8 @@ Hosted therefore still has exactly 10 Sales Agent tables and 12
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
 4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; no external sending, runner creates pending-approval records only), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
-and no `tasks_*` RPCs. The Phase 3,
-Phase 4, and Tasks pages in this repo run against the hosted project through
+and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23). The Phase 3 and
+Phase 4 pages in this repo run against the hosted project through
 `.env.local` and correctly show schema-cache errors until a deliberate promotion
 is approved.
 
