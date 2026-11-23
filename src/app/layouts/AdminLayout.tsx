@@ -7,6 +7,7 @@ const links = [
   { to: '/admin', label: 'Overview', icon: Gauge, end: true },
   { to: '/admin/businesses', label: 'Businesses', icon: Building2, end: false },
   { to: '/admin/plans', label: 'Plans & entitlements', icon: CreditCard, end: false },
+  { to: '/admin/billing', label: 'Billing control', icon: CreditCard, end: false },
 ]
 
 export function AdminLayout() {

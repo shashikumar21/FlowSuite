@@ -15,6 +15,7 @@ import type { ChannelCredentialRow, MessageTemplateRow } from '@/types/database'
 import { CredentialFormModal } from '../components/CredentialFormModal'
 import { TemplateFormModal } from '../components/TemplateFormModal'
 import { CredentialStatusBadge } from '../components/StatusBadges'
+import { ProviderSimulationPanel } from '../local/ProviderSimulationPanel'
 import { disconnectIntegrationSecret, listIntegrationSecrets, saveIntegrationSecret, type IntegrationSecretMeta } from '../api'
 import { useIntegrationsData, useAiConsoleInvalidate } from '../hooks'
 import { chatEndpointUrl } from '../utils'
@@ -144,6 +145,8 @@ export function IntegrationsPage() {
           <p>Only owners and admins can view or change credentials and templates.</p>
         </div>
       ) : null}
+
+      <ProviderSimulationPanel tenantId={tenantId} canManage={canManage} />
 
       <Card>
         <CardHeader>

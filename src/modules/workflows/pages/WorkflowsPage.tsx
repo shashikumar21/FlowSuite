@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pause, Play, Pencil, Trash2, Workflow, ShieldAlert, Send } from 'lucide-react'
+import { Plus, Pause, Play, Pencil, Trash2, Workflow, ShieldAlert, Send, Zap } from 'lucide-react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTenant } from '@/app/providers/TenantProvider'
@@ -12,8 +12,9 @@ import { Input, Label, FieldError } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
-import { fetchReviewRequests, ensureReviewRequestToken, setReviewRequestStatus, sendReviewRequestWhatsApp, type ReviewRequestRow } from '@/modules/reviews/api'
-import { createWorkflow, deleteWorkflow, setWorkflowStatus, updateWorkflow } from '../api'
+import { formatDate } from '@/lib/format'
+import { fetchReviewAudit, fetchReviewRequests, ensureReviewRequestToken, setReviewRequestStatus, sendReviewRequestWhatsApp, type ReviewAuditRow, type ReviewRequestRow } from '@/modules/reviews/api'
+import { createWorkflow, deleteWorkflow, runWorkflowManually, setWorkflowStatus, updateWorkflow } from '../api'
 import { useWorkflows, useWorkflowsInvalidate } from '../hooks'
 import { workflowFormSchema, type WorkflowFormValues } from '../schemas'
 import type { WorkflowRow, WorkflowStatus, WorkflowTriggerType } from '../types'
@@ -34,6 +35,14 @@ const actionLabels: Record<string, string> = {
   add_tag: 'Add tag',
   webhook_placeholder: 'Webhook (placeholder)',
   send_review_request: 'Send review request (approval required)',
+}
+
+function auditDetail(metadata: Record<string, unknown>): string {
+  for (const key of ['reason', 'status', 'provider_message_id', 'template', 'code']) {
+    const value = metadata[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return '—'
 }
 
 type WorkflowTemplate = {
@@ -141,13 +150,22 @@ export function WorkflowsPage() {
   const [editing, setEditing] = useState<WorkflowRow | null>(null)
   const [saving, setSaving] = useState(false)
   const [reviewRequests, setReviewRequests] = useState<ReviewRequestRow[]>([])
+  const [reviewAudit, setReviewAudit] = useState<ReviewAuditRow[]>([])
   const [reviewLoading, setReviewLoading] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
+  const [runningId, setRunningId] = useState<string | null>(null)
 
   const loadReviewRequests = async () => {
     if (!tenantId) return
     setReviewLoading(true)
-    try { setReviewRequests(await fetchReviewRequests(tenantId)) } catch { /* ignore */ } finally { setReviewLoading(false) }
+    try {
+      const [requests, audit] = await Promise.all([
+        fetchReviewRequests(tenantId),
+        fetchReviewAudit(tenantId),
+      ])
+      setReviewRequests(requests)
+      setReviewAudit(audit)
+    } catch { /* ignore */ } finally { setReviewLoading(false) }
   }
 
   useEffect(() => { void loadReviewRequests() }, [tenantId])
@@ -254,6 +272,18 @@ export function WorkflowsPage() {
     } catch (e) { toast({ title: 'Could not delete workflow', description: getErrorMessage(e), variant: 'error' }) }
   }
 
+  const onRunManual = async (row: WorkflowRow) => {
+    if (!tenantId) return
+    setRunningId(row.id)
+    try {
+      await runWorkflowManually(tenantId, row.id, crypto.randomUUID())
+      toast({ title: 'Workflow run finished', description: 'Only local tasks and in-app notices were created. Nothing was sent externally.' })
+      invalidate()
+      void loadReviewRequests()
+    } catch (e) { toast({ title: 'Could not run workflow', description: getErrorMessage(e), variant: 'error' }) }
+    finally { setRunningId(null) }
+  }
+
   if (!tenantId) return <ErrorState message="Select a business to manage workflows." />
 
   return (
@@ -262,7 +292,7 @@ export function WorkflowsPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Automation</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Workflows</h1>
-          <p className="mt-1 text-sm text-ink-500">Define automation rules for your business. Review-request runner creates pending-approval records; no external messages are sent automatically.</p>
+          <p className="mt-1 text-sm text-ink-500">Define automation rules for your business. Local runners create tasks and in-app notices; the review-request runner creates pending-approval records. No external messages are sent automatically.</p>
         </div>
         <Button onClick={openCreate}><Plus className="size-4" /> New workflow</Button>
       </div>
@@ -272,7 +302,7 @@ export function WorkflowsPage() {
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
           <div className="text-sm text-amber-900">
             <p className="font-semibold">Safe automation MVP</p>
-            <p className="mt-1 text-amber-800">Workflow definitions are active. The review-request runner creates <strong>pending approval</strong> records when appointments complete. No external messages are sent automatically.</p>
+            <p className="mt-1 text-amber-800">Local runners create tasks and in-app notices for new leads, new appointments and manual runs. The review-request runner creates <strong>pending approval</strong> records when appointments complete. Provider steps are skipped. No external messages are sent automatically.</p>
           </div>
         </CardContent>
       </Card>
@@ -320,6 +350,9 @@ export function WorkflowsPage() {
                   <p className="mt-1 text-xs text-ink-400">{row.actions.length} action{row.actions.length === 1 ? '' : 's'} · Runs: {row.run_count} · No auto-send</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {row.trigger_type === 'manual' && row.status === 'active' ? (
+                    <Button size="sm" onClick={() => void onRunManual(row)} loading={runningId === row.id}><Zap className="size-4" /> Run now</Button>
+                  ) : null}
                   <Button variant="outline" size="sm" onClick={() => void toggleStatus(row)}>{row.status === 'active' ? <><Pause className="size-4" /> Pause</> : <><Play className="size-4" /> Activate</>}</Button>
                   <Button variant="outline" size="sm" onClick={() => openEdit(row)}><Pencil className="size-4" /> Edit</Button>
                   <Button variant="outline" size="sm" onClick={() => void onDelete(row)}><Trash2 className="size-4" /> Delete</Button>
@@ -359,6 +392,27 @@ export function WorkflowsPage() {
                       <Button size="sm" onClick={() => void sendWhatsApp(r)} loading={sendingId === r.id}><Send className="size-4" /> Send WhatsApp</Button>
                     ) : null}
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="py-5 space-y-3">
+          <div>
+            <p className="font-semibold text-ink-900">Review activity log</p>
+            <p className="text-sm text-ink-500">Approvals, sends and blocked sends are written to the immutable audit log with the acting user.</p>
+          </div>
+          {reviewAudit.length === 0 ? (
+            <p className="text-sm text-ink-500">No review activity recorded yet.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {reviewAudit.map((entry) => (
+                <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-200 px-3 py-2 text-xs">
+                  <span className="font-medium text-ink-800">{entry.action}</span>
+                  <span className="text-ink-500">{auditDetail(entry.metadata)} · {formatDate(entry.created_at)}</span>
                 </div>
               ))}
             </div>

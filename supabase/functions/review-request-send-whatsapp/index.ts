@@ -71,6 +71,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!['owner', 'admin', 'manager'].includes(String(membership.role))) return errorResponse(403, 'forbidden', 'Manager role required')
 
   const admin = createServiceClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  // Audit writes use the service role because clients cannot insert audit rows.
+  // The authenticated actor is preserved; no credentials or phone numbers are logged.
+  const writeAudit = async (action: string, metadata: Record<string, unknown>): Promise<void> => {
+    const { error } = await admin.from('audit_logs').insert({
+      tenant_id,
+      actor_id: userData.user.id,
+      action,
+      entity_type: 'review_request',
+      entity_id: review_request_id,
+      metadata,
+    })
+    if (error) console.error('review_request audit write failed:', error.message)
+  }
+
   const { data: row, error: rowErr } = await admin.from('review_requests')
     .select('id, tenant_id, contact_id, customer_name, customer_phone, channel, review_link_type, review_url, message_template, status, public_token')
     .eq('id', review_request_id).eq('tenant_id', tenant_id)
@@ -83,8 +98,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!row) return errorResponse(404, 'not_found')
   if (row.channel !== 'whatsapp') return errorResponse(422, 'unsupported_channel', 'Only WhatsApp review requests can be sent by this action.')
   if (row.status === 'sent') return errorResponse(409, 'already_sent', 'This review request was already sent.')
-  if (row.status !== 'approved') return errorResponse(422, 'approval_required', 'Review request must be approved before sending.')
-  if (!row.customer_phone?.trim()) return errorResponse(422, 'missing_phone', 'Customer phone number is missing.')
+  if (row.status !== 'approved') {
+    await writeAudit('review_request.send_blocked', { reason: 'approval_required', status: row.status })
+    return errorResponse(422, 'approval_required', 'Review request must be approved before sending.')
+  }
+  if (!row.customer_phone?.trim()) {
+    await writeAudit('review_request.send_blocked', { reason: 'missing_phone' })
+    return errorResponse(422, 'missing_phone', 'Customer phone number is missing.')
+  }
 
   const accessToken = await getVaultSecret(SUPABASE_URL, SERVICE_ROLE_KEY, tenant_id, 'whatsapp', 'WHATSAPP_ACCESS_TOKEN', ENC_KEY)
   const phoneNumberId = await getVaultSecret(SUPABASE_URL, SERVICE_ROLE_KEY, tenant_id, 'whatsapp', 'WHATSAPP_PHONE_NUMBER_ID', ENC_KEY)
@@ -108,9 +129,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     consented = consent?.status === 'opt_in' && !consent?.revoked_at
   }
   if (optedOut) {
+    await writeAudit('review_request.send_blocked', { reason: 'opted_out' })
     return errorResponse(422, 'opted_out', 'This contact has opted out of WhatsApp messages.')
   }
   if (!consented) {
+    await writeAudit('review_request.send_blocked', { reason: 'consent_required' })
     return errorResponse(422, 'consent_required', 'Record an explicit WhatsApp opt-in for this contact before sending.')
   }
 
@@ -127,6 +150,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const templateName = template?.provider_template_name?.trim() ?? ''
   const templateLanguage = template?.language || 'en'
   if (!templateName) {
+    await writeAudit('review_request.send_blocked', { reason: 'template_not_configured', template_key: REVIEW_TEMPLATE_KEY })
     return errorResponse(422, 'template_not_configured', `Save an approved WhatsApp template with key "${REVIEW_TEMPLATE_KEY}" and its Meta template name in Settings -> Integrations -> Message templates.`)
   }
 
@@ -158,6 +182,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status: 'sent', sent_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString(),
     }).eq('id', row.id).eq('tenant_id', tenant_id)
 
+    await writeAudit('review_request.sent', {
+      channel: row.channel,
+      provider: result.provider,
+      provider_message_id: result.providerMessageId,
+      mode: result.mode,
+      template: templateName,
+    })
+
     return jsonResponse({ ok: true, status: 'sent', provider: result.provider, provider_message_id: result.providerMessageId, mode: result.mode })
   } catch (e) {
     const message = e instanceof WhatsAppSendError ? e.message : 'WhatsApp send failed'
@@ -165,6 +197,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     await admin.from('review_requests').update({
       status: 'failed', last_error: `${code}: ${message}`.slice(0, 500), updated_at: new Date().toISOString(),
     }).eq('id', row.id).eq('tenant_id', tenant_id)
+    await writeAudit('review_request.send_failed', {
+      channel: row.channel,
+      code,
+      message: message.slice(0, 300),
+    })
     const status = e instanceof WhatsAppSendError ? (e.code === 'template_required' || e.code === 'consent_required' || e.code === 'opted_out' || e.code === 'invalid_recipient' ? 422 : 502) : 502
     return errorResponse(status, code, message)
   }

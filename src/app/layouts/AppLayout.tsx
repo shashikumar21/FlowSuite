@@ -20,6 +20,7 @@ import { Avatar } from '@/components/ui/Feedback'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
 import { NotificationsBell } from '@/modules/notifications/components/NotificationsBell'
+import { LegalLinks } from '@/modules/legal/components/LegalLinks'
 
 export function AppLayout() {
   const { profile, user, isPlatformAdmin, signOut } = useAuth()
@@ -236,6 +237,10 @@ export function AppLayout() {
                         <ShieldCheck className="size-4" /> Platform admin
                       </NavLink>
                     ) : null}
+                    <div className="border-t border-ink-100 px-2.5 pb-1 pt-3">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-400">Legal</p>
+                      <LegalLinks onNavigate={closeMenus} />
+                    </div>
                     <button
                       type="button"
                       onClick={() => void signOut()}

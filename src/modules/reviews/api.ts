@@ -1,4 +1,13 @@
+import { z } from 'zod'
 import { requireSupabase } from '@/integrations/supabase/client'
+
+const reviewAuditSchema = z.array(z.object({
+  id: z.number(),
+  action: z.string(),
+  actor_id: z.string().nullable(),
+  created_at: z.string(),
+  metadata: z.record(z.string(), z.unknown()),
+}))
 
 export type PublicReview = {
   id: string
@@ -85,4 +94,30 @@ export async function sendReviewRequestWhatsApp(tenantId: string, requestId: str
   })
   if (error) throw error
   return (data ?? { ok: false, status: 'error' }) as { ok: boolean; status: string; provider_message_id?: string | null }
+}
+
+export type ReviewAuditRow = {
+  id: number
+  action: string
+  actor_id: string | null
+  created_at: string
+  metadata: Record<string, unknown>
+}
+
+export async function fetchReviewAudit(tenantId: string): Promise<ReviewAuditRow[]> {
+  const { data, error } = await requireSupabase()
+    .from('audit_logs' as never)
+    .select('id,action,actor_id,created_at,metadata')
+    .eq('tenant_id', tenantId)
+    .in('action', [
+      'review_request.approved',
+      'review_request.cancelled',
+      'review_request.sent',
+      'review_request.send_failed',
+      'review_request.send_blocked',
+    ])
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) throw error
+  return reviewAuditSchema.parse(data ?? [])
 }

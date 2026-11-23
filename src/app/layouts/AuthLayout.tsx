@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BarChart3, Bot, Sparkles, Workflow } from 'lucide-react'
 import { APP_NAME } from '@/integrations/supabase/client'
+import { LegalLinks } from '@/modules/legal/components/LegalLinks'
 
 const currentYear = new Date().getFullYear()
 
@@ -72,6 +73,9 @@ export function AuthLayout({
           <p className="mt-2 text-sm leading-6 text-ink-500">{subtitle}</p>
           <div className="mt-8">{children}</div>
           {footer ? <div className="mt-8 border-t border-ink-100 pt-6 text-sm text-ink-500">{footer}</div> : null}
+          <div className="mt-8 border-t border-ink-100 pt-5">
+            <LegalLinks />
+          </div>
         </div>
       </section>
     </main>

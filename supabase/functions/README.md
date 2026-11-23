@@ -2,6 +2,8 @@
 
 This directory is reserved for trusted server-side code. No function is deployed in Milestone 1 or 2.
 
+**Deployment status:** the per-section headings below describe the original milestone state and are not kept current. See `docs/HOSTED_STATE.md` for the authoritative list of functions actually deployed to the hosted project. As of 2026-11-23 that includes `ai-chat`, `website-generate`, `calendar-oauth-start`, `calendar-oauth-callback`, `review-suggest`, `integrations-vault-save`, `calendar-sync-appointment`, `review-request-send-whatsapp`, and the three Razorpay billing functions. The WhatsApp-send, WhatsApp-webhook, follow-up worker and telephony webhook functions remain local code only.
+
 ## `notify-email` (Milestone 3 foundation)
 
 `notify-email/` plus `_shared/email.ts` provide the email **seam** only. Milestone 3 ships working in-app notifications; this function is not yet wired to an automatic dispatcher. A later milestone will add an outbox over `public.notifications` rows with `delivery_channel = 'email'` and `delivery_status = 'pending'`, then invoke this function from that dispatcher.

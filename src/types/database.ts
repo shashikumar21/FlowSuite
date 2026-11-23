@@ -3051,6 +3051,11 @@ export interface Database {
       billing_get_overview: { Args: { p_tenant: string }; Returns: Json }
       billing_check_entitlement: { Args: { p_tenant: string; p_feature: string }; Returns: boolean }
       billing_check_limit: { Args: { p_tenant: string; p_key: string; p_used: number }; Returns: boolean }
+      billing_get_usage: { Args: { p_tenant: string }; Returns: Json }
+      billing_get_settings: { Args: Record<string, never>; Returns: Json }
+      billing_enforce_feature: { Args: { p_tenant: string; p_feature: string }; Returns: boolean }
+      admin_set_tenant_plan: { Args: { p_tenant: string; p_plan: string; p_reason?: string | null }; Returns: undefined }
+      admin_set_billing_enforcement: { Args: { p_enabled: boolean }; Returns: Json }
       admin_platform_stats: {
         Args: Record<string, never>
         Returns: Json

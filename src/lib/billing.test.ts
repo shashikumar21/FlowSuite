@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildReceipt, fromPaise, periodEndIso, planAmountPaise, toPaise } from './billing'
+import { buildReceipt, buildUsageRows, fromPaise, periodEndIso, planAmountPaise, toPaise } from './billing'
 
 describe('toPaise', () => {
   it('converts whole and fractional rupees to integer paise', () => {
@@ -58,5 +58,29 @@ describe('periodEndIso', () => {
 
   it('adds one year for yearly billing', () => {
     expect(periodEndIso(new Date('2026-01-15T10:00:00.000Z'), 'yearly')).toBe('2027-01-15T10:00:00.000Z')
+  })
+})
+
+describe('buildUsageRows', () => {
+  const usage = {
+    contacts: 120,
+    employees: 3,
+    branches: 1,
+    messages: 450,
+    workflow_runs: 90,
+    ai_credits: 200,
+  }
+
+  it('computes bounded percentages for numeric limits', () => {
+    const rows = buildUsageRows(usage, { contacts: 500, messages: 100, employees: -1 })
+    expect(rows.find((row) => row.key === 'contacts')).toMatchObject({ used: 120, limit: 500, percent: 24 })
+    expect(rows.find((row) => row.key === 'messages')).toMatchObject({ used: 450, limit: 100, percent: 100 })
+    expect(rows.find((row) => row.key === 'employees')).toMatchObject({ unlimited: true, limit: null, percent: 0 })
+  })
+
+  it('treats missing limits as unavailable rather than full', () => {
+    const rows = buildUsageRows(usage, {})
+    expect(rows.every((row) => row.limit === null)).toBe(true)
+    expect(rows).toHaveLength(6)
   })
 })

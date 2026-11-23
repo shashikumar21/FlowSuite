@@ -36,3 +36,18 @@ export type CreateOrderResult = {
   plan_name: string
   billing_cycle: BillingCycle
 }
+
+export type BillingUsage = {
+  contacts: number
+  employees: number
+  branches: number
+  messages: number
+  workflow_runs: number
+  ai_credits: number
+  period_start: string
+}
+
+export type BillingSettings = {
+  enforce_limits: boolean
+  updated_at: string | null
+}

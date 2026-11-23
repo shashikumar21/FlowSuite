@@ -1,6 +1,20 @@
 import { requireSupabase } from '@/integrations/supabase/client'
-import { billingOverviewSchema, createOrderResultSchema, verifyPaymentResultSchema } from './schemas'
-import type { BillingOverview, BillingCycle, CreateOrderResult } from './types'
+import {
+  adminAssignPlanSchema,
+  billingOverviewSchema,
+  billingSettingsSchema,
+  billingUsageSchema,
+  createOrderResultSchema,
+  setBillingEnforcementSchema,
+  verifyPaymentResultSchema,
+} from './schemas'
+import type {
+  BillingCycle,
+  BillingOverview,
+  BillingSettings,
+  BillingUsage,
+  CreateOrderResult,
+} from './types'
 
 async function readFunctionError(error: unknown): Promise<Error> {
   const context = (error as { context?: Response } | null)?.context
@@ -21,6 +35,47 @@ export async function fetchBillingOverview(tenantId: string): Promise<BillingOve
   })
   if (error) throw error
   return billingOverviewSchema.parse(data)
+}
+
+export async function fetchBillingUsage(tenantId: string): Promise<BillingUsage> {
+  const { data, error } = await requireSupabase().rpc('billing_get_usage', {
+    p_tenant: tenantId,
+  })
+  if (error) throw error
+  return billingUsageSchema.parse(data)
+}
+
+export async function fetchBillingSettings(): Promise<BillingSettings> {
+  const { data, error } = await requireSupabase().rpc('billing_get_settings', {})
+  if (error) throw error
+  return billingSettingsSchema.parse(data)
+}
+
+export async function assignTenantPlan(input: {
+  tenantId: string
+  planId: string
+  reason: string | null
+}): Promise<void> {
+  const payload = adminAssignPlanSchema.parse({
+    tenant_id: input.tenantId,
+    plan_id: input.planId,
+    reason: input.reason,
+  })
+  const { error } = await requireSupabase().rpc('admin_set_tenant_plan', {
+    p_tenant: payload.tenant_id,
+    p_plan: payload.plan_id,
+    p_reason: payload.reason,
+  })
+  if (error) throw error
+}
+
+export async function setBillingEnforcement(enabled: boolean): Promise<BillingSettings> {
+  const payload = setBillingEnforcementSchema.parse({ enabled })
+  const { data, error } = await requireSupabase().rpc('admin_set_billing_enforcement', {
+    p_enabled: payload.enabled,
+  })
+  if (error) throw error
+  return billingSettingsSchema.parse(data)
 }
 
 export async function createRazorpayOrder(input: {

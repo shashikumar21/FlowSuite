@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { requireSupabase } from '@/integrations/supabase/client'
 import type { WorkflowFormValues } from './schemas'
 import type { WorkflowRow, WorkflowStatus } from './types'
@@ -55,4 +56,29 @@ export async function deleteWorkflow(tenantId: string, workflowId: string): Prom
     p_workflow: workflowId,
   } as never)
   if (error) throw error
+}
+
+const manualRunInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  workflowId: z.string().uuid(),
+  dedupeKey: z.string().uuid().optional(),
+})
+
+const manualRunResultSchema = z.string().uuid().nullable()
+
+// Runs only local actions (tasks, in-app notices, run logs). No provider call,
+// no message send, no review request. Requires the local 0040 migration.
+export async function runWorkflowManually(
+  tenantId: string,
+  workflowId: string,
+  dedupeKey?: string,
+): Promise<string | null> {
+  const input = manualRunInputSchema.parse({ tenantId, workflowId, dedupeKey })
+  const { data, error } = await requireSupabase().rpc('workflows_run_manual' as never, {
+    p_tenant: input.tenantId,
+    p_workflow: input.workflowId,
+    p_payload: input.dedupeKey ? { dedupe_key: input.dedupeKey } : {},
+  } as never)
+  if (error) throw error
+  return manualRunResultSchema.parse(data ?? null)
 }

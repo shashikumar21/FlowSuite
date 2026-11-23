@@ -352,6 +352,40 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
    Razorpay webhook URL to configure:
    `https://grkzontnyjnhijmphypo.supabase.co/functions/v1/razorpay-webhook`.
 
+ - **Local-only follow-up (NOT applied/deployed/pushed after the user's
+   2026-11-23 instruction to finish all work locally first):**
+   - `supabase/migrations/0038_billing_admin_gating.sql` — super-admin manual
+     plan assignment and enforcement switch, usage RPC and switch-controlled
+     database limit triggers. Enforcement defaults to OFF. Never applied to
+     hosted. The first owner and pending invitations are exempt from the member
+     limit trigger so signup cannot be blocked.
+   - `supabase/migrations/0039_review_request_audit.sql` — manager+ approval
+     check plus audit rows for every review-request approval/cancellation.
+     Never applied to hosted.
+   - `src/modules/legal/` — public Privacy, Terms and Refund & Cancellation
+     pages at `/privacy`, `/terms`, `/refund`, linked from sign-in and the app
+     profile menu. Frontend-only, pending the user's deploy decision.
+   - `supabase/functions/review-request-send-whatsapp/index.ts` now writes
+     success/failure/blocked audit rows via the service role, with the acting
+     user id preserved. This code is local only; the hosted v3 function is
+     unchanged.
+   - `supabase/tests/billing_and_review_rls.sql` — local-only SQL security tests
+     for the 0037-0039 objects. Requires a local database with those migrations
+     applied; Docker was unavailable, so it has not been executed.
+   - `supabase/migrations/0040_workflows_local_runners.sql` — local runners for
+     Painter 1/2/3/5. They create tasks, in-app notifications, run/step logs and
+     audit entries only. Provider steps are explicitly skipped, and
+     `send_review_request` remains exclusive to the Painter 4 runner. Manual
+     runs require manager+; one source event produces at most one run per
+     workflow. Never applied to hosted.
+   - `supabase/tests/workflows_local_runners.sql` — local-only SQL behavior and
+     tenant-isolation tests for 0040; not executed (no local database).
+   - `src/modules/ai-console/local/` — local provider-connection dry run. It is
+     off until enabled in Settings → Integrations, accepts secret names only,
+     keeps simulated rows in sessionStorage, and calls no provider, Edge
+     Function or Supabase RPC. It cannot send messages or create real
+     connections.
+
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
 (from `0021`, applied 2026-11-22), 5 Voice/Call Agent tables and 4 `voice_*` RPCs

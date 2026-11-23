@@ -56,3 +56,28 @@ export const verifyPaymentResultSchema = z.object({
   order_id: z.string(),
   payment_id: z.string(),
 })
+
+export const billingUsageSchema = z.object({
+  contacts: z.number().int().nonnegative(),
+  employees: z.number().int().nonnegative(),
+  branches: z.number().int().nonnegative(),
+  messages: z.number().int().nonnegative(),
+  workflow_runs: z.number().int().nonnegative(),
+  ai_credits: z.number().int().nonnegative(),
+  period_start: z.string(),
+})
+
+export const billingSettingsSchema = z.object({
+  enforce_limits: z.boolean(),
+  updated_at: z.string().nullable(),
+})
+
+export const adminAssignPlanSchema = z.object({
+  tenant_id: z.string().uuid(),
+  plan_id: z.string().uuid(),
+  reason: z.string().trim().max(500).nullable(),
+})
+
+export const setBillingEnforcementSchema = z.object({
+  enabled: z.boolean(),
+})

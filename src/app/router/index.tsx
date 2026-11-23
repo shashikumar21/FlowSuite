@@ -7,6 +7,9 @@ import { HomeRedirect, ProtectedRoute, RequireAdmin, RequireTenant } from './gua
 
 // Route-level code splitting keeps the initial bundle small; each page is
 // downloaded only when its route is visited.
+const AdminBillingPage = lazy(() =>
+  import('@/modules/admin/pages/AdminBillingPage').then((m) => ({ default: m.AdminBillingPage })),
+)
 const AdminBusinessesPage = lazy(() =>
   import('@/modules/admin/pages/AdminBusinessesPage').then((m) => ({ default: m.AdminBusinessesPage })),
 )
@@ -166,6 +169,15 @@ const VoiceAgentPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import('@/app/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 )
+const PrivacyPage = lazy(() =>
+  import('@/modules/legal/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })),
+)
+const TermsPage = lazy(() =>
+  import('@/modules/legal/pages/TermsPage').then((m) => ({ default: m.TermsPage })),
+)
+const RefundPage = lazy(() =>
+  import('@/modules/legal/pages/RefundPage').then((m) => ({ default: m.RefundPage })),
+)
 
 function RouteLoader() {
   return (
@@ -184,6 +196,9 @@ export function AppRouter() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/invite/:token" element={<AcceptInvitationPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/refund" element={<RefundPage />} />
         {/* Anonymous, slug-scoped booking page. All validation happens server-side. */}
         <Route path="/book/:slug" element={<PublicBookingPage />} />
         <Route path="/r/:token" element={<PublicReviewPage />} />
@@ -244,6 +259,7 @@ export function AppRouter() {
               <Route index element={<AdminOverviewPage />} />
               <Route path="businesses" element={<AdminBusinessesPage />} />
               <Route path="plans" element={<AdminPlansPage />} />
+              <Route path="billing" element={<AdminBillingPage />} />
             </Route>
           </Route>
         </Route>

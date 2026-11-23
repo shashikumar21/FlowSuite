@@ -138,7 +138,7 @@ export const moduleTitles: Record<string, { title: string; description: string; 
   campaigns: { title: 'Campaigns', description: 'Plan multi-channel campaigns. No sends or delivery metrics.', icon: Inbox, phase: 'Growth (local)' },
   websites: { title: 'Websites', description: 'Record pages and form leads. No hosting or custom domains.', icon: Globe, phase: 'Growth (local)' },
   reputation: { title: 'Reputation', description: 'Record reviews, responses and feedback. No provider posts.', icon: Star, phase: 'Growth (local)' },
-  workflows: { title: 'Workflows', description: 'Workflow definitions (triggers/actions). Execution engine not enabled in v1.', icon: Workflow, phase: 'Phase 3 (v1 shell)' },
+  workflows: { title: 'Workflows', description: 'Local runners create tasks and in-app notices. Provider sends stay manual and approval-gated.', icon: Workflow, phase: 'Phase 3 (local runners)' },
   'sales-decision-makers': { title: 'Decision makers', description: 'Research contacts within each sales prospect.', icon: UserCog, phase: 'Phase 4' },
   'sales-email-writer': { title: 'AI email writer', description: 'Draft outreach from saved prospect context.', icon: MessageSquare, phase: 'Phase 3' },
   'sales-campaigns': { title: 'Sales campaigns', description: 'Plan and measure approved outreach.', icon: Megaphone, phase: 'Phase 3' },

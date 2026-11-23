@@ -9,8 +9,9 @@ import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
 import { SUPPORT_EMAIL } from '@/integrations/supabase/client'
 import { getErrorMessage } from '@/lib/errors'
-import { formatCurrency, formatDate, titleCase } from '@/lib/format'
-import { createRazorpayOrder, fetchBillingOverview, verifyRazorpayPayment } from '../api'
+import { formatCurrency, formatDate, formatNumber, titleCase } from '@/lib/format'
+import { buildUsageRows } from '@/lib/billing'
+import { createRazorpayOrder, fetchBillingOverview, fetchBillingSettings, fetchBillingUsage, verifyRazorpayPayment } from '../api'
 import { loadRazorpayCheckout, openRazorpayCheckout } from '../checkout'
 import type { BillingCycle, PlanSummary } from '../types'
 
@@ -36,6 +37,17 @@ export function SubscriptionPage() {
     queryKey: ['billing-overview', activeTenantId],
     queryFn: () => fetchBillingOverview(activeTenantId ?? ''),
     enabled: Boolean(activeTenantId),
+  })
+
+  const usageQuery = useQuery({
+    queryKey: ['billing-usage', activeTenantId],
+    queryFn: () => fetchBillingUsage(activeTenantId ?? ''),
+    enabled: Boolean(activeTenantId && query.data),
+  })
+
+  const settingsQuery = useQuery({
+    queryKey: ['billing-settings'],
+    queryFn: fetchBillingSettings,
   })
 
   const startCheckout = async (plan: PlanSummary) => {
@@ -141,6 +153,38 @@ export function SubscriptionPage() {
             ) : null}
           </Card>
 
+          {usageQuery.data ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Usage this month</CardTitle>
+                <CardDescription>
+                  Since {formatDate(usageQuery.data.period_start)} · counts update as you use FlowSuite.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {buildUsageRows(usageQuery.data, overview.limits).map((row) => (
+                  <div key={row.key} className="rounded-lg border border-ink-200 bg-white p-3">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-xs text-ink-500">{titleCase(row.key)}</span>
+                      <span className="text-xs font-semibold text-ink-800">
+                        {formatNumber(row.used)} / {row.unlimited ? 'Unlimited' : row.limit === null ? '—' : formatNumber(row.limit)}
+                      </span>
+                    </div>
+                    {row.limit !== null && !row.unlimited ? (
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
+                        <div className="h-full rounded-full bg-brand-500" style={{ width: `${row.percent}%` }} />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {usageQuery.isError ? (
+            <p className="text-xs text-ink-400">Usage reporting is not available on this deployment yet.</p>
+          ) : null}
+
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-ink-900">Available plans</h2>
@@ -220,7 +264,12 @@ export function SubscriptionPage() {
             <CardContent className="space-y-2 text-sm text-ink-600">
               <p className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" /> Payments are processed by Razorpay over HTTPS. Card details never touch FlowSuite servers.</p>
               <p className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" /> Your subscription activates only after a server-verified payment signature or a signed Razorpay webhook.</p>
-              <p className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" /> Plan entitlements are visible here today. Hard feature blocking is not switched on yet.</p>
+              <p className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                {settingsQuery.data?.enforce_limits
+                  ? 'Plan limits are enforced by the database. If you reach a limit, upgrade your plan to continue.'
+                  : 'Plan entitlements are visible here today. Hard feature blocking is not switched on yet.'}
+              </p>
             </CardContent>
           </Card>
         </>

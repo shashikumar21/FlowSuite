@@ -39,3 +39,40 @@ export function periodEndIso(start: Date, cycle: BillingCycle): string {
   else end.setUTCMonth(end.getUTCMonth() + 1)
   return end.toISOString()
 }
+
+export const USAGE_METRIC_KEYS = [
+  'contacts',
+  'employees',
+  'branches',
+  'messages',
+  'workflow_runs',
+  'ai_credits',
+] as const
+
+export type UsageMetricKey = (typeof USAGE_METRIC_KEYS)[number]
+
+export type UsageRow = {
+  key: UsageMetricKey
+  used: number
+  limit: number | null
+  unlimited: boolean
+  percent: number
+}
+
+/**
+ * Pairs live usage with the active plan limits. A negative plan limit means
+ * unlimited; a missing key means the plan does not expose that metric.
+ */
+export function buildUsageRows(
+  usage: Record<UsageMetricKey, number>,
+  limits: Record<string, unknown>,
+): UsageRow[] {
+  return USAGE_METRIC_KEYS.map((key) => {
+    const raw = limits[key]
+    const unlimited = typeof raw === 'number' && raw < 0
+    const limit = typeof raw === 'number' && raw >= 0 ? raw : null
+    const used = usage[key]
+    const percent = limit === null || unlimited ? 0 : limit === 0 ? 100 : Math.min(100, Math.round((used / limit) * 100))
+    return { key, used, limit, unlimited, percent }
+  })
+}
