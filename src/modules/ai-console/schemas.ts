@@ -58,6 +58,8 @@ export const credentialProviderOptions = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'resend', label: 'Resend (email)' },
   { value: 'exotel', label: 'Exotel (voice)' },
+  { value: 'netlify', label: 'Netlify (website deploy)' },
+  { value: 'vercel', label: 'Vercel (website deploy)' },
   { value: 'other', label: 'Other' },
 ] as const
 
@@ -111,7 +113,7 @@ export type KnowledgeFormValues = z.output<typeof knowledgeSchema>
 
 export const credentialSchema = z.object({
   channel_id: z.string().min(1, 'Select a channel'),
-  provider: z.enum(['whatsapp', 'openai', 'resend', 'exotel', 'other']),
+  provider: z.enum(['whatsapp', 'openai', 'resend', 'exotel', 'netlify', 'vercel', 'other']),
   secret_ref: z
     .string()
     .trim()

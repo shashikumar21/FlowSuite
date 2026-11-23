@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Copy, Download, Eye, FileUp, FolderUp, Globe, Package, Pencil, Plus, Rocket, Settings2, Sparkles, Trash2, Upload } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
@@ -31,6 +32,7 @@ export function WebsitesPage() {
   const tenantId = activeTenant?.tenant_id
   const canManage = canManageGrowth(activeTenant?.role)
   const { toast } = useToast()
+  const navigate = useNavigate()
   const sitesQuery = useGrowthWebsites(tenantId)
   const submissionsQuery = useGrowthSubmissions(tenantId)
   const deleteSite = useDeleteGrowthSite(tenantId)
@@ -122,6 +124,11 @@ export function WebsitesPage() {
   const importedBlobUrlsRef = useRef<string[]>([])
   const [githubOpen, setGithubOpen] = useState(false)
   const [githubUrl, setGithubUrl] = useState('')
+  const [deploySource, setDeploySource] = useState<'ai' | 'template' | 'import'>('ai')
+  const [deployProvider, setDeployProvider] = useState<'netlify' | 'vercel' | 'github'>('netlify')
+  const [deploySiteName, setDeploySiteName] = useState('')
+  const [deployTemplateId, setDeployTemplateId] = useState(websiteTemplates[0]?.id ?? '')
+  const [deployModalOpen, setDeployModalOpen] = useState(false)
   const [importedHtml, setImportedHtml] = useState<string | null>(null)
   const [importedPreviewHtml, setImportedPreviewHtml] = useState<string | null>(null)
   const [importedName, setImportedName] = useState<string | null>(null)
@@ -452,6 +459,65 @@ export function WebsitesPage() {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
+              <CardTitle className="flex items-center gap-2"><Rocket className="size-4 text-brand-600" /> Direct Deploy</CardTitle>
+              <CardDescription>Deploy an AI-generated, template, or imported website to an external provider. FlowSuite does not host custom website files.</CardDescription>
+            </div>
+            <Badge variant="warning">Provider setup required</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">Source</span>
+              <select className="w-full rounded-lg border border-line-200 px-3 py-2 text-sm" value={deploySource} onChange={(e) => setDeploySource(e.target.value as 'ai' | 'template' | 'import')}>
+                <option value="ai">AI generated website</option>
+                <option value="template">Selected template</option>
+                <option value="import">Uploaded file/folder</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">Provider</span>
+              <select className="w-full rounded-lg border border-line-200 px-3 py-2 text-sm" value={deployProvider} onChange={(e) => setDeployProvider(e.target.value as 'netlify' | 'vercel' | 'github')}>
+                <option value="netlify">Netlify</option>
+                <option value="vercel">Vercel</option>
+                <option value="github">GitHub Pages (guide only)</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">Site name (reference)</span><Input value={deploySiteName} onChange={(e) => setDeploySiteName(e.target.value)} placeholder="my-clinic-site" /></label>
+          </div>
+
+          {deploySource === 'template' ? (
+            <label className="block space-y-1.5"><span className="text-xs font-semibold text-ink-700">Template</span>
+              <select className="w-full rounded-lg border border-line-200 px-3 py-2 text-sm" value={deployTemplateId} onChange={(e) => setDeployTemplateId(e.target.value)}>
+                {websiteTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </label>
+          ) : null}
+
+          <div className="rounded-lg border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700">
+            {deploySource === 'ai' ? (aiHtml ? <p><span className="font-semibold text-green-700">Ready:</span> AI draft is available ({Math.round(aiHtml.length / 1024)} KB).</p> : <p><span className="font-semibold text-amber-700">Missing:</span> Generate an AI website first.</p>) : null}
+            {deploySource === 'template' ? <p><span className="font-semibold text-green-700">Ready:</span> Template can be packaged as a deploy pack (index.html at root).</p> : null}
+            {deploySource === 'import' ? ((importedHtml || importedFiles?.length) ? <p><span className="font-semibold text-green-700">Ready:</span> Imported {importedFiles?.length ? `${importedFiles.length} file(s)` : 'HTML file'} available.</p> : <p><span className="font-semibold text-amber-700">Missing:</span> Upload a file or folder first.</p>) : null}
+          </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <p className="font-semibold">Direct deploy not configured yet</p>
+            <p className="mt-1">To enable real deploys: set the provider token as a server-side Supabase Edge Function secret in <strong>Settings → Integrations</strong>, deploy the deploy Edge Function (explicit approval required), then connect provider. No raw API keys are stored in this UI.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setDeployModalOpen(true)} disabled={(deploySource === 'ai' && !aiHtml) || (deploySource === 'import' && !importedHtml && !importedFiles?.length)}><Rocket className="size-4" /> Deploy</Button>
+            <Button variant="outline" onClick={() => {
+              if (deploySource === 'ai') { if (aiHtml) downloadAiZip() }
+              else if (deploySource === 'import') { downloadImported() }
+              else { const tpl = websiteTemplates.find((t) => t.id === deployTemplateId) ?? websiteTemplates[0]; if (tpl) downloadDeployPack(tpl) }
+            }}><Package className="size-4" /> Download deploy pack</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
               <CardTitle>AI website templates</CardTitle>
               <CardDescription>Choose a template, customize it, preview, download HTML/copy, or download a deploy-ready zip. FlowSuite does not host custom website files yet.</CardDescription>
             </div>
@@ -644,6 +710,41 @@ export function WebsitesPage() {
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { if (githubUrl.trim()) { void navigator.clipboard.writeText(githubUrl.trim()); toast({ title: 'Repo URL copied' }) } }}>Copy URL</Button>
             <Button onClick={() => setGithubOpen(false)}>Close</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={deployModalOpen} onClose={() => setDeployModalOpen(false)} title="Direct deploy" description="Deploy your website to an external provider. Real provider deploys are not configured yet.">
+        <div className="space-y-4 text-sm text-ink-700">
+          <div className="rounded-lg border border-ink-200 bg-ink-50 p-3">
+            <p className="font-semibold text-ink-900">Deploy preflight</p>
+            <ul className="mt-2 space-y-1 text-xs text-ink-600">
+              <li>Source: <span className="font-medium">{deploySource === 'ai' ? 'AI generated website' : deploySource === 'template' ? `Template (${websiteTemplates.find((t) => t.id === deployTemplateId)?.name ?? deployTemplateId})` : 'Uploaded file/folder'}</span></li>
+              <li>Provider: <span className="font-medium">{deployProvider === 'github' ? 'GitHub Pages (guide only)' : deployProvider === 'netlify' ? 'Netlify' : 'Vercel'}</span></li>
+              <li>Site name: <span className="font-medium">{deploySiteName.trim() || 'Not set (optional reference)'}</span></li>
+              <li>Artifact: <span className="font-medium">{deploySource === 'ai' ? (aiHtml ? 'index.html ready' : 'Missing AI draft') : deploySource === 'import' ? (importedFiles?.length ? `${importedFiles.length} file(s) ready` : importedHtml ? 'HTML file ready' : 'Missing upload') : 'Template deploy pack ready'}</span></li>
+            </ul>
+          </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+            <p className="font-semibold">Not configured yet</p>
+            <p className="mt-1 text-xs">Real direct deploy requires: 1) provider token set as a <strong>server-side Supabase Edge Function secret</strong> (in Settings → Integrations, follow instructions; do not paste tokens into FlowSuite forms/chat), 2) deploy migration + Edge Function deployed with explicit approval, 3) provider connection enabled.</p>
+          </div>
+
+          <div className="rounded-lg border border-ink-200 p-3 text-xs text-ink-600">
+            <p className="font-semibold text-ink-900">What works now</p>
+            <p className="mt-1">Download a deploy pack and deploy manually to Netlify Drop/Vercel/GitHub Pages. FlowSuite does not host custom website files yet.</p>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={() => setDeployModalOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => { setDeployModalOpen(false); navigate('/app/settings/integrations') }}>Open Integrations</Button>
+            <Button onClick={() => {
+              if (deploySource === 'ai') { if (aiHtml) downloadAiZip() }
+              else if (deploySource === 'import') { downloadImported() }
+              else { const tpl = websiteTemplates.find((t) => t.id === deployTemplateId) ?? websiteTemplates[0]; if (tpl) downloadDeployPack(tpl) }
+              toast({ title: 'Deploy pack ready', description: 'Direct provider deploy is not configured yet. Upload the downloaded pack to your selected provider.' })
+            }}><Package className="size-4" /> Download pack</Button>
           </div>
         </div>
       </Modal>

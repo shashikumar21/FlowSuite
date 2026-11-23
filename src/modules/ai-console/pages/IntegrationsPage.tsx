@@ -36,6 +36,16 @@ const providerHelp: Record<string, { title: string; secret: string; note: string
     secret: 'RESEND_API_KEY',
     note: 'The Milestone 3 email seam remains unwired by design; no automated email is sent.',
   },
+  netlify: {
+    title: 'Website deploy (Netlify)',
+    secret: 'NETLIFY_DEPLOY_TOKEN',
+    note: 'For direct website deploys. Set NETLIFY_DEPLOY_TOKEN in Supabase Edge Function secrets (server-side only). Do not paste tokens in chat or store in client code.',
+  },
+  vercel: {
+    title: 'Website deploy (Vercel)',
+    secret: 'VERCEL_DEPLOY_TOKEN',
+    note: 'For direct website deploys. Set VERCEL_DEPLOY_TOKEN in Supabase Edge Function secrets (server-side only). Do not paste tokens in chat or store in client code.',
+  },
 }
 
 export function IntegrationsPage() {
@@ -123,6 +133,32 @@ export function IntegrationsPage() {
           )
         })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Website direct deploy (setup)</CardTitle>
+          <CardDescription>Direct deploy from the Websites tab requires server-side provider secrets. Never paste tokens in chat; never store raw tokens in client code.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-ink-700">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+            <p className="font-semibold">Security rule</p>
+            <p className="mt-1 text-xs">Do not enter raw API tokens into FlowSuite forms. Set deploy tokens as <strong>Supabase Edge Function secrets</strong> (server-side). This page only stores secret reference names, never secret values.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-ink-200 p-3">
+              <p className="font-semibold text-ink-900">Netlify</p>
+              <p className="mt-1 text-xs text-ink-500">Set secret: <code className="rounded bg-ink-50 px-1">NETLIFY_DEPLOY_TOKEN</code></p>
+              <p className="mt-1 text-xs text-ink-500">Supabase Dashboard → Project Settings → Edge Functions → Secrets. Or CLI: <code className="rounded bg-ink-50 px-1">supabase secrets set NETLIFY_DEPLOY_TOKEN=...</code></p>
+            </div>
+            <div className="rounded-lg border border-ink-200 p-3">
+              <p className="font-semibold text-ink-900">Vercel</p>
+              <p className="mt-1 text-xs text-ink-500">Set secret: <code className="rounded bg-ink-50 px-1">VERCEL_DEPLOY_TOKEN</code></p>
+              <p className="mt-1 text-xs text-ink-500">Supabase Dashboard → Project Settings → Edge Functions → Secrets. Or CLI: <code className="rounded bg-ink-50 px-1">supabase secrets set VERCEL_DEPLOY_TOKEN=...</code></p>
+            </div>
+          </div>
+          <p className="text-xs text-ink-500">After secrets are set and deploy functions are deployed (explicit approval required), the Websites tab can use them for direct deploy. Current status: UI ready, provider deploy not configured.</p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

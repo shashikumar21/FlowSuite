@@ -625,7 +625,7 @@ export type ChannelCredentialRow = {
   id: string
   tenant_id: string
   channel_id: string
-  provider: 'whatsapp' | 'openai' | 'resend' | 'exotel' | 'other'
+  provider: 'whatsapp' | 'openai' | 'resend' | 'exotel' | 'netlify' | 'vercel' | 'other'
   /** Server-side secret reference name only; never a raw token. */
   secret_ref: string
   external_identifier: string | null
@@ -2383,7 +2383,7 @@ export interface Database {
         Args: {
           p_tenant: string
           p_channel: string
-          p_provider: 'whatsapp' | 'openai' | 'resend' | 'exotel' | 'other'
+          p_provider: 'whatsapp' | 'openai' | 'resend' | 'exotel' | 'netlify' | 'vercel' | 'other'
           /** Server-side secret reference name only; never a raw token. */
           p_secret_ref: string
           p_external_identifier?: string | null
