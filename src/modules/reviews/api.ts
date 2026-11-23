@@ -78,3 +78,11 @@ export async function setReviewRequestStatus(tenantId: string, requestId: string
   } as never)
   if (error) throw error
 }
+
+export async function sendReviewRequestWhatsApp(tenantId: string, requestId: string): Promise<{ ok: boolean; status: string; provider_message_id?: string | null }> {
+  const { data, error } = await requireSupabase().functions.invoke('review-request-send-whatsapp', {
+    body: { tenant_id: tenantId, review_request_id: requestId },
+  })
+  if (error) throw error
+  return (data ?? { ok: false, status: 'error' }) as { ok: boolean; status: string; provider_message_id?: string | null }
+}
