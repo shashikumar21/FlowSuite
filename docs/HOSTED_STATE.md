@@ -68,6 +68,9 @@ function folders in the repo (`whatsapp-webhook`, `whatsapp-send`,
 - `AI_CHAT_ALLOWED_ORIGINS` — `http://localhost:5173,http://127.0.0.1:5173,https://testingdemo45.netlify.app,https://rococo-florentine-8dbe2c.netlify.app` (new FlowSuite origin added 2026-11-22; no function redeploy needed)
 - `CREDENTIALS_ENCRYPTION_KEY` — required by `integrations-vault-save` and
   `review-request-send-whatsapp` for server-side vault encryption/decryption.
+  **Set on hosted 2026-11-23** with explicit user approval; a random 32-byte
+  base64 key was generated locally and passed directly to Supabase without being
+  displayed in chat or stored in the repo.
 - Tenant vault secret names (stored encrypted in `integration_secrets`, provider
   `whatsapp`, never in client code/chat): `WHATSAPP_ACCESS_TOKEN`,
   `WHATSAPP_PHONE_NUMBER_ID`.
@@ -286,7 +289,8 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   Verified via `supabase functions list`. The function only sends manually after
   a request is `approved`; no auto-send/dispatch/scheduler is enabled. No live
   WhatsApp send was performed; provider secrets, customer opt-in, and an approved
-  Meta template are still required for production sends.
+  Meta template are still required for production sends. `CREDENTIALS_ENCRYPTION_KEY`
+  was set on hosted 2026-11-23 with explicit approval so vault saves can work.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
