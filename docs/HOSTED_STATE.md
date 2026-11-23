@@ -50,11 +50,12 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | `calendar-oauth-callback` | `ACTIVE` | `1` | `true` | `true` | `31593c47419bd00d82206d7a8831d805efb163e63cbedc8a26328102a91dfccd` |
 | `review-suggest` | `ACTIVE` | `1` | `false` | `true` | `2ff57ce2af0b0d1d15bbc71e907b69e0c47a753cf57686def7d9f23471ea45ac` |
 | `integrations-vault-save` | `ACTIVE` | `1` | `true` | `true` | `c60edf553d689dc93f3df804dbbca0fa0212d1554cafa3ebd1df98f6713eb14f` |
+| `calendar-sync-appointment` | `ACTIVE` | `1` | `false` | `true` | `b2c7797970e3423d1d66cb40925bfaae23a0f7ce63aaa8e6ebe6f74a49a18881` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
 function folders in the repo (`whatsapp-webhook`, `whatsapp-send`,
-`ai-follow-up-worker`, `telephony-webhook`, `calendar-sync-appointment`) are
+`ai-follow-up-worker`, `telephony-webhook`) are
 **not** deployed. No scheduler is configured.
 
 ## Server-side secrets (names only — never values)
@@ -160,7 +161,7 @@ was touched:
   availability rules in the hosted database; that is a hosted write and remains
   approval-gated.
 
-Still approval-gated: hosted promotion of `0026`, RLS hardening, Groq key
+Still approval-gated: RLS hardening, Groq key
 rotation (provider console), deletion of the failed Netlify site and project
 rename.
 
@@ -232,8 +233,10 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0029_workflows_review_requests.sql`.
   No WhatsApp/provider sending enabled.
 - `supabase/migrations/0026_calendar_google_sync.sql` — Google Calendar Phase 2
-  appointment sync mapping/RPC groundwork (local only). **Not applied to hosted.**
-  `calendar-sync-appointment` Edge Function is local-only/not deployed.
+  appointment sync mapping/RPC groundwork. **Applied to hosted 2026-11-23** with
+  explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0026_calendar_google_sync.sql`.
+  `calendar-sync-appointment` Edge Function **deployed** (v1, verify_jwt false) with explicit approval.
 - `supabase/migrations/0030_review_suggestion_mvp.sql` — tokenized public review
   link, feedback capture, and AI suggestion status fields/RPCs. **Applied to
   hosted 2026-11-23** with explicit user approval via
@@ -267,7 +270,7 @@ Hosted therefore still has 11 Sales Agent tables and 30
 (from `0021`, applied 2026-11-22), 5 Voice/Call Agent tables and 4 `voice_*` RPCs
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
-`calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
+`calendar_*` RPCs (from `0025`, applied 2026-11-22), plus Phase 2 sync mapping/RPC groundwork (from `0026`, applied 2026-11-23; `calendar-sync-appointment` deployed, Google secrets user-confirmed set),
 4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; no external sending, runner creates pending-approval records only), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
 and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
 
