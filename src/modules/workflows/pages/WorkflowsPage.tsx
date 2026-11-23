@@ -35,6 +35,73 @@ const actionLabels: Record<string, string> = {
   send_review_request: 'Send review request (approval required)',
 }
 
+type WorkflowTemplate = {
+  id: string
+  name: string
+  description: string
+  trigger_type: WorkflowTriggerType
+  actions: WorkflowFormValues['actions']
+  note: string
+}
+
+const painterTemplates: WorkflowTemplate[] = [
+  {
+    id: 'painter-lead-capture',
+    name: 'Painter - 1. Lead Capture (Quote Form)',
+    description: 'When a new lead/contact is created from a quote form, notify the team and create a follow-up task.',
+    trigger_type: 'lead_created',
+    actions: [
+      { type: 'notify_team', label: 'Notify team about new quote lead', config: { value: 'New painter quote lead captured. Call back quickly.' } },
+      { type: 'create_task', label: 'Create callback task', config: { value: 'Call new lead within 15 minutes and qualify quote request.' } },
+    ],
+    note: 'Uses existing lead/contact triggers. Connect your website/form source to create leads in FlowSuite.',
+  },
+  {
+    id: 'painter-missed-call',
+    name: 'Painter - 2. Missed-Call Text Back',
+    description: 'When a call is missed, prepare a text-back follow-up so the lead is not lost.',
+    trigger_type: 'manual',
+    actions: [
+      { type: 'notify_team', label: 'Notify team of missed call', config: { value: 'Missed call detected. Send text back and call when available.' } },
+      { type: 'webhook_placeholder', label: 'Text-back automation (provider required)', config: { value: 'Connect telephony/SMS provider. Auto-send is not enabled.' } },
+    ],
+    note: 'Missed-call trigger and auto SMS/WhatsApp sending require telephony provider setup; this template is a safe draft.',
+  },
+  {
+    id: 'painter-booking-reminders',
+    name: 'Painter - 3. Appointment Booking + Reminders',
+    description: 'When an appointment is booked, notify team and queue reminder tasks.',
+    trigger_type: 'appointment_created',
+    actions: [
+      { type: 'notify_team', label: 'Notify team of new booking', config: { value: 'New painting quote/appointment booked.' } },
+      { type: 'create_task', label: 'Send appointment reminder', config: { value: 'Send reminder 24 hours before appointment (provider setup required for auto-send).' } },
+    ],
+    note: 'Booking trigger exists. Automated SMS/WhatsApp/email reminders need provider setup and approval-gated sending.',
+  },
+  {
+    id: 'painter-review-request',
+    name: 'Painter - 4. Google Review Request',
+    description: 'After appointment completion, create a review request for approval.',
+    trigger_type: 'appointment_completed',
+    actions: [
+      { type: 'send_review_request', label: 'Request Google review (approval required)', config: { channel: 'whatsapp', delay_hours: '2', review_link_type: 'google', review_url: '' } },
+    ],
+    note: 'Uses the existing review-request runner. Creates pending approval records; no external auto-send.',
+  },
+  {
+    id: 'painter-lead-nurture',
+    name: 'Painter - 5. Lead Follow-Up Nurture',
+    description: 'When a lead is created, create follow-up tasks to remind leads who enquired but did not book.',
+    trigger_type: 'lead_created',
+    actions: [
+      { type: 'create_task', label: 'Day 1 follow-up', config: { value: 'Follow up with lead: answer questions and offer quote slot.' } },
+      { type: 'create_task', label: 'Day 3 nurture follow-up', config: { value: 'Send/check-in follow-up if lead has not booked (provider setup required for auto-send).' } },
+      { type: 'notify_team', label: 'Notify team for manual outreach', config: { value: 'Lead nurture sequence started. No external auto-send.' } },
+    ],
+    note: 'Creates workflow definition/tasks. Automated email/SMS nurture sending needs provider setup and approval-gated dispatch.',
+  },
+]
+
 const statusVariant: Record<WorkflowStatus, 'success' | 'neutral' | 'warning'> = {
   active: 'success',
   draft: 'neutral',
@@ -48,7 +115,18 @@ function defaultValues(row?: WorkflowRow | null): WorkflowFormValues {
     description: row.description ?? '',
     trigger_type: row.trigger_type,
     status: row.status,
-    actions: row.actions.length ? row.actions.map((a) => ({ type: a.type, label: a.label, config: { value: a.config?.value ?? a.config?.message ?? '' } })) : [{ type: 'notify_team', label: 'Notify team', config: { value: '' } }],
+    actions: row.actions.length ? row.actions.map((a) => ({
+      type: a.type,
+      label: a.label,
+      config: (a.type === 'send_review_request'
+        ? {
+            channel: a.config?.channel ?? 'whatsapp',
+            delay_hours: a.config?.delay_hours ?? '2',
+            review_link_type: a.config?.review_link_type ?? 'flowsuite',
+            review_url: a.config?.review_url ?? '',
+          }
+        : { value: a.config?.value ?? a.config?.message ?? '' }) as Record<string, string>,
+    })) : [{ type: 'notify_team', label: 'Notify team', config: { value: '' } }],
   }
 }
 
@@ -97,6 +175,22 @@ export function WorkflowsPage() {
 
   const openCreate = () => { setEditing(null); form.reset(defaultValues()); setOpen(true) }
   const openEdit = (row: WorkflowRow) => { setEditing(row); form.reset(defaultValues(row)); setOpen(true) }
+  const installTemplate = async (tpl: WorkflowTemplate) => {
+    if (!tenantId) return
+    try {
+      await createWorkflow(tenantId, {
+        name: tpl.name,
+        description: tpl.description,
+        trigger_type: tpl.trigger_type,
+        status: 'draft',
+        actions: tpl.actions,
+      })
+      toast({ title: 'Workflow template added', description: `${tpl.name} created as draft.` })
+      invalidate()
+    } catch (e) {
+      toast({ title: 'Could not add template', description: getErrorMessage(e), variant: 'error' })
+    }
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     if (!tenantId) return
@@ -144,7 +238,7 @@ export function WorkflowsPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Automation</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Workflows</h1>
-          <p className="mt-1 text-sm text-ink-500">Define automation rules for your business. Review-request runner MVP (local migration 0032) creates pending-approval records; no external messages are sent.</p>
+          <p className="mt-1 text-sm text-ink-500">Define automation rules for your business. Review-request runner creates pending-approval records; no external messages are sent automatically.</p>
         </div>
         <Button onClick={openCreate}><Plus className="size-4" /> New workflow</Button>
       </div>
@@ -154,7 +248,29 @@ export function WorkflowsPage() {
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
           <div className="text-sm text-amber-900">
             <p className="font-semibold">Safe automation MVP</p>
-            <p className="mt-1 text-amber-800">Workflow definitions are active. Review-request runner (migration 0032, local-only until applied) creates <strong>pending approval</strong> records when appointments complete. No external messages are sent automatically.</p>
+            <p className="mt-1 text-amber-800">Workflow definitions are active. The review-request runner creates <strong>pending approval</strong> records when appointments complete. No external messages are sent automatically.</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="py-5 space-y-4">
+          <div>
+            <p className="font-semibold text-ink-900">Painter workflow templates</p>
+            <p className="text-sm text-ink-500">Prebuilt drafts for common painter business automations. Add a template, then review and activate when your providers/setup are ready.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {painterTemplates.map((tpl) => (
+              <div key={tpl.id} className="rounded-lg border border-line-200 p-4 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-ink-900">{tpl.name}</p>
+                  <Badge variant="neutral">{triggerLabels[tpl.trigger_type]}</Badge>
+                </div>
+                <p className="text-sm text-ink-600">{tpl.description}</p>
+                <p className="text-xs text-ink-500">{tpl.note}</p>
+                <Button variant="outline" size="sm" onClick={() => void installTemplate(tpl)}><Plus className="size-4" /> Add template</Button>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
