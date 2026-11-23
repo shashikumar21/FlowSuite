@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Input, Label } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import type { ChannelCredentialRow, MessageTemplateRow } from '@/types/database'
@@ -77,12 +78,9 @@ export function IntegrationsPage() {
   useEffect(() => { void loadVaultSecrets() }, [tenantId])
 
   const copy = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      toast({ title: `${label} copied` })
-    } catch {
-      toast({ title: 'Copy failed', description: 'Select and copy the text manually.', variant: 'error' })
-    }
+    const copied = await copyText(value)
+    if (copied) toast({ title: `${label} copied` })
+    else toast({ title: `Copy ${label.toLowerCase()} manually`, description: value, variant: 'info' })
   }
 
   const onVaultProviderChange = (provider: string) => {

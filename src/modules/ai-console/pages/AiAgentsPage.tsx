@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Avatar } from '@/components/ui/Feedback'
+import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDateTime, formatNumber } from '@/lib/format'
 import type { AiAgentRow, AiAgentToolRow } from '@/types/database'
@@ -43,12 +44,9 @@ export function AiAgentsPage() {
   }, [agents, selected])
 
   const copy = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      toast({ title: `${label} copied` })
-    } catch {
-      toast({ title: 'Copy failed', description: 'Select and copy the text manually.', variant: 'error' })
-    }
+    const copied = await copyText(value)
+    if (copied) toast({ title: `${label} copied` })
+    else toast({ title: `Copy ${label.toLowerCase()} manually`, description: value, variant: 'info' })
   }
 
   const changeStatus = async (agent: AiAgentRow, status: 'draft' | 'active' | 'paused') => {

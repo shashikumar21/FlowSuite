@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Input, Label, FieldError } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { fetchReviewRequests, ensureReviewRequestToken, setReviewRequestStatus, sendReviewRequestWhatsApp, type ReviewRequestRow } from '@/modules/reviews/api'
 import { createWorkflow, deleteWorkflow, setWorkflowStatus, updateWorkflow } from '../api'
@@ -153,13 +154,21 @@ export function WorkflowsPage() {
 
   const copyReviewLink = async (row: ReviewRequestRow) => {
     if (!tenantId) return
+    let url: string
     try {
       const token = await ensureReviewRequestToken(tenantId, row.id)
-      const url = `${window.location.origin}/r/${token}`
-      await navigator.clipboard.writeText(url)
-      toast({ title: 'Review link copied', description: url })
-      void loadReviewRequests()
-    } catch (e) { toast({ title: 'Could not generate review link', description: getErrorMessage(e), variant: 'error' }) }
+      url = `${window.location.origin}/r/${token}`
+    } catch (e) {
+      toast({ title: 'Could not generate review link', description: getErrorMessage(e), variant: 'error' })
+      return
+    }
+    const copied = await copyText(url)
+    toast({
+      title: copied ? 'Review link copied' : 'Copy this review link',
+      description: url,
+      variant: copied ? 'success' : 'info',
+    })
+    void loadReviewRequests()
   }
 
   const updateReviewStatus = async (row: ReviewRequestRow, status: 'approved' | 'cancelled') => {

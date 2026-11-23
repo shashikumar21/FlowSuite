@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
+import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import type { GrowthSiteRow, GrowthSubmissionRow } from '@/types/database'
@@ -80,8 +81,9 @@ export function WebsitesPage() {
     toast({ title: 'Deploy pack downloaded', description: 'Zip includes index.html and README.md. Deploy the folder to any static host.' })
   }
   const copyTemplate = async (tpl: WebsiteTemplate) => {
-    try { await navigator.clipboard.writeText(buildTemplate(tpl)); toast({ title: 'Template copied', description: 'HTML copied to clipboard.' }) }
-    catch { toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'error' }) }
+    const copied = await copyText(buildTemplate(tpl))
+    if (copied) toast({ title: 'Template copied', description: 'HTML copied to clipboard.' })
+    else toast({ title: 'Could not copy template', description: 'Clipboard access was denied. Try again from a secure context.', variant: 'error' })
   }
 
   const [aiPrompt, setAiPrompt] = useState('')
@@ -383,7 +385,7 @@ export function WebsitesPage() {
             <Button onClick={() => void generateWebsite()} loading={aiGenerating} disabled={aiGenerating || aiPrompt.trim().length < 10}><Sparkles className="size-4" /> Generate website</Button>
             {aiHtml ? <Button variant="outline" onClick={downloadAiHtml}><Download className="size-4" /> Download HTML</Button> : null}
             {aiHtml ? <Button variant="outline" onClick={downloadAiZip}><Package className="size-4" /> Deploy pack (.zip)</Button> : null}
-            {aiHtml ? <Button variant="outline" onClick={() => { void navigator.clipboard.writeText(aiHtml); toast({ title: 'Copied' }) }}><Copy className="size-4" /> Copy HTML</Button> : null}
+            {aiHtml ? <Button variant="outline" onClick={() => { void copyText(aiHtml).then((ok) => toast(ok ? { title: 'Copied' } : { title: 'Could not copy HTML', variant: 'error' })) }}><Copy className="size-4" /> Copy HTML</Button> : null}
             {aiHtml ? <Button variant="ghost" onClick={() => setAiHtml(null)}>Clear preview</Button> : null}
           </div>
           <div className="rounded-xl border border-ink-200 bg-ink-50/40 p-3">
@@ -440,7 +442,7 @@ export function WebsitesPage() {
                 <p className="text-sm font-semibold text-ink-900">Imported preview{importedName ? `: ${importedName}` : ''}</p>
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={downloadImported}><Download className="size-4" /> {importedFiles?.length ? 'Download zip' : 'Download HTML'}</Button>
-                  <Button size="sm" variant="outline" onClick={() => { if (importedHtml) { void navigator.clipboard.writeText(importedHtml); toast({ title: 'Copied' }) } }}><Copy className="size-4" /> Copy HTML</Button>
+                  <Button size="sm" variant="outline" onClick={() => { if (importedHtml) { void copyText(importedHtml).then((ok) => toast(ok ? { title: 'Copied' } : { title: 'Could not copy HTML', variant: 'error' })) } }}><Copy className="size-4" /> Copy HTML</Button>
                   <Button size="sm" variant="ghost" onClick={resetImported}>Clear</Button>
                 </div>
               </div>
@@ -708,7 +710,7 @@ export function WebsitesPage() {
           <div className="rounded-lg border border-ink-200 bg-ink-50 p-3"><p className="font-semibold text-ink-900">Recommended flow</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-ink-600"><li>Upload/download your website files (or AI/deploy pack) from FlowSuite.</li><li>Push them to a GitHub repository (keep <code>index.html</code> at root for static sites).</li><li>Deploy with Netlify, Vercel, or GitHub Pages.</li></ol></div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900"><p className="font-semibold">Not configured yet</p><p className="mt-1">Direct GitHub import, repo sync, and FlowSuite-hosted custom files are not enabled. No GitHub credentials are collected.</p></div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { if (githubUrl.trim()) { void navigator.clipboard.writeText(githubUrl.trim()); toast({ title: 'Repo URL copied' }) } }}>Copy URL</Button>
+            <Button variant="outline" onClick={() => { if (githubUrl.trim()) { void copyText(githubUrl.trim()).then((ok) => toast(ok ? { title: 'Repo URL copied' } : { title: 'Copy this URL manually', description: githubUrl.trim(), variant: 'info' })) } }}>Copy URL</Button>
             <Button onClick={() => setGithubOpen(false)}>Close</Button>
           </div>
         </div>

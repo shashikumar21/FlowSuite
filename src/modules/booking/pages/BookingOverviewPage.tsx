@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
-import { getErrorMessage } from '@/lib/errors'
+import { copyText } from '@/lib/clipboard'
 import { AppointmentStatusBadge } from '../components/StatusBadge'
 import { useBookingAppointments, useBookingMetrics, useBookingOptions, useBookingPageSettings } from '../hooks'
 import {
@@ -47,12 +47,9 @@ export function BookingOverviewPage() {
 
   const copyLink = async () => {
     if (!publicUrl) return
-    try {
-      await navigator.clipboard.writeText(publicUrl)
-      toast({ title: 'Booking link copied' })
-    } catch (error) {
-      toast({ title: 'Could not copy link', description: getErrorMessage(error), variant: 'error' })
-    }
+    const copied = await copyText(publicUrl)
+    if (copied) toast({ title: 'Booking link copied' })
+    else toast({ title: 'Copy this booking link', description: publicUrl, variant: 'info' })
   }
 
   const cards = [

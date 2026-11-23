@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
 import { ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Label, Textarea } from '@/components/ui/Input'
+import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { fetchPublicReview, generateReviewSuggestion, markReviewClicked, submitPublicReviewFeedback, type PublicReview } from '../api'
 
@@ -19,6 +20,7 @@ export function PublicReviewPage() {
   const [suggestion, setSuggestion] = useState<string | null>(null)
   const [suggestionLoading, setSuggestionLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
 
   const load = async () => {
     if (!token) return
@@ -56,9 +58,13 @@ export function PublicReviewPage() {
 
   const copySuggestion = async () => {
     if (!suggestion) return
-    await navigator.clipboard.writeText(suggestion)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    if (await copyText(suggestion)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } else {
+      setCopyFailed(true)
+      setTimeout(() => setCopyFailed(false), 2500)
+    }
   }
 
   const openReviewLink = async () => {
@@ -114,7 +120,7 @@ export function PublicReviewPage() {
                   <>
                     <Textarea rows={4} value={suggestion} onChange={(e) => setSuggestion(e.target.value)} />
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={() => void copySuggestion()}><Copy className="size-4" /> {copied ? 'Copied' : 'Copy text'}</Button>
+                      <Button variant="outline" onClick={() => void copySuggestion()}><Copy className="size-4" /> {copied ? 'Copied' : copyFailed ? 'Select text to copy' : 'Copy text'}</Button>
                       {review.review_url ? <Button onClick={() => void openReviewLink()}><ExternalLink className="size-4" /> Open review link</Button> : null}
                     </div>
                     {!review.review_url ? <p className="text-xs text-ink-500">No public review URL configured. You can still copy the text.</p> : null}
