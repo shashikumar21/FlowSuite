@@ -84,9 +84,9 @@ const painterTemplates: WorkflowTemplate[] = [
     description: 'After appointment completion, create a review request for approval.',
     trigger_type: 'appointment_completed',
     actions: [
-      { type: 'send_review_request', label: 'Request Google review (approval required)', config: { channel: 'whatsapp', delay_hours: '2', review_link_type: 'google', review_url: '' } },
+      { type: 'send_review_request', label: 'Request review via FlowSuite link (approval required)', config: { channel: 'whatsapp', delay_hours: '2', review_link_type: 'flowsuite', review_url: '' } },
     ],
-    note: 'Uses the existing review-request runner. Creates pending approval records; no external auto-send.',
+    note: 'Uses the existing review-request runner and FlowSuite review page. Creates pending approval records; no external auto-send.',
   },
   {
     id: 'painter-lead-nurture',
