@@ -5,7 +5,7 @@
 import { z } from 'zod'
 import { createServiceClient } from '../_shared/ai/store.ts'
 import { createAiProvider } from '../_shared/ai/provider.ts'
-import { errorResponse, jsonResponse } from '../_shared/http.ts'
+import { errorResponse, handleCors, jsonResponse } from '../_shared/http.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -27,6 +27,8 @@ function fallbackSuggestion(businessName: string, rating: number, feedback: stri
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
+  const cors = handleCors(req)
+  if (cors) return cors
   if (req.method !== 'POST') return errorResponse(405, 'method_not_allowed')
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return errorResponse(503, 'service_unavailable', 'Server configuration missing')
 

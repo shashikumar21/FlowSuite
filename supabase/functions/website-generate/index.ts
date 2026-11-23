@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
 import { createAiProvider } from '../_shared/ai/provider.ts';
-import { errorResponse, jsonResponse } from '../_shared/http.ts';
+import { errorResponse, handleCors, jsonResponse } from '../_shared/http.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -48,6 +48,8 @@ function statusForError(error: unknown): number {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
+  const cors = handleCors(req);
+  if (cors) return cors;
   if (req.method !== 'POST') return errorResponse(405, 'method_not_allowed');
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return errorResponse(503, 'service_unavailable', 'Supabase server configuration is missing');
 
