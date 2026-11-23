@@ -44,14 +44,14 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 
 | Slug | Status | Version | verify_jwt | import_map | Source hash (sha256) |
 | --- | --- | --- | --- | --- | --- |
-| `ai-chat` | `ACTIVE` | `10` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
-| `website-generate` | `ACTIVE` | `2` | `true` | `true` | `f7bed983a2a39fdb55d2073542a17bb72a53acc433ce880f9a321e40a848b674` |
-| `calendar-oauth-start` | `ACTIVE` | `2` | `true` | `true` | `4a05f5662f8448519032cfdf339e8254725c83665b9eda2a5c2380e7d7bf2948` |
-| `calendar-oauth-callback` | `ACTIVE` | `1` | `true` | `true` | `31593c47419bd00d82206d7a8831d805efb163e63cbedc8a26328102a91dfccd` |
-| `review-suggest` | `ACTIVE` | `2` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
-| `integrations-vault-save` | `ACTIVE` | `2` | `true` | `true` | `2239aa34b5c3197936218af8cd65d1bd105803a2cad07ca01b61ec703fe3d38b` |
-| `calendar-sync-appointment` | `ACTIVE` | `2` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
-| `review-request-send-whatsapp` | `ACTIVE` | `1` | `true` | `true` | `7af56c0d981b960a1a796c5ababe13a565aeb96e8a0b14ffaee21b7d7d041b57` |
+| `ai-chat` | `ACTIVE` | `11` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
+| `website-generate` | `ACTIVE` | `3` | `true` | `true` | `f7bed983a2a39fdb55d2073542a17bb72a53acc433ce880f9a321e40a848b674` |
+| `calendar-oauth-start` | `ACTIVE` | `3` | `true` | `true` | `4a05f5662f8448519032cfdf339e8254725c83665b9eda2a5c2380e7d7bf2948` |
+| `calendar-oauth-callback` | `ACTIVE` | `2` | `true` | `true` | `31593c47419bd00d82206d7a8831d805efb163e63cbedc8a26328102a91dfccd` |
+| `review-suggest` | `ACTIVE` | `3` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
+| `integrations-vault-save` | `ACTIVE` | `3` | `true` | `true` | `2239aa34b5c3197936218af8cd65d1bd105803a2cad07ca01b61ec703fe3d38b` |
+| `calendar-sync-appointment` | `ACTIVE` | `3` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
+| `review-request-send-whatsapp` | `ACTIVE` | `3` | `true` | `true` | `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
@@ -291,6 +291,17 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   WhatsApp send was performed; provider secrets, customer opt-in, and an approved
   Meta template are still required for production sends. `CREDENTIALS_ENCRYPTION_KEY`
   was set on hosted 2026-11-23 with explicit approval so vault saves can work.
+- Meta template support for review sends: code committed/pushed as `823c3d2`;
+  `review-request-send-whatsapp` **re-deployed to hosted 2026-11-23** (v3,
+  verify_jwt true, import_map true, hash `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242`)
+  with explicit user approval via the same `supabase functions deploy ... --yes`
+  command. The function now requires a tenant `message_templates` row with key
+  `review_request`, `status='approved'` and a Meta template name, plus a recorded
+  WhatsApp `opt_in` for the contact; opt-out/revoked always blocks. Still no
+  auto-send. Also added `npm run typecheck:functions` and fixed pre-existing Deno
+  type errors in `_shared/vault.ts`, `calendar-oauth-callback`, and
+  `sales-email-draft` (no runtime behavior change). No live WhatsApp send was
+  performed during this deploy.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
