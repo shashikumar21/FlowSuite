@@ -51,6 +51,7 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | `review-suggest` | `ACTIVE` | `2` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
 | `integrations-vault-save` | `ACTIVE` | `2` | `true` | `true` | `2239aa34b5c3197936218af8cd65d1bd105803a2cad07ca01b61ec703fe3d38b` |
 | `calendar-sync-appointment` | `ACTIVE` | `2` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
+| `review-request-send-whatsapp` | `ACTIVE` | `1` | `true` | `true` | `7af56c0d981b960a1a796c5ababe13a565aeb96e8a0b14ffaee21b7d7d041b57` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
@@ -65,6 +66,11 @@ function folders in the repo (`whatsapp-webhook`, `whatsapp-send`,
 - `OPENAI_MODEL` — currently `openai/gpt-oss-120b`
 - `OPENAI_API_KEY` — currently a Groq key
 - `AI_CHAT_ALLOWED_ORIGINS` — `http://localhost:5173,http://127.0.0.1:5173,https://testingdemo45.netlify.app,https://rococo-florentine-8dbe2c.netlify.app` (new FlowSuite origin added 2026-11-22; no function redeploy needed)
+- `CREDENTIALS_ENCRYPTION_KEY` — required by `integrations-vault-save` and
+  `review-request-send-whatsapp` for server-side vault encryption/decryption.
+- Tenant vault secret names (stored encrypted in `integration_secrets`, provider
+  `whatsapp`, never in client code/chat): `WHATSAPP_ACCESS_TOKEN`,
+  `WHATSAPP_PHONE_NUMBER_ID`.
 
 Secrets are referenced by name only in source. No provider key belongs in a
 `VITE_*` variable. Random origins receive `403 {"error":{"code":"origin_not_allowed"}}`.
@@ -273,6 +279,14 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   `workflows_create`/`workflows_update` RPC validation to allow
   `appointment_completed` trigger type (table constraint already allowed it). **Applied to hosted 2026-11-23** with explicit user approval via
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0036_fix_workflows_trigger_types.sql`.
+- Approval-gated WhatsApp review-request send MVP: code committed/pushed as
+  `63c4175`; `review-request-send-whatsapp` Edge Function **deployed to hosted
+  2026-11-23** (v1, verify_jwt true, import_map true) with explicit user approval
+  via `supabase functions deploy review-request-send-whatsapp --project-ref grkzontnyjnhijmphypo --yes`.
+  Verified via `supabase functions list`. The function only sends manually after
+  a request is `approved`; no auto-send/dispatch/scheduler is enabled. No live
+  WhatsApp send was performed; provider secrets, customer opt-in, and an approved
+  Meta template are still required for production sends.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
@@ -280,7 +294,7 @@ Hosted therefore still has 11 Sales Agent tables and 30
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22), plus Phase 2 sync mapping/RPC groundwork (from `0026`, applied 2026-11-23; `calendar-sync-appointment` deployed, Google secrets user-confirmed set),
-4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; no external sending, runner creates pending-approval records only), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
+4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; runner creates pending-approval records only; approval-gated WhatsApp send function deployed but no auto-send/dispatch/scheduler), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
 and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
 
 ## Read-only verification commands
