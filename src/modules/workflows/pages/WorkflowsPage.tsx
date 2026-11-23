@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Plus, Pause, Play, Pencil, Trash2, Workflow, ShieldAlert } from 'lucide-react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -11,7 +11,6 @@ import { ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Input, Label, FieldError } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
-import { fetchReviewRequests, ensureReviewRequestToken, setReviewRequestStatus, type ReviewRequestRow } from '@/modules/reviews/api'
 import { createWorkflow, deleteWorkflow, setWorkflowStatus, updateWorkflow } from '../api'
 import { useWorkflows, useWorkflowsInvalidate } from '../hooks'
 import { workflowFormSchema, type WorkflowFormValues } from '../schemas'
@@ -139,36 +138,6 @@ export function WorkflowsPage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<WorkflowRow | null>(null)
   const [saving, setSaving] = useState(false)
-  const [reviewRequests, setReviewRequests] = useState<ReviewRequestRow[]>([])
-  const [reviewLoading, setReviewLoading] = useState(false)
-
-  const loadReviewRequests = async () => {
-    if (!tenantId) return
-    setReviewLoading(true)
-    try { setReviewRequests(await fetchReviewRequests(tenantId)) } catch { /* ignore */ } finally { setReviewLoading(false) }
-  }
-
-  useEffect(() => { void loadReviewRequests() }, [tenantId])
-
-  const copyReviewLink = async (row: ReviewRequestRow) => {
-    if (!tenantId) return
-    try {
-      const token = await ensureReviewRequestToken(tenantId, row.id)
-      const url = `${window.location.origin}/r/${token}`
-      await navigator.clipboard.writeText(url)
-      toast({ title: 'Review link copied', description: url })
-      void loadReviewRequests()
-    } catch (e) { toast({ title: 'Could not generate review link', description: getErrorMessage(e), variant: 'error' }) }
-  }
-
-  const updateReviewStatus = async (row: ReviewRequestRow, status: 'approved' | 'cancelled') => {
-    if (!tenantId) return
-    try {
-      await setReviewRequestStatus(tenantId, row.id, status)
-      toast({ title: status === 'approved' ? 'Review request approved' : 'Review request cancelled' })
-      void loadReviewRequests()
-    } catch (e) { toast({ title: 'Could not update review request', description: getErrorMessage(e), variant: 'error' }) }
-  }
 
   const form = useForm<WorkflowFormValues>({ resolver: zodResolver(workflowFormSchema), defaultValues: defaultValues() })
   const actions = useFieldArray({ control: form.control, name: 'actions' })
@@ -305,39 +274,6 @@ export function WorkflowsPage() {
           ))}
         </div>
       )}
-
-      <Card>
-        <CardContent className="py-5 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="font-semibold text-ink-900">Review requests (MVP)</p>
-              <p className="text-sm text-ink-500">Pending review requests/outbox. Generate a FlowSuite review link for 5-star feedback flow. No auto-send.</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => void loadReviewRequests()} loading={reviewLoading}>Refresh</Button>
-          </div>
-          {reviewRequests.length === 0 ? <p className="text-sm text-ink-500">No review requests yet.</p> : (
-            <div className="space-y-2">
-              {reviewRequests.map((r) => (
-                <div key={r.id} className="flex flex-col gap-2 rounded-lg border border-line-200 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm">
-                    <p className="font-medium text-ink-900">{r.customer_name || 'Customer'} · <span className="uppercase">{r.channel}</span> · {r.status}</p>
-                    <p className="text-ink-500">Rating: {r.rating ?? '—'} · AI: {r.ai_suggestion_status ?? '—'} {r.public_token ? '· Link ready' : ''}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void copyReviewLink(r)}>Copy review link</Button>
-                    {r.status === 'pending_approval' ? (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'approved')}>Approve</Button>
-                        <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'cancelled')}>Cancel</Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit workflow' : 'New workflow'}>
         <form onSubmit={onSubmit} className="space-y-4">
