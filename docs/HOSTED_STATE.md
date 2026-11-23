@@ -269,6 +269,9 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   record access when appointment has no linked contact. **Applied to hosted
   2026-11-23** with explicit user approval via
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0035_fix_workflows_review_request_runner.sql`.
+- `supabase/migrations/0036_fix_workflows_trigger_types.sql` — fixes
+  `workflows_create`/`workflows_update` RPC validation to allow
+  `appointment_completed` trigger type (table constraint already allowed it). **Local only; not applied to hosted.**
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
