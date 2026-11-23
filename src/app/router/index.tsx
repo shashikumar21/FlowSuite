@@ -34,6 +34,9 @@ const AvailabilityPage = lazy(() =>
 const BookingOverviewPage = lazy(() =>
   import('@/modules/booking/pages/BookingOverviewPage').then((m) => ({ default: m.BookingOverviewPage })),
 )
+const SubscriptionPage = lazy(() =>
+  import('@/modules/billing/pages/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage })),
+)
 const BookingPageSettingsPage = lazy(() =>
   import('@/modules/booking/pages/BookingPageSettingsPage').then((m) => ({ default: m.BookingPageSettingsPage })),
 )
@@ -232,6 +235,7 @@ export function AppRouter() {
             <Route path="settings/business" element={<BusinessSettingsPage />} />
             <Route path="settings/integrations" element={<IntegrationsPage />} />
             <Route path="settings/profile" element={<ProfileSettingsPage />} />
+            <Route path="settings/subscription" element={<SubscriptionPage />} />
             <Route path="module/:moduleKey" element={<ModulePlaceholderPage />} />
           </Route>
 

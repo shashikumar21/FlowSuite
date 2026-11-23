@@ -128,7 +128,7 @@ export const navigation: NavGroup[] = [
       { label: 'Business Profile', to: '/app/settings/business', icon: Gauge, available: true },
       { label: 'Profile & Security', to: '/app/settings/profile', icon: Settings2, available: true },
       { label: 'Integrations', to: '/app/settings/integrations', icon: Plug, available: true },
-      planned('Subscription', 'subscription', CreditCard),
+      { label: 'Subscription', to: '/app/settings/subscription', icon: CreditCard, available: true },
     ],
   },
 ]

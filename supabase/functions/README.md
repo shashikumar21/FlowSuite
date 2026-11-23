@@ -38,11 +38,27 @@ Required Supabase secrets (never `VITE_*`):
 
 With no provider key the functions fail closed with HTTP 503 and make no live provider call. The telephony webhook also fails closed (503) without an explicit provider and secret. No Edge Function has been deployed, and voice has **not** been tested end-to-end with a real provider or audio.
 
+## Razorpay billing (local code only — nothing here is deployed)
+
+Migration `0037_billing_razorpay.sql` adds `billing_orders`, a webhook idempotency ledger, tenant-scoped entitlement RPCs and service-role activation RPCs. Three functions implement the flow:
+
+| Function | Responsibility |
+| --- | --- |
+| `razorpay-create-order` | Manager+ only. Creates a Razorpay order with server-side keys and records it. No payment is captured here. |
+| `razorpay-verify-payment` | Manager+ only. Verifies the checkout signature and activates the subscription through a service-role RPC. |
+| `razorpay-webhook` | Verifies the HMAC over the raw body with `x-razorpay-signature`, dedupes with `x-razorpay-event-id`, then activates or fails the order. |
+
+Required Supabase secrets (never `VITE_*`):
+
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` — server-to-server order creation and payment signature verification. The public key id is returned to the browser only with a created order because Razorpay Checkout requires it.
+- `RAZORPAY_WEBHOOK_SECRET` — HMAC verification of incoming webhooks.
+
+All three functions fail closed with HTTP 503 when their keys are absent. No subscription is activated without either a verified checkout signature or a verified webhook. Entitlements are visible in **Settings → Subscription** but are not yet enforced as hard feature blocks.
+
 Planned functions (each gets its own folder and test):
 
 | Function | Responsibility |
 | --- | --- |
-| `razorpay-webhook` | Verify signature, enforce idempotency, update subscription entitlements |
 | `ai-tool-executor` | Validate tenant scope and permissions before running an approved AI tool; log usage |
 | `send-campaign` | Check consent and plan limits before dispatching messages |
 | `google-oauth-callback` | Store provider tokens encrypted, scoped to the tenant |

@@ -329,6 +329,28 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   codebase — the only workflow runner is
   `workflows_handle_appointment_completed()`, so Painter templates 1/2/3/5
   remain non-executing drafts by design and were left as drafts.
+ - `supabase/migrations/0037_billing_razorpay.sql` — additive Razorpay billing
+   foundation: `billing_orders` + `billing_webhook_events` tables, tenant-scoped
+   `billing_get_overview` / `billing_check_entitlement` / `billing_check_limit`
+   RPCs, and service-role-only order/activation/webhook RPCs. **Applied to hosted
+   2026-11-23** with explicit user approval via
+   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0037_billing_razorpay.sql`.
+   Verified 8 `billing_*` functions and 2 `billing_*` tables exist. The migration
+   changed no existing rows and enabled no hard feature blocking. The demo tenant
+   still has no paid subscription, so entitlements are advisory only.
+ - Razorpay Edge Functions **deployed to hosted 2026-11-23** with explicit user
+   approval: `razorpay-create-order` (v1), `razorpay-verify-payment` (v1) and
+   `razorpay-webhook` (v2, redeployed with `--no-verify-jwt` because Razorpay sends
+   no JWT). All ACTIVE, import_map true. No Razorpay keys or webhook secret have
+   been set on hosted, so the functions fail closed: the webhook returns HTTP 503
+   `billing_not_configured`, and clicking a paid plan in Settings → Subscription
+   shows "Razorpay is not configured on the server yet". No payment order was
+   created, no payment was taken, and no subscription was activated. The browser
+   verified the Subscription page loads all four seeded plans from the live RPC.
+   Required hosted secrets still to be set by the user (never in chat):
+   `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.
+   Razorpay webhook URL to configure:
+   `https://grkzontnyjnhijmphypo.supabase.co/functions/v1/razorpay-webhook`.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
@@ -337,7 +359,7 @@ Hosted therefore still has 11 Sales Agent tables and 30
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22), plus Phase 2 sync mapping/RPC groundwork (from `0026`, applied 2026-11-23; `calendar-sync-appointment` deployed, Google secrets user-confirmed set),
 4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; runner creates pending-approval records only; approval-gated WhatsApp send function deployed but no auto-send/dispatch/scheduler), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
-and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
+and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23), plus 2 billing tables and 8 `billing_*` RPCs (from `0037`, applied 2026-11-23; entitlements advisory only, no keys set, three functions deployed but inert). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
 
 ## Read-only verification commands
 

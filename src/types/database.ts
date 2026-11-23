@@ -3048,6 +3048,9 @@ export interface Database {
         }>
       }
       admin_list_plans: { Args: Record<string, never>; Returns: PlanRow[] }
+      billing_get_overview: { Args: { p_tenant: string }; Returns: Json }
+      billing_check_entitlement: { Args: { p_tenant: string; p_feature: string }; Returns: boolean }
+      billing_check_limit: { Args: { p_tenant: string; p_key: string; p_used: number }; Returns: boolean }
       admin_platform_stats: {
         Args: Record<string, never>
         Returns: Json
