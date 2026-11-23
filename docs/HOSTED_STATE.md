@@ -257,8 +257,9 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0033_integration_secret_vault.sql`.
   `integrations-vault-save` Edge Function **deployed** (v1, verify_jwt true) with explicit approval.
 - `supabase/migrations/0034_crm_delete_deal.sql` — server-side `crm_delete_deal`
-  RPC (manager+ only, audited). **Local only; not applied to hosted.** CRM UI
-  delete button added locally; requires explicit approval before hosted apply.
+  RPC (manager+ only, audited). **Applied to hosted 2026-11-23** with explicit
+  user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0034_crm_delete_deal.sql`.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
@@ -266,7 +267,7 @@ Hosted therefore still has exactly 10 Sales Agent tables and 12
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
-4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; no external sending, runner creates pending-approval records only), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed),
+4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; no external sending, runner creates pending-approval records only), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
 and no `tasks_*` RPCs. The Phase 3,
 Phase 4, and Tasks pages in this repo run against the hosted project through
 `.env.local` and correctly show schema-cache errors until a deliberate promotion
