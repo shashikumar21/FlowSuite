@@ -309,7 +309,7 @@ export function IntegrationsPage() {
           <div>
             <CardTitle>Message templates</CardTitle>
             <CardDescription>
-              Required for WhatsApp sends outside Meta's 24-hour window. A local "approved" flag does not replace Meta approval.
+              Required for WhatsApp sends outside Meta's 24-hour window. A local &quot;approved&quot; flag does not replace Meta approval. WhatsApp review requests use the template key <code>review_request</code> — set its Meta template name and language to exactly match the template Meta approved.
             </CardDescription>
           </div>
           <Button size="sm" variant="outline" disabled={!canManage} onClick={() => { setEditingTemplate(null); setTemplateOpen(true) }}>
@@ -326,6 +326,8 @@ export function IntegrationsPage() {
                   <tr>
                     <th className="px-5 py-3">Key</th>
                     <th className="px-5 py-3">Provider</th>
+                    <th className="px-5 py-3">Meta template</th>
+                    <th className="px-5 py-3">Language</th>
                     <th className="px-5 py-3">Category</th>
                     <th className="px-5 py-3">Status</th>
                     <th className="px-5 py-3" />
@@ -336,6 +338,8 @@ export function IntegrationsPage() {
                     <tr key={template.id}>
                       <td className="px-5 py-3 font-medium text-ink-900">{template.template_key}</td>
                       <td className="px-5 py-3 text-ink-600">{template.provider}</td>
+                      <td className="px-5 py-3 text-ink-600">{template.provider_template_name || <span className="text-ink-400">Not set</span>}</td>
+                      <td className="px-5 py-3 text-ink-600">{template.language}</td>
                       <td className="px-5 py-3 text-ink-600">{template.category}</td>
                       <td className="px-5 py-3"><Badge variant={template.status === 'approved' ? 'success' : template.status === 'rejected' ? 'danger' : 'neutral'}>{template.status}</Badge></td>
                       <td className="px-5 py-3 text-right">

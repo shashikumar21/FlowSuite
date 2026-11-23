@@ -111,8 +111,11 @@ export function TemplateFormModal({
           </div>
         </div>
         <div>
-          <Label htmlFor="template-provider-name">Meta template name (optional)</Label>
-          <Input id="template-provider-name" {...form.register('provider_template_name')} />
+          <Label htmlFor="template-provider-name">Meta template name</Label>
+          <Input id="template-provider-name" placeholder="review_request_v1" {...form.register('provider_template_name')} />
+          <p className="mt-1 text-xs text-ink-500">
+            Must exactly match the name Meta approved. Required for WhatsApp review requests (template key <code>review_request</code>) and any send outside Meta&apos;s 24-hour window.
+          </p>
         </div>
         <div>
           <Label htmlFor="template-content">Content</Label>
