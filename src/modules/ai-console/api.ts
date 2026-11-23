@@ -400,3 +400,44 @@ export async function enqueueFollowUp(input: {
   })
   return requireData(data, error)
 }
+
+export type IntegrationSecretMeta = {
+  id: string
+  provider: string
+  secret_name: string
+  status: string
+  last_verified_at: string | null
+  last_error: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function listIntegrationSecrets(tenantId: string): Promise<IntegrationSecretMeta[]> {
+  const { data, error } = await requireSupabase().rpc('integrations_list_secret_meta' as never, { p_tenant: tenantId } as never)
+  if (error) throw error
+  return (data ?? []) as IntegrationSecretMeta[]
+}
+
+export async function saveIntegrationSecret(input: {
+  tenantId: string
+  provider: string
+  secretName: string
+  secretValue: string
+}): Promise<void> {
+  const { error } = await requireSupabase().functions.invoke('integrations-vault-save', {
+    body: {
+      tenant_id: input.tenantId,
+      provider: input.provider,
+      secret_name: input.secretName,
+      secret_value: input.secretValue,
+    },
+  })
+  if (error) throw error
+}
+
+export async function disconnectIntegrationSecret(tenantId: string, provider: string, secretName: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('integrations_disconnect_secret' as never, {
+    p_tenant: tenantId, p_provider: provider, p_secret_name: secretName,
+  } as never)
+  if (error) throw error
+}

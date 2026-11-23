@@ -1,17 +1,20 @@
-import { useState } from 'react'
-import { Copy, Plug, Plus, ShieldAlert } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Copy, Link2, Plug, Plus, ShieldAlert, ShieldCheck, Unplug } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useToast } from '@/app/providers/ToastProvider'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedback'
+import { Input, Label } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import type { ChannelCredentialRow, MessageTemplateRow } from '@/types/database'
 import { CredentialFormModal } from '../components/CredentialFormModal'
 import { TemplateFormModal } from '../components/TemplateFormModal'
 import { CredentialStatusBadge } from '../components/StatusBadges'
+import { disconnectIntegrationSecret, listIntegrationSecrets, saveIntegrationSecret, type IntegrationSecretMeta } from '../api'
 import { useIntegrationsData, useAiConsoleInvalidate } from '../hooks'
 import { chatEndpointUrl } from '../utils'
 
@@ -57,6 +60,21 @@ export function IntegrationsPage() {
   const [credentialOpen, setCredentialOpen] = useState(false)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplateRow | null>(null)
+  const [vaultOpen, setVaultOpen] = useState(false)
+  const [vaultSecrets, setVaultSecrets] = useState<IntegrationSecretMeta[]>([])
+  const [vaultLoading, setVaultLoading] = useState(false)
+  const [vaultSaving, setVaultSaving] = useState(false)
+  const [vaultProvider, setVaultProvider] = useState('netlify')
+  const [vaultSecretName, setVaultSecretName] = useState('NETLIFY_DEPLOY_TOKEN')
+  const [vaultSecretValue, setVaultSecretValue] = useState('')
+
+  const loadVaultSecrets = async () => {
+    if (!tenantId) return
+    setVaultLoading(true)
+    try { setVaultSecrets(await listIntegrationSecrets(tenantId)) } catch { /* vault may not be applied yet */ } finally { setVaultLoading(false) }
+  }
+
+  useEffect(() => { void loadVaultSecrets() }, [tenantId])
 
   const copy = async (value: string, label: string) => {
     try {
@@ -65,6 +83,35 @@ export function IntegrationsPage() {
     } catch {
       toast({ title: 'Copy failed', description: 'Select and copy the text manually.', variant: 'error' })
     }
+  }
+
+  const onVaultProviderChange = (provider: string) => {
+    setVaultProvider(provider)
+    const defaults: Record<string, string> = { netlify: 'NETLIFY_DEPLOY_TOKEN', vercel: 'VERCEL_DEPLOY_TOKEN', openai: 'OPENAI_API_KEY', whatsapp: 'WHATSAPP_ACCESS_TOKEN', resend: 'RESEND_API_KEY', exotel: 'VOICE_WEBHOOK_SECRET' }
+    setVaultSecretName(defaults[provider] ?? '')
+  }
+
+  const saveVault = async () => {
+    if (!tenantId) return
+    if (!vaultSecretName.trim() || !vaultSecretValue.trim()) { toast({ title: 'Secret name and value required', variant: 'error' }); return }
+    setVaultSaving(true)
+    try {
+      await saveIntegrationSecret({ tenantId, provider: vaultProvider, secretName: vaultSecretName.trim(), secretValue: vaultSecretValue })
+      toast({ title: 'Connected securely', description: 'Secret encrypted and stored server-side. It is never shown again.' })
+      setVaultSecretValue('')
+      setVaultOpen(false)
+      await loadVaultSecrets()
+    } catch (e) { toast({ title: 'Could not save secret', description: getErrorMessage(e), variant: 'error' }) }
+    finally { setVaultSaving(false) }
+  }
+
+  const disconnectVault = async (provider: string, secretName: string) => {
+    if (!tenantId) return
+    try {
+      await disconnectIntegrationSecret(tenantId, provider, secretName)
+      toast({ title: 'Disconnected', description: `${secretName} removed.` })
+      await loadVaultSecrets()
+    } catch (e) { toast({ title: 'Could not disconnect', description: getErrorMessage(e), variant: 'error' }) }
   }
 
   if (query.isError) {
@@ -85,8 +132,7 @@ export function IntegrationsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink-900">Integrations</h1>
           <p className="mt-1 text-sm text-ink-500">
-            Connection references and message templates. Raw API keys and tokens are only stored as Supabase Edge Function
-            secrets; this screen stores the secret name, never the value.
+            Connect providers securely for your business. Secrets are encrypted server-side (vault) or stored as server-side secret references; raw keys are never stored in the browser.
           </p>
         </div>
         <Button disabled={!canManage || channels.length === 0} onClick={() => setCredentialOpen(true)}>
@@ -100,6 +146,39 @@ export function IntegrationsPage() {
           <p>Only owners and admins can view or change credentials and templates.</p>
         </div>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2"><ShieldCheck className="size-4 text-brand-600" /> Secure Direct Connect</CardTitle>
+              <CardDescription>Connect provider keys securely. Your key is sent over HTTPS to an Edge Function, encrypted server-side, and never stored in browser/plain DB. FlowSuite shows only connection status.</CardDescription>
+            </div>
+            <Button onClick={() => setVaultOpen(true)} disabled={!canManage}><Link2 className="size-4" /> Connect provider</Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-ink-700">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-900 text-xs">
+            <p className="font-semibold">Sellable SaaS flow</p>
+            <p className="mt-1">Customers connect once - no raw keys pasted into chat or stored in client code. For OAuth providers (Google), use direct OAuth Connect. For API-key providers, use this secure vault connect.</p>
+          </div>
+          {vaultLoading ? <p className="text-xs text-ink-500">Loading connections...</p> : vaultSecrets.length === 0 ? (
+            <p className="text-xs text-ink-500">No secure vault connections yet. Vault requires migration <code className="rounded bg-ink-50 px-1">0033_integration_secret_vault.sql</code> and <code className="rounded bg-ink-50 px-1">integrations-vault-save</code> Edge Function (approval-gated).</p>
+          ) : (
+            <div className="space-y-2">
+              {vaultSecrets.map((s) => (
+                <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-200 p-3">
+                  <div>
+                    <p className="font-medium text-ink-900">{s.provider} · <code className="rounded bg-ink-50 px-1 text-xs">{s.secret_name}</code></p>
+                    <p className="text-xs text-ink-500">Status: {s.status} · Updated {formatDateTime(s.updated_at)}</p>
+                  </div>
+                  {canManage && s.status === 'connected' ? <Button variant="outline" size="sm" onClick={() => void disconnectVault(s.provider, s.secret_name)}><Unplug className="size-4" /> Disconnect</Button> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {Object.entries(providerHelp).map(([provider, help]) => {
@@ -285,6 +364,40 @@ export function IntegrationsPage() {
         template={editingTemplate}
         onSaved={invalidate}
       />
+
+      <Modal open={vaultOpen} onClose={() => setVaultOpen(false)} title="Secure Direct Connect" description="Enter provider secret once. It is sent over HTTPS to an Edge Function, encrypted server-side, and never shown again.">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <p className="font-semibold">Security</p>
+            <p className="mt-1">Do not paste secrets in chat. This form submits directly to server-side vault function. Requires <code className="rounded bg-amber-100 px-1">0033_integration_secret_vault.sql</code> applied and <code className="rounded bg-amber-100 px-1">integrations-vault-save</code> deployed with <code className="rounded bg-amber-100 px-1">CREDENTIALS_ENCRYPTION_KEY</code> set (approval-gated).</p>
+          </div>
+          <label className="block space-y-1.5">
+            <Label>Provider</Label>
+            <select className="w-full rounded-lg border border-line-200 px-3 py-2 text-sm" value={vaultProvider} onChange={(e) => onVaultProviderChange(e.target.value)}>
+              <option value="netlify">Netlify</option>
+              <option value="vercel">Vercel</option>
+              <option value="openai">OpenAI / AI provider</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="resend">Resend</option>
+              <option value="exotel">Exotel</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label className="block space-y-1.5">
+            <Label>Secret name</Label>
+            <Input value={vaultSecretName} onChange={(e) => setVaultSecretName(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))} placeholder="NETLIFY_DEPLOY_TOKEN" />
+          </label>
+          <label className="block space-y-1.5">
+            <Label>Secret value</Label>
+            <Input type="password" value={vaultSecretValue} onChange={(e) => setVaultSecretValue(e.target.value)} placeholder="Paste provider token/key securely" autoComplete="off" />
+            <p className="text-xs text-ink-500">Value is used only for this secure submit and never stored in browser state after save.</p>
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setVaultOpen(false)}>Cancel</Button>
+            <Button onClick={() => void saveVault()} loading={vaultSaving} disabled={!canManage}><ShieldCheck className="size-4" /> Connect securely</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

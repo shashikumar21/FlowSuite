@@ -242,6 +242,10 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   appointment completion for active `appointment_completed` workflows; adds
   `review_request_set_status` RPC for approve/cancel. **Local only; not applied to
   hosted.** No external messages are sent.
+- `supabase/migrations/0033_integration_secret_vault.sql` — secure encrypted
+  integration secret vault (metadata RPC + disconnect RPC, ciphertext stored
+  server-side; plaintext encrypted in Edge Function). **Local only; not applied to
+  hosted.** `integrations-vault-save` Edge Function is local-only/not deployed.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
