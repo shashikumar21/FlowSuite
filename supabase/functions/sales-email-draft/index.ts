@@ -14,7 +14,7 @@ import { errorResponse, jsonResponse } from '../_shared/http.ts';
 import {
   emailDraftInputSchema,
   generatedDraftSchema,
-} from '../../../../src/modules/sales-agent/outreach/schemas.ts';
+} from '../../../src/modules/sales-agent/outreach/schemas.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';

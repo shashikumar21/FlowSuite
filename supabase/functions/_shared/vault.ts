@@ -3,9 +3,10 @@
 
 import { createServiceClient } from './ai/store.ts'
 
-function b64ToBytes(b64: string): Uint8Array {
+function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const bin = atob(b64)
-  const out = new Uint8Array(bin.length)
+  const buffer = new ArrayBuffer(bin.length)
+  const out = new Uint8Array(buffer)
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
   return out
 }

@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
+    "typecheck:functions": "npx --yes deno check --import-map=supabase/functions/import_map.json supabase/functions/*/index.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

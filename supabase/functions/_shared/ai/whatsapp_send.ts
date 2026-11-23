@@ -24,6 +24,8 @@ export interface WhatsAppSendInput {
   idempotencyKey: string;
   templateName?: string | null;
   templateLanguage?: string | null;
+  /** Positional body parameters for Meta templates ({{1}}, {{2}}, ...). */
+  templateParameters?: string[] | null;
   fetchImpl?: typeof fetch;
 }
 
@@ -97,10 +99,20 @@ export async function sendWhatsAppMessage(input: WhatsAppSendInput): Promise<Wha
   };
   if (templateName) {
     payload.type = 'template';
-    payload.template = {
+    const template: Record<string, unknown> = {
       name: templateName,
       language: { code: input.templateLanguage?.trim() || 'en' },
     };
+    const parameters = (input.templateParameters ?? [])
+      .map((value) => String(value ?? '').trim().slice(0, 1024))
+      .filter((value) => value.length > 0);
+    if (parameters.length > 0) {
+      template.components = [{
+        type: 'body',
+        parameters: parameters.map((text) => ({ type: 'text', text })),
+      }];
+    }
+    payload.template = template;
   } else {
     payload.type = 'text';
     payload.text = { body: content };

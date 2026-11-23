@@ -17,10 +17,13 @@ function b64url(input: Uint8Array | string): string {
   let s = ''; for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
-function b64urlDecode(s: string): Uint8Array {
+function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   const pad = s.replace(/-/g, '+').replace(/_/g, '/');
   const bin = atob(pad + '='.repeat((4 - (pad.length % 4)) % 4));
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  const buffer = new ArrayBuffer(bin.length);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
 }
 async function verifyState(state: string): Promise<{ tenant_id: string; user_id: string; exp: number } | null> {
   const [body, sig] = state.split('.');

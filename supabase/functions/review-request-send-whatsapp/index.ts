@@ -13,6 +13,10 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const ENC_KEY = Deno.env.get('CREDENTIALS_ENCRYPTION_KEY') ?? ''
 
+// Message-template key that must be saved (and Meta-approved) in
+// Settings -> Integrations -> Message templates before a real send can work.
+const REVIEW_TEMPLATE_KEY = 'review_request'
+
 const schema = z.object({
   tenant_id: z.string().uuid(),
   review_request_id: z.string().uuid(),
@@ -88,9 +92,52 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return errorResponse(503, 'whatsapp_not_configured', 'WhatsApp is not configured. Save WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID in Secure Direct Connect.')
   }
 
+  // Server-side consent gate. An opt-out or a revoked record always blocks;
+  // template sends require a recorded opt-in. Never trust the client for this.
+  let optedOut = false
+  let consented = false
+  if (row.contact_id) {
+    const { data: consent, error: consentErr } = await admin.from('communication_consents')
+      .select('status, revoked_at')
+      .eq('tenant_id', tenant_id)
+      .eq('contact_id', row.contact_id)
+      .eq('channel', 'whatsapp')
+      .maybeSingle<{ status: string; revoked_at: string | null }>()
+    if (consentErr) return errorResponse(500, 'consent_lookup_failed')
+    optedOut = consent?.status === 'opt_out' || Boolean(consent?.revoked_at)
+    consented = consent?.status === 'opt_in' && !consent?.revoked_at
+  }
+  if (optedOut) {
+    return errorResponse(422, 'opted_out', 'This contact has opted out of WhatsApp messages.')
+  }
+  if (!consented) {
+    return errorResponse(422, 'consent_required', 'Record an explicit WhatsApp opt-in for this contact before sending.')
+  }
+
+  // Meta requires an approved template outside the 24-hour service window.
+  // The local "approved" flag is an operator gate, not a substitute for Meta approval.
+  const { data: template, error: templateErr } = await admin.from('message_templates')
+    .select('provider_template_name, language, status')
+    .eq('tenant_id', tenant_id)
+    .eq('provider', 'whatsapp')
+    .eq('template_key', REVIEW_TEMPLATE_KEY)
+    .eq('status', 'approved')
+    .maybeSingle<{ provider_template_name: string | null; language: string; status: string }>()
+  if (templateErr) return errorResponse(500, 'template_lookup_failed')
+  const templateName = template?.provider_template_name?.trim() ?? ''
+  const templateLanguage = template?.language || 'en'
+  if (!templateName) {
+    return errorResponse(422, 'template_not_configured', `Save an approved WhatsApp template with key "${REVIEW_TEMPLATE_KEY}" and its Meta template name in Settings -> Integrations -> Message templates.`)
+  }
+
   const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || 'https://rococo-florentine-8dbe2c.netlify.app'
   const content = buildMessage(row, origin)
   const idempotencyKey = `review-request-${row.id}`
+
+  const link = row.review_link_type === 'flowsuite' && row.public_token
+    ? `${origin.replace(/\/$/, '')}/r/${row.public_token}`
+    : (row.review_url?.trim() || '')
+  const templateParameters = [row.customer_name?.trim() || 'there', link].filter(Boolean)
 
   try {
     const result = await sendWhatsAppMessage({
@@ -100,10 +147,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       content,
       accessToken,
       phoneNumberId,
-      state: { sessionOpen: false, optedOut: false, consented: false },
+      state: { sessionOpen: false, optedOut: false, consented: true },
       idempotencyKey,
-      templateName: null,
-      templateLanguage: null,
+      templateName,
+      templateLanguage,
+      templateParameters,
     })
 
     await admin.from('review_requests').update({
