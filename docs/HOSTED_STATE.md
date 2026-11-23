@@ -264,6 +264,10 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   RPC (manager+ only, audited). **Applied to hosted 2026-11-23** with explicit
   user approval via
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0034_crm_delete_deal.sql`.
+- `supabase/migrations/0035_fix_workflows_review_request_runner.sql` — fixes
+  `workflows_handle_appointment_completed()` to avoid unassigned `v_contact`
+  record access when appointment has no linked contact. **Local only; not applied
+  to hosted.** Requires explicit approval before apply.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
