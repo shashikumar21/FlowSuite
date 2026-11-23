@@ -48,12 +48,14 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | `website-generate` | `ACTIVE` | `1` | `true` | `true` | `9cfc5886b2408a8fa12c84ee780ba6a185e9df57acca766f317cb2ddf555c276` |
 | `calendar-oauth-start` | `ACTIVE` | `1` | `true` | `true` | `217daf99292cc218de61459c72d4dbbfbfca5277a4d21ca130f8accc22bbd325` |
 | `calendar-oauth-callback` | `ACTIVE` | `1` | `true` | `true` | `31593c47419bd00d82206d7a8831d805efb163e63cbedc8a26328102a91dfccd` |
+| `review-suggest` | `ACTIVE` | `1` | `false` | `true` | `2ff57ce2af0b0d1d15bbc71e907b69e0c47a753cf57686def7d9f23471ea45ac` |
+| `integrations-vault-save` | `ACTIVE` | `1` | `true` | `true` | `c60edf553d689dc93f3df804dbbca0fa0212d1554cafa3ebd1df98f6713eb14f` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
 function folders in the repo (`whatsapp-webhook`, `whatsapp-send`,
-`ai-follow-up-worker`, `telephony-webhook`, `calendar-sync-appointment`,
-`review-suggest`) are **not** deployed. No scheduler is configured.
+`ai-follow-up-worker`, `telephony-webhook`, `calendar-sync-appointment`) are
+**not** deployed. No scheduler is configured.
 
 ## Server-side secrets (names only — never values)
 
@@ -232,20 +234,28 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   appointment sync mapping/RPC groundwork (local only). **Not applied to hosted.**
   `calendar-sync-appointment` Edge Function is local-only/not deployed.
 - `supabase/migrations/0030_review_suggestion_mvp.sql` — tokenized public review
-  link, feedback capture, and AI suggestion status fields/RPCs (local only). **Not
-  applied to hosted.** `review-suggest` Edge Function is local-only/not deployed.
+  link, feedback capture, and AI suggestion status fields/RPCs. **Applied to
+  hosted 2026-11-23** with explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0030_review_suggestion_mvp.sql`.
+  `review-suggest` Edge Function **deployed** (v1, verify_jwt false) with explicit approval.
 - `supabase/migrations/0031_deploy_provider_credentials.sql` — extends
   `channel_credentials` provider support for Netlify/Vercel deploy secret
-  reference names (local only; no raw tokens). **Not applied to hosted.**
+  reference names (no raw tokens). **Applied to hosted 2026-11-23** with explicit
+  user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0031_deploy_provider_credentials.sql`.
 - `supabase/migrations/0032_workflows_review_request_runner.sql` — review-request
   runner MVP: DB trigger creates `pending_approval` review requests on
   appointment completion for active `appointment_completed` workflows; adds
-  `review_request_set_status` RPC for approve/cancel. **Local only; not applied to
-  hosted.** No external messages are sent.
+  `review_request_set_status` RPC for approve/cancel. **Applied to hosted 2026-11-23**
+  with explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0032_workflows_review_request_runner.sql`.
+  No external messages are sent.
 - `supabase/migrations/0033_integration_secret_vault.sql` — secure encrypted
   integration secret vault (metadata RPC + disconnect RPC, ciphertext stored
-  server-side; plaintext encrypted in Edge Function). **Local only; not applied to
-  hosted.** `integrations-vault-save` Edge Function is local-only/not deployed.
+  server-side; plaintext encrypted in Edge Function). **Applied to hosted 2026-11-23**
+  with explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0033_integration_secret_vault.sql`.
+  `integrations-vault-save` Edge Function **deployed** (v1, verify_jwt true) with explicit approval.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
@@ -253,7 +263,7 @@ Hosted therefore still has exactly 10 Sales Agent tables and 12
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
-4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs (from `0027`-`0029`, applied 2026-11-22; no execution/sending; 0030/0032 review token/runner/approval RPCs not applied),
+4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; no external sending, runner creates pending-approval records only), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed),
 and no `tasks_*` RPCs. The Phase 3,
 Phase 4, and Tasks pages in this repo run against the hosted project through
 `.env.local` and correctly show schema-cache errors until a deliberate promotion
