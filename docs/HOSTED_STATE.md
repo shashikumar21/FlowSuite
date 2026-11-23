@@ -45,12 +45,12 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | Slug | Status | Version | verify_jwt | import_map | Source hash (sha256) |
 | --- | --- | --- | --- | --- | --- |
 | `ai-chat` | `ACTIVE` | `10` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
-| `website-generate` | `ACTIVE` | `1` | `true` | `true` | `9cfc5886b2408a8fa12c84ee780ba6a185e9df57acca766f317cb2ddf555c276` |
-| `calendar-oauth-start` | `ACTIVE` | `1` | `true` | `true` | `217daf99292cc218de61459c72d4dbbfbfca5277a4d21ca130f8accc22bbd325` |
+| `website-generate` | `ACTIVE` | `2` | `true` | `true` | `f7bed983a2a39fdb55d2073542a17bb72a53acc433ce880f9a321e40a848b674` |
+| `calendar-oauth-start` | `ACTIVE` | `2` | `true` | `true` | `4a05f5662f8448519032cfdf339e8254725c83665b9eda2a5c2380e7d7bf2948` |
 | `calendar-oauth-callback` | `ACTIVE` | `1` | `true` | `true` | `31593c47419bd00d82206d7a8831d805efb163e63cbedc8a26328102a91dfccd` |
-| `review-suggest` | `ACTIVE` | `1` | `false` | `true` | `2ff57ce2af0b0d1d15bbc71e907b69e0c47a753cf57686def7d9f23471ea45ac` |
-| `integrations-vault-save` | `ACTIVE` | `1` | `true` | `true` | `c60edf553d689dc93f3df804dbbca0fa0212d1554cafa3ebd1df98f6713eb14f` |
-| `calendar-sync-appointment` | `ACTIVE` | `1` | `false` | `true` | `b2c7797970e3423d1d66cb40925bfaae23a0f7ce63aaa8e6ebe6f74a49a18881` |
+| `review-suggest` | `ACTIVE` | `2` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
+| `integrations-vault-save` | `ACTIVE` | `2` | `true` | `true` | `2239aa34b5c3197936218af8cd65d1bd105803a2cad07ca01b61ec703fe3d38b` |
+| `calendar-sync-appointment` | `ACTIVE` | `2` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
