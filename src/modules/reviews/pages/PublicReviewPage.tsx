@@ -8,6 +8,7 @@ import { Label, Textarea } from '@/components/ui/Input'
 import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { fetchPublicReview, generateReviewSuggestion, markReviewClicked, submitPublicReviewFeedback, type PublicReview } from '../api'
+import { reviewSubmitRoute, safeReviewUrl } from '../reviewRouting'
 
 export function PublicReviewPage() {
   const { token = '' } = useParams()
@@ -21,6 +22,7 @@ export function PublicReviewPage() {
   const [suggestionLoading, setSuggestionLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copyFailed, setCopyFailed] = useState(false)
+  const [redirectUnavailable, setRedirectUnavailable] = useState(false)
 
   const load = async () => {
     if (!token) return
@@ -40,11 +42,21 @@ export function PublicReviewPage() {
   const submit = async () => {
     if (!token || rating < 1) return
     setSubmitting(true)
+    setRedirectUnavailable(false)
     try {
       await submitPublicReviewFeedback(token, rating, feedback)
       const updated = await fetchPublicReview(token)
       setReview(updated)
-      if (rating >= 4) {
+
+      const route = reviewSubmitRoute(rating, updated?.review_url)
+      if (route === 'google_redirect') {
+        try { await markReviewClicked(token) } catch { /* best-effort analytics only */ }
+        window.location.assign(safeReviewUrl(updated?.review_url) as string)
+        return
+      }
+
+      if (route === 'suggestion') {
+        if (rating === 5) setRedirectUnavailable(true)
         setSuggestionLoading(true)
         try {
           const res = await generateReviewSuggestion(token)
@@ -68,9 +80,10 @@ export function PublicReviewPage() {
   }
 
   const openReviewLink = async () => {
-    if (!review?.review_url || !token) return
+    const url = safeReviewUrl(review?.review_url)
+    if (!url || !token) return
     void markReviewClicked(token)
-    window.open(review.review_url, '_blank', 'noopener,noreferrer')
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   if (loading) return <div className="mx-auto max-w-xl p-6"><Skeleton className="h-64 w-full" /></div>
@@ -112,6 +125,12 @@ export function PublicReviewPage() {
             ) : (
               <div className="rounded-lg bg-green-50 p-3 text-sm text-green-800 flex items-center gap-2"><CheckCircle2 className="size-4" /> Thanks for your feedback!</div>
             )}
+
+            {submitted && redirectUnavailable ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                Thank you for the 5-star rating. The Google review link is not configured, so we kept you here. You can still copy the suggested text below.
+              </div>
+            ) : null}
 
             {submitted && isPositive ? (
               <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50/40 p-4">

@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { requireSupabase } from '@/integrations/supabase/client'
 import type {
   AppointmentRow,
@@ -521,6 +522,60 @@ export async function assignAppointment(
     p_user_id: userId,
   })
   if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Calendar connection runtime (Supabase RPCs, no provider calls here).
+// ---------------------------------------------------------------------------
+
+const calendarConnectionStatusSchema = z.object({
+  connected: z.boolean(),
+  provider: z.string(),
+  google_email: z.string().nullable(),
+  calendar_id: z.string().nullable(),
+  status: z.string(),
+  sync_enabled: z.boolean(),
+  last_synced_at: z.string().nullable(),
+  last_error: z.string().nullable(),
+  updated_at: z.string().nullable(),
+})
+
+const calendarConnectionStatusListSchema = z.array(calendarConnectionStatusSchema)
+
+export type CalendarConnectionStatus = z.infer<typeof calendarConnectionStatusSchema>
+
+export async function fetchCalendarConnectionStatus(tenantId: string): Promise<CalendarConnectionStatus | null> {
+  const { data, error } = await requireSupabase().rpc('calendar_connection_status' as never, {
+    p_tenant: tenantId, p_provider: 'google',
+  } as never)
+  if (error) throw error
+  return calendarConnectionStatusListSchema.parse(data ?? [])[0] ?? null
+}
+
+export async function disconnectCalendarConnection(tenantId: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('calendar_connection_disconnect' as never, {
+    p_tenant: tenantId, p_provider: 'google',
+  } as never)
+  if (error) throw error
+}
+
+const oauthStartSchema = z.object({
+  url: z.string().url().refine((value) => {
+    try {
+      const protocol = new URL(value).protocol
+      return protocol === 'http:' || protocol === 'https:'
+    } catch {
+      return false
+    }
+  }, 'OAuth URL must be http(s)'),
+})
+
+export async function startGoogleCalendarOAuth(tenantId: string): Promise<string> {
+  const { data, error } = await requireSupabase().functions.invoke('calendar-oauth-start', {
+    body: { tenant_id: tenantId },
+  })
+  if (error) throw error
+  return oauthStartSchema.parse(data).url
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { requireSupabase } from '@/integrations/supabase/client'
 import type {
   AiAgentRow,
@@ -401,21 +402,25 @@ export async function enqueueFollowUp(input: {
   return requireData(data, error)
 }
 
-export type IntegrationSecretMeta = {
-  id: string
-  provider: string
-  secret_name: string
-  status: string
-  last_verified_at: string | null
-  last_error: string | null
-  created_at: string
-  updated_at: string
-}
+const integrationSecretMetaSchema = z.object({
+  id: z.string().uuid(),
+  provider: z.enum(['openai', 'whatsapp', 'resend', 'exotel', 'netlify', 'vercel', 'other']),
+  secret_name: z.string().regex(/^[A-Z][A-Z0-9_]{2,199}$/),
+  status: z.enum(['connected', 'disconnected', 'error']),
+  last_verified_at: z.string().nullable(),
+  last_error: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+const integrationSecretMetaListSchema = z.array(integrationSecretMetaSchema)
+
+export type IntegrationSecretMeta = z.infer<typeof integrationSecretMetaSchema>
 
 export async function listIntegrationSecrets(tenantId: string): Promise<IntegrationSecretMeta[]> {
   const { data, error } = await requireSupabase().rpc('integrations_list_secret_meta' as never, { p_tenant: tenantId } as never)
   if (error) throw error
-  return (data ?? []) as IntegrationSecretMeta[]
+  return integrationSecretMetaListSchema.parse(data ?? [])
 }
 
 export async function saveIntegrationSecret(input: {

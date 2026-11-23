@@ -37,8 +37,17 @@ const actionLabels: Record<string, string> = {
   send_review_request: 'Send review request (approval required)',
 }
 
+const reviewAuditLabels: Record<string, string> = {
+  'review_request.approved': 'Review request approved',
+  'review_request.cancelled': 'Review request cancelled',
+  'review_request.sent': 'Review request sent',
+  'review_request.send_failed': 'Review request failed',
+  'review_request.send_blocked': 'Review request blocked',
+  'review_request.rating_followup_created': 'Customer rating follow-up',
+}
+
 function auditDetail(metadata: Record<string, unknown>): string {
-  for (const key of ['reason', 'status', 'provider_message_id', 'template', 'code']) {
+  for (const key of ['rating', 'reason', 'status', 'provider_message_id', 'template', 'code']) {
     const value = metadata[key]
     if (typeof value === 'string' && value.trim()) return value
   }
@@ -403,7 +412,7 @@ export function WorkflowsPage() {
         <CardContent className="py-5 space-y-3">
           <div>
             <p className="font-semibold text-ink-900">Review activity log</p>
-            <p className="text-sm text-ink-500">Approvals, sends and blocked sends are written to the immutable audit log with the acting user.</p>
+            <p className="text-sm text-ink-500">Approvals, sends, blocked sends and customer-rating follow-ups are written to the immutable audit log. Rating follow-ups create internal tasks only; no message is sent automatically.</p>
           </div>
           {reviewAudit.length === 0 ? (
             <p className="text-sm text-ink-500">No review activity recorded yet.</p>
@@ -411,7 +420,7 @@ export function WorkflowsPage() {
             <div className="space-y-1.5">
               {reviewAudit.map((entry) => (
                 <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line-200 px-3 py-2 text-xs">
-                  <span className="font-medium text-ink-800">{entry.action}</span>
+                  <span className="font-medium text-ink-800">{reviewAuditLabels[entry.action] ?? entry.action}</span>
                   <span className="text-ink-500">{auditDetail(entry.metadata)} · {formatDate(entry.created_at)}</span>
                 </div>
               ))}

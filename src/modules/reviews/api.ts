@@ -29,11 +29,33 @@ export async function fetchPublicReview(token: string): Promise<PublicReview | n
   return (data ?? null) as PublicReview | null
 }
 
-export async function submitPublicReviewFeedback(token: string, rating: number, feedback: string): Promise<void> {
-  const { error } = await requireSupabase().rpc('public_review_submit_feedback' as never, {
+const publicReviewSubmitSchema = z.object({
+  id: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  follow_up_task_created: z.boolean().optional().default(false),
+})
+
+export type PublicReviewSubmitResult = {
+  id: string
+  rating: number
+  followUpTaskCreated: boolean
+}
+
+export async function submitPublicReviewFeedback(
+  token: string,
+  rating: number,
+  feedback: string,
+): Promise<PublicReviewSubmitResult> {
+  const { data, error } = await requireSupabase().rpc('public_review_submit_feedback' as never, {
     p_token: token, p_rating: rating, p_feedback: feedback || null,
   } as never)
   if (error) throw error
+  const parsed = publicReviewSubmitSchema.parse(data)
+  return {
+    id: parsed.id,
+    rating: parsed.rating,
+    followUpTaskCreated: parsed.follow_up_task_created,
+  }
 }
 
 export async function markReviewClicked(token: string): Promise<void> {
@@ -115,6 +137,7 @@ export async function fetchReviewAudit(tenantId: string): Promise<ReviewAuditRow
       'review_request.sent',
       'review_request.send_failed',
       'review_request.send_blocked',
+      'review_request.rating_followup_created',
     ])
     .order('created_at', { ascending: false })
     .limit(20)

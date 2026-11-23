@@ -46,8 +46,8 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | --- | --- | --- | --- | --- | --- |
 | `ai-chat` | `ACTIVE` | `11` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
 | `website-generate` | `ACTIVE` | `3` | `true` | `true` | `f7bed983a2a39fdb55d2073542a17bb72a53acc433ce880f9a321e40a848b674` |
-| `calendar-oauth-start` | `ACTIVE` | `3` | `true` | `true` | `4a05f5662f8448519032cfdf339e8254725c83665b9eda2a5c2380e7d7bf2948` |
-| `calendar-oauth-callback` | `ACTIVE` | `2` | `true` | `true` | `31593c47419bd00d82206d7a8831d805efb163e63cbedc8a26328102a91dfccd` |
+| `calendar-oauth-start` | `ACTIVE` | `7` | `true` | `true` | `c34fc431a7e6c6fa9d4088ed556ce09756e848bdebb06c72eab5fe036c0ceeba` |
+| `calendar-oauth-callback` | `ACTIVE` | `6` | `false` | `true` | `1fb133a9e0848f140370cefab2ff603ab2d3aed5b884ecc6f30ef8d7584bd908` |
 | `review-suggest` | `ACTIVE` | `3` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
 | `integrations-vault-save` | `ACTIVE` | `3` | `true` | `true` | `2239aa34b5c3197936218af8cd65d1bd105803a2cad07ca01b61ec703fe3d38b` |
 | `calendar-sync-appointment` | `ACTIVE` | `3` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
@@ -131,8 +131,12 @@ Validated with the demo login on the live Netlify site:
   only `deals.value` under the already-hosted `0004` UPDATE policy. Deleting a
   deal is deliberately not exposed in the client: destructive actions must go
   through a server-side RPC, and no such RPC is hosted yet.
-- Appointments: status change persisted. Reschedule/assign are blocked by the
-  absence of seeded bookable resources and availability rules, not by RLS.
+- Appointments: status change persisted. Reschedule/assign were originally
+  blocked by the absence of seeded availability rules, not by RLS.
+  **Update 2026-11-24:** with explicit user approval, Mon–Sat 09:00–18:00
+  Asia/Kolkata weekly rules were added to the demo tenant through
+  `booking_upsert_availability_rule`; `booking_compute_slots` now returns 35
+  slots per tested date and the public booking page shows them.
 - Inbox: mark-read, status change and internal note all persisted. No external
   email was sent. An internal note reopens a closed thread.
 - Tasks: create, edit, delete and status actions still fail with missing
@@ -166,9 +170,9 @@ was touched:
   updated. Covered by `src/modules/crm/deal-value.test.ts`.
 - Deal deletion was **not** added to the client. It is a destructive action and
   must be implemented as a server-side RPC before it is exposed.
-- Booking reschedule/assign still needs seeded bookable resources and
-  availability rules in the hosted database; that is a hosted write and remains
-  approval-gated.
+- Booking reschedule/assign now has seeded bookable resource and weekly
+  availability rules in the hosted demo tenant (approved hosted write on
+  2026-11-24). No further hosted data write is needed for slot preview.
 
 Still approval-gated: RLS hardening, Groq key
 rotation (provider console), deletion of the failed Netlify site and project
@@ -352,48 +356,88 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
    Razorpay webhook URL to configure:
    `https://grkzontnyjnhijmphypo.supabase.co/functions/v1/razorpay-webhook`.
 
- - **Local-only follow-up (NOT applied/deployed/pushed after the user's
-   2026-11-23 instruction to finish all work locally first):**
-   - `supabase/migrations/0038_billing_admin_gating.sql` — super-admin manual
-     plan assignment and enforcement switch, usage RPC and switch-controlled
-     database limit triggers. Enforcement defaults to OFF. Never applied to
-     hosted. The first owner and pending invitations are exempt from the member
-     limit trigger so signup cannot be blocked.
-   - `supabase/migrations/0039_review_request_audit.sql` — manager+ approval
-     check plus audit rows for every review-request approval/cancellation.
-     Never applied to hosted.
-   - `src/modules/legal/` — public Privacy, Terms and Refund & Cancellation
-     pages at `/privacy`, `/terms`, `/refund`, linked from sign-in and the app
-     profile menu. Frontend-only, pending the user's deploy decision.
-   - `supabase/functions/review-request-send-whatsapp/index.ts` now writes
-     success/failure/blocked audit rows via the service role, with the acting
-     user id preserved. This code is local only; the hosted v3 function is
-     unchanged.
-   - `supabase/tests/billing_and_review_rls.sql` — local-only SQL security tests
-     for the 0037-0039 objects. Requires a local database with those migrations
-     applied; Docker was unavailable, so it has not been executed.
-   - `supabase/migrations/0040_workflows_local_runners.sql` — local runners for
-     Painter 1/2/3/5. They create tasks, in-app notifications, run/step logs and
-     audit entries only. Provider steps are explicitly skipped, and
-     `send_review_request` remains exclusive to the Painter 4 runner. Manual
-     runs require manager+; one source event produces at most one run per
-     workflow. Never applied to hosted.
-   - `supabase/tests/workflows_local_runners.sql` — local-only SQL behavior and
-     tenant-isolation tests for 0040; not executed (no local database).
-   - `src/modules/ai-console/local/` — local provider-connection dry run. It is
-     off until enabled in Settings → Integrations, accepts secret names only,
-     keeps simulated rows in sessionStorage, and calls no provider, Edge
-     Function or Supabase RPC. It cannot send messages or create real
-     connections.
+  - **Applied to hosted 2026-11-23** with explicit user approval via
+    `supabase db query --remote --yes -f <migration>`:
+    - `supabase/migrations/0038_billing_admin_gating.sql` — super-admin manual
+      plan assignment and enforcement switch, usage/settings RPCs and
+      switch-controlled database limit triggers. Verified `billing_settings`
+      exists, all six new RPCs exist, and `enforce_limits = false`. The first
+      owner and pending invitations remain exempt from the member limit trigger
+      so signup cannot be blocked. No plans or subscriptions were changed.
+    - `supabase/migrations/0039_review_request_audit.sql` — manager+ approval
+      check plus audit rows for every review-request approval/cancellation.
+      Verified the hosted `review_request_set_status` definition now writes
+      `review_request.approved` audit rows.
+    - `supabase/migrations/0040_workflows_local_runners.sql` — local runners for
+      Painter 1/2/3/5. They create tasks, in-app notifications, run/step logs and
+      audit entries only. Provider steps are explicitly skipped, and
+      `send_review_request` remains exclusive to the Painter 4 runner. Manual
+      runs require manager+; one source event produces at most one run per
+      workflow. Verified four runner functions, two triggers, the dedupe index
+      and the widened notification type check. A rolled-back hosted smoke test
+      created a temporary lead/workflow, confirmed one run, one local task, one
+      skipped provider step and zero review requests, then rolled back; follow-up
+      read-only checks found zero smoke rows and zero workflow runs.
+    - `supabase/migrations/0041_review_rating_internal_followup.sql` — applied to
+      hosted 2026-11-23 with explicit user approval. Submitting feedback now
+      creates one internal task, in-app notices for owners/admins/managers and
+      an audit row with `auto_send = false`. Verified the hosted function
+      definition, then ran a rolled-back smoke test: exactly one task, at least
+      one in-app notice, one audit row and zero messages; resubmission created no
+      duplicate task. Follow-up read-only checks found zero smoke rows.
+    - `supabase/migrations/0042_provider_connection_runtime.sql` — applied to
+      hosted 2026-11-23 with explicit user approval. Verified the OAuth state
+      table with RLS, two metadata-only audit triggers, and the single-use
+      consume function. A rolled-back hosted smoke test confirmed status reads,
+      state issue/consume (second consume returned false), metadata-only
+      vault/calendar audit rows with no token/ciphertext keys, and zero
+      messages. Follow-up read-only checks found zero smoke rows. With explicit
+      approval, `calendar-oauth-start` v4 and `calendar-oauth-callback` v3 were
+      then deployed to use this table; the callback now runs with
+      `verify_jwt=false` and no longer uses HMAC state.
+    - `calendar-oauth-start` and `calendar-oauth-callback` — deployed with
+      explicit user approval after `0042`. `supabase functions list` confirms
+      both `ACTIVE`, `import_map=true`, start `verify_jwt=true`, callback
+      `verify_jwt=false`; source hashes are unchanged from the v4/v3 deploy
+      (setting secrets later bumped the platform version numbers to 7/6). After
+      the user set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+      `GOOGLE_REDIRECT_URI` server-side, a no-auth callback GET returned 302
+      with `calendar_error=missing_params`, and a fake state returned
+      `calendar_error=invalid_state` (was `not_configured` before). No provider
+      was contacted and no token or message was created.
+  - **Local-only follow-up (NOT deployed/pushed):**
+    - `src/modules/legal/` — public Privacy, Terms and Refund & Cancellation
+      pages at `/privacy`, `/terms`, `/refund`, linked from sign-in and the app
+      profile menu. Frontend-only, pending the user's deploy decision.
+    - `supabase/functions/review-request-send-whatsapp/index.ts` now writes
+      success/failure/blocked audit rows via the service role, with the acting
+      user id preserved. This code is local only; the hosted v3 function is
+      unchanged.
+    - `supabase/tests/billing_and_review_rls.sql` — local-only SQL security tests
+      for the 0037-0039 objects. Requires a local database with those migrations
+      applied; Docker was unavailable, so it has not been executed.
+    - `supabase/tests/workflows_local_runners.sql` — local-only SQL behavior and
+      tenant-isolation tests for 0040; not executed as a local SQL file (no local
+      database). The equivalent hosted smoke test above passed and was rolled
+      back.
+    - `src/modules/ai-console/local/` — local provider-connection dry run. It is
+      off until enabled in Settings → Integrations, accepts secret names only,
+      keeps simulated rows in sessionStorage, and calls no provider, Edge
+      Function or Supabase RPC. It cannot send messages or create real
+      connections.
+    - Provider runtime frontend hardening — vault metadata and calendar
+      status/OAuth-start responses are Zod-validated, vault metadata errors are
+      shown explicitly, and the email secret name is consistently
+      `EMAIL_PROVIDER_API_KEY`. Frontend-only and uncommitted.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
 (from `0021`, applied 2026-11-22), 5 Voice/Call Agent tables and 4 `voice_*` RPCs
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
-`calendar_*` RPCs (from `0025`, applied 2026-11-22), plus Phase 2 sync mapping/RPC groundwork (from `0026`, applied 2026-11-23; `calendar-sync-appointment` deployed, Google secrets user-confirmed set),
+`calendar_*` RPCs (from `0025`, applied 2026-11-22), plus Phase 2 sync mapping/RPC groundwork (from `0026`, applied 2026-11-23; `calendar-sync-appointment` deployed; `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REDIRECT_URI` are now set server-side by the user, and the callback smoke check moved from `not_configured` to `missing_params`),
 4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; runner creates pending-approval records only; approval-gated WhatsApp send function deployed but no auto-send/dispatch/scheduler), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
-and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23), plus 2 billing tables and 8 `billing_*` RPCs (from `0037`, applied 2026-11-23; entitlements advisory only, no keys set, three functions deployed but inert). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
+and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23), plus 2 billing tables and 8 `billing_*` RPCs (from `0037`, applied 2026-11-23; entitlements advisory only, no keys set, three functions deployed but inert), 0038 admin billing gating (six RPCs, default enforcement off), 0039 review-request approval audit, and 0040 local workflow runners (four functions, two triggers, dedupe index), and 0041 public-rating internal follow-up (task/notice/audit only, no external send), and 0042 provider connection runtime (status/audit/OAuth state; no deployed function uses it yet). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
 
 ## Read-only verification commands
 

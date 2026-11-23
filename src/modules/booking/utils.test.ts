@@ -8,6 +8,10 @@ import {
   createIdempotencyKey,
   filterAppointmentsByBusinessDate,
   formatDateLabel,
+  groupAppointmentsByDate,
+  monthGrid,
+  monthKeyFromDate,
+  monthLabel,
   formatLeadTime,
   formatSlotDateTime,
   formatSlotTime,
@@ -15,6 +19,7 @@ import {
   linkedResourceIds,
   normalizeBookingMetrics,
   resolveTimeZone,
+  shiftMonth,
   sortAppointments,
 } from './utils'
 import type { AppointmentRow, ServiceResourceRow } from '@/types/database'
@@ -128,5 +133,35 @@ describe('booking presentation helpers', () => {
     ]
     expect(linkedResourceIds(links, 's1')).toEqual(['r1'])
     expect(createIdempotencyKey().length).toBeGreaterThan(8)
+  })
+})
+
+describe('appointment calendar helpers', () => {
+  it('builds a stable six-week grid without timezone drift', () => {
+    const grid = monthGrid('2026-11')
+    expect(grid).toHaveLength(42)
+    expect(grid[0]).toBe('2026-11-01')
+    expect(grid[6]).toBe('2026-11-07')
+    expect(grid[41]).toBe('2026-12-12')
+    expect(monthKeyFromDate('2026-11-24')).toBe('2026-11')
+    expect(monthKeyFromDate('bad')).toBe('')
+  })
+
+  it('shifts months across year boundaries and formats the label', () => {
+    expect(shiftMonth('2026-12', 1)).toBe('2027-01')
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12')
+    expect(shiftMonth('bad', 1)).toBe('bad')
+    expect(monthLabel('2026-11')).toContain('November')
+  })
+
+  it('groups appointments by business-local date and sorts each day', () => {
+    const rows = [
+      appointment('late', '2026-11-24T12:30:00Z'), // 18:00 IST
+      appointment('early', '2026-11-24T03:30:00Z'), // 09:00 IST
+      appointment('other', '2026-11-25T03:30:00Z'),
+    ]
+    const grouped = groupAppointmentsByDate(rows, 'Asia/Kolkata')
+    expect(grouped.get('2026-11-24')?.map((row) => row.id)).toEqual(['early', 'late'])
+    expect(grouped.get('2026-11-25')?.map((row) => row.id)).toEqual(['other'])
   })
 })

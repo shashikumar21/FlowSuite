@@ -38,7 +38,7 @@ const providerHelp: Record<string, { title: string; secret: string; note: string
   },
   resend: {
     title: 'Email delivery',
-    secret: 'RESEND_API_KEY',
+    secret: 'EMAIL_PROVIDER_API_KEY',
     note: 'The Milestone 3 email seam remains unwired by design; no automated email is sent.',
   },
   netlify: {
@@ -64,6 +64,7 @@ export function IntegrationsPage() {
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplateRow | null>(null)
   const [vaultOpen, setVaultOpen] = useState(false)
   const [vaultSecrets, setVaultSecrets] = useState<IntegrationSecretMeta[]>([])
+  const [vaultError, setVaultError] = useState<string | null>(null)
   const [vaultLoading, setVaultLoading] = useState(false)
   const [vaultSaving, setVaultSaving] = useState(false)
   const [vaultProvider, setVaultProvider] = useState('netlify')
@@ -73,7 +74,15 @@ export function IntegrationsPage() {
   const loadVaultSecrets = async () => {
     if (!tenantId) return
     setVaultLoading(true)
-    try { setVaultSecrets(await listIntegrationSecrets(tenantId)) } catch { /* vault may not be applied yet */ } finally { setVaultLoading(false) }
+    setVaultError(null)
+    try {
+      setVaultSecrets(await listIntegrationSecrets(tenantId))
+    } catch (e) {
+      setVaultSecrets([])
+      setVaultError(getErrorMessage(e))
+    } finally {
+      setVaultLoading(false)
+    }
   }
 
   useEffect(() => { void loadVaultSecrets() }, [tenantId])
@@ -86,7 +95,7 @@ export function IntegrationsPage() {
 
   const onVaultProviderChange = (provider: string) => {
     setVaultProvider(provider)
-    const defaults: Record<string, string> = { netlify: 'NETLIFY_DEPLOY_TOKEN', vercel: 'VERCEL_DEPLOY_TOKEN', openai: 'OPENAI_API_KEY', whatsapp: 'WHATSAPP_ACCESS_TOKEN', resend: 'RESEND_API_KEY', exotel: 'VOICE_WEBHOOK_SECRET' }
+    const defaults: Record<string, string> = { netlify: 'NETLIFY_DEPLOY_TOKEN', vercel: 'VERCEL_DEPLOY_TOKEN', openai: 'OPENAI_API_KEY', whatsapp: 'WHATSAPP_ACCESS_TOKEN', resend: 'EMAIL_PROVIDER_API_KEY', exotel: 'VOICE_WEBHOOK_SECRET' }
     setVaultSecretName(defaults[provider] ?? '')
   }
 
@@ -163,7 +172,12 @@ export function IntegrationsPage() {
             <p className="font-semibold">Sellable SaaS flow</p>
             <p className="mt-1">Customers connect once - no raw keys pasted into chat or stored in client code. For OAuth providers (Google), use direct OAuth Connect. For API-key providers, use this secure vault connect.</p>
           </div>
-          {vaultLoading ? <p className="text-xs text-ink-500">Loading connections...</p> : vaultSecrets.length === 0 ? (
+          {vaultError ? (
+            <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              Vault metadata unavailable: {vaultError}
+            </div>
+          ) : null}
+          {vaultLoading ? <p className="text-xs text-ink-500">Loading connections...</p> : vaultSecrets.length === 0 && !vaultError ? (
             <p className="text-xs text-ink-500">No secure vault connections yet. Vault requires migration <code className="rounded bg-ink-50 px-1">0033_integration_secret_vault.sql</code> and <code className="rounded bg-ink-50 px-1">integrations-vault-save</code> Edge Function (approval-gated).</p>
           ) : (
             <div className="space-y-2">

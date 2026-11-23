@@ -89,6 +89,62 @@ export function bookingDateOptions(
   return Array.from({ length: horizon + 1 }, (_, index) => addCalendarDays(today, index))
 }
 
+/** Business-local month key (YYYY-MM) used by the appointment calendar. */
+export function monthKeyFromDate(value: string): string {
+  return /^(\d{4})-(\d{2})-(\d{2})$/.test(value) ? value.slice(0, 7) : ''
+}
+
+/** Pure month arithmetic; always returns the first of the target month. */
+export function shiftMonth(month: string, delta: number): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!match) return month
+  const next = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1 + delta, 1))
+  const year = next.getUTCFullYear()
+  const monthPart = String(next.getUTCMonth() + 1).padStart(2, '0')
+  return `${year}-${monthPart}`
+}
+
+export function monthLabel(month: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!match) return month
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1))
+  return new Intl.DateTimeFormat('en-IN', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(date)
+}
+
+/**
+ * Six Sunday-to-Saturday weeks around the month, as business-local date strings.
+ * UTC arithmetic keeps the grid stable even when the browser zone differs.
+ */
+export function monthGrid(month: string): string[] {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!match) return []
+  const year = Number(match[1])
+  const monthIndex = Number(match[2]) - 1
+  const first = new Date(Date.UTC(year, monthIndex, 1))
+  const start = new Date(Date.UTC(year, monthIndex, 1 - first.getUTCDay()))
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start.getTime() + index * 86_400_000)
+    return `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(2, '0')}-${String(day.getUTCDate()).padStart(2, '0')}`
+  })
+}
+
+/** Groups appointments by their business-local calendar date, sorted by start time. */
+export function groupAppointmentsByDate(
+  appointments: AppointmentRow[],
+  timeZone: string | null | undefined,
+): Map<string, AppointmentRow[]> {
+  const grouped = new Map<string, AppointmentRow[]>()
+  for (const appointment of appointments) {
+    const key = calendarDateInZone(appointment.start_at, timeZone)
+    if (!key) continue
+    const rows = grouped.get(key) ?? []
+    rows.push(appointment)
+    grouped.set(key, rows)
+  }
+  for (const rows of grouped.values()) rows.sort((a, b) => a.start_at.localeCompare(b.start_at))
+  return grouped
+}
+
 /** Weekday labels are derived in UTC so they match the calendar date in any zone. */
 export function formatDateLabel(value: string): string {
   const parsed = parseCalendarDate(value)

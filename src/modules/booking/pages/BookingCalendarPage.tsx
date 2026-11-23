@@ -7,20 +7,11 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
 import { ErrorState, Skeleton } from '@/components/ui/Feedback'
-import { requireSupabase } from '@/integrations/supabase/client'
 import { getErrorMessage } from '@/lib/errors'
-
-type GoogleStatus = {
-  connected: boolean
-  provider: string
-  google_email: string | null
-  calendar_id: string | null
-  status: string
-  sync_enabled: boolean
-  last_synced_at: string | null
-  last_error: string | null
-  updated_at: string | null
-}
+import { disconnectCalendarConnection, fetchCalendarConnectionStatus, startGoogleCalendarOAuth, type CalendarConnectionStatus } from '../api'
+import { AppointmentCalendar } from '../components/AppointmentCalendar'
+import { useBookingAppointments } from '../hooks'
+import { DEFAULT_BUSINESS_TIMEZONE } from '../utils'
 
 const otherProviders = [
   { id: 'apple', name: 'Apple Calendar', description: 'Apple/iCloud calendar connection (CalDAV/app integration) is not configured yet.', detail: 'Coming later' },
@@ -31,11 +22,13 @@ const otherProviders = [
 export function BookingCalendarPage() {
   const { activeTenant } = useTenant()
   const tenantId = activeTenant?.tenant_id
+  const timeZone = activeTenant?.businesses?.timezone ?? DEFAULT_BUSINESS_TIMEZONE
+  const appointmentsQuery = useBookingAppointments(tenantId, { timeZone, limit: 500 })
   const { toast } = useToast()
   const [params, setParams] = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<GoogleStatus | null>(null)
+  const [status, setStatus] = useState<CalendarConnectionStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
 
@@ -44,14 +37,16 @@ export function BookingCalendarPage() {
     setLoading(true)
     setError(null)
     try {
-      const supabase = requireSupabase()
-      const { data, error: rpcError } = await supabase.rpc('calendar_connection_status' as never, { p_tenant: tenantId, p_provider: 'google' } as never)
-      if (rpcError) throw rpcError
-      const row = Array.isArray(data) ? data[0] as GoogleStatus | undefined : undefined
+      const row = await fetchCalendarConnectionStatus(tenantId)
       setStatus(row ?? { connected: false, provider: 'google', google_email: null, calendar_id: 'primary', status: 'disconnected', sync_enabled: false, last_synced_at: null, last_error: null, updated_at: null })
     } catch (e) {
       setError(getErrorMessage(e))
     } finally { setLoading(false) }
+  }
+
+  const refreshAll = () => {
+    void loadStatus()
+    void appointmentsQuery.refetch()
   }
 
   useEffect(() => { void loadStatus() }, [tenantId])
@@ -60,7 +55,7 @@ export function BookingCalendarPage() {
     const connected = params.get('calendar_connected')
     const calendarError = params.get('calendar_error')
     if (connected === 'google') {
-      toast({ title: 'Google Calendar connected', description: 'Your Google account is connected. FlowSuite → Google sync will activate after Phase 2 migration/function are deployed.' })
+      toast({ title: 'Google Calendar connected', description: 'Your Google account is connected. New FlowSuite appointments will sync to Google Calendar.' })
       params.delete('calendar_connected'); setParams(params, { replace: true })
       void loadStatus()
     } else if (calendarError) {
@@ -73,11 +68,7 @@ export function BookingCalendarPage() {
     if (!tenantId) return
     setConnecting(true)
     try {
-      const supabase = requireSupabase()
-      const { data, error: fnError } = await supabase.functions.invoke('calendar-oauth-start', { body: { tenant_id: tenantId } })
-      if (fnError) throw fnError
-      const url = (data as { url?: string } | null)?.url
-      if (!url) throw new Error('OAuth start did not return a URL.')
+      const url = await startGoogleCalendarOAuth(tenantId)
       window.location.href = url
     } catch (e) {
       toast({ title: 'Could not start Google connection', description: getErrorMessage(e), variant: 'error' })
@@ -90,9 +81,7 @@ export function BookingCalendarPage() {
     if (!window.confirm('Disconnect Google Calendar? Stored tokens will be cleared.')) return
     setDisconnecting(true)
     try {
-      const supabase = requireSupabase()
-      const { error: rpcError } = await supabase.rpc('calendar_connection_disconnect' as never, { p_tenant: tenantId, p_provider: 'google' } as never)
-      if (rpcError) throw rpcError
+      await disconnectCalendarConnection(tenantId)
       toast({ title: 'Google Calendar disconnected' })
       await loadStatus()
     } catch (e) {
@@ -108,24 +97,37 @@ export function BookingCalendarPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Booking</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Calendar</h1>
-          <p className="mt-1 text-sm text-ink-500">Connect external calendars. Google Calendar connection and FlowSuite → Google appointment sync are deployed (Google OAuth secrets required).</p>
+          <p className="mt-1 text-sm text-ink-500">View your FlowSuite appointments and manage external calendar connections.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void loadStatus()} loading={loading}><RefreshCw className="size-4" /> Refresh</Button>
+        <Button variant="outline" size="sm" onClick={refreshAll} loading={loading || appointmentsQuery.isFetching}><RefreshCw className="size-4" /> Refresh</Button>
       </div>
 
       <Card className="border-amber-200 bg-amber-50/60">
         <CardContent className="flex items-start gap-3 py-4">
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
           <div className="text-sm text-amber-900">
-            <p className="font-semibold">Google Calendar connected + sync deployed</p>
-            <p className="mt-1 text-amber-800">Google OAuth connect/disconnect and FlowSuite → Google appointment sync (create/reschedule/cancel) are deployed. Google OAuth secrets must be configured server-side. Tokens remain server-side only.</p>
+            <p className="font-semibold">Google Calendar connection + sync runtime deployed</p>
+            <p className="mt-1 text-amber-800">OAuth connect/disconnect and FlowSuite → Google sync functions are deployed, with single-use state stored in Supabase. Google OAuth credentials are configured server-side, and tokens remain server-side only.</p>
           </div>
         </CardContent>
       </Card>
 
-      {error ? <ErrorState message={error} onRetry={() => void loadStatus()} /> : null}
+      {error ? <ErrorState message={error} onRetry={refreshAll} /> : null}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <AppointmentCalendar
+        appointments={appointmentsQuery.data ?? []}
+        timeZone={timeZone}
+        loading={appointmentsQuery.isLoading}
+        error={appointmentsQuery.isError ? getErrorMessage(appointmentsQuery.error) : null}
+        onRetry={() => void appointmentsQuery.refetch()}
+      />
+
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink-900">Google Calendar connection</h2>
+          <p className="text-sm text-ink-500">Optional. Connect Google only if you want FlowSuite appointments pushed to your Google Calendar.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardContent className="space-y-4 py-5">
             <div className="flex items-start justify-between gap-3">
@@ -147,7 +149,7 @@ export function BookingCalendarPage() {
                 {status.last_error ? <p className="text-red-700">Last error: {status.last_error}</p> : null}
               </div>
             ) : (
-              <p className="text-sm text-ink-600">Connect your Google account to prepare FlowSuite → Google appointment sync. Requires server-side Google OAuth secrets and deployed Edge Functions.</p>
+              <p className="text-sm text-ink-600">Connect your Google account to prepare FlowSuite → Google appointment sync. The Edge Functions and server-side OAuth credentials are configured; no raw key is stored in the browser.</p>
             )}
 
             <div className="flex flex-wrap justify-end gap-2">
@@ -175,6 +177,7 @@ export function BookingCalendarPage() {
             </CardContent>
           </Card>
         ))}
+        </div>
       </div>
     </div>
   )
