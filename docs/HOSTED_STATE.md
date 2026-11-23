@@ -6,6 +6,11 @@ verify with the read-only commands below before changing anything.
 
 Snapshot taken: 2026-11-22.
 
+Deployment note 2026-11-24: commit `3ace64f` added the FlowSuite appointment
+calendar and finalised the Google Calendar OAuth runtime. The Netlify
+auto-deploy for `rococo-florentine-8dbe2c` was still showing the previous
+bundle, so a follow-up documentation-only commit is used to retrigger it.
+
 ## Project
 
 | Field | Value |
