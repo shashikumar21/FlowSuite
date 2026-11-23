@@ -40,19 +40,20 @@ Verified hosted ACLs after `0018`: `anon_rpc_exec:false`,
 
 ## Edge Functions already deployed
 
-`supabase functions list` reported exactly one deployed function:
+Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphypo --output-format json` on 2026-11-23:
 
 | Slug | Status | Version | verify_jwt | import_map | Source hash (sha256) |
 | --- | --- | --- | --- | --- | --- |
-| `ai-chat` | `ACTIVE` | `9` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
+| `ai-chat` | `ACTIVE` | `10` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
+| `website-generate` | `ACTIVE` | `1` | `true` | `true` | `9cfc5886b2408a8fa12c84ee780ba6a185e9df57acca766f317cb2ddf555c276` |
+| `calendar-oauth-start` | `ACTIVE` | `1` | `true` | `true` | `217daf99292cc218de61459c72d4dbbfbfca5277a4d21ca130f8accc22bbd325` |
+| `calendar-oauth-callback` | `ACTIVE` | `1` | `true` | `true` | `31593c47419bd00d82206d7a8831d805efb163e63cbedc8a26328102a91dfccd` |
 
-It was deployed with:
-`supabase functions deploy ai-chat --no-verify-jwt --yes --import-map supabase/functions/import_map.json`
-
-**Do not re-deploy it.** Compare the hash above with `supabase functions list`
-before considering any future change. Other function folders in the repo
-(`whatsapp-webhook`, `whatsapp-send`, `ai-follow-up-worker`,
-`telephony-webhook`) are **not** deployed. No scheduler is configured.
+**Do not re-deploy deployed functions without explicit approval.** Compare hashes
+with `supabase functions list` before considering any future change. Other
+function folders in the repo (`whatsapp-webhook`, `whatsapp-send`,
+`ai-follow-up-worker`, `telephony-webhook`, `calendar-sync-appointment`,
+`review-suggest`) are **not** deployed. No scheduler is configured.
 
 ## Server-side secrets (names only — never values)
 
@@ -227,6 +228,20 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   with explicit user approval via
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0029_workflows_review_requests.sql`.
   No WhatsApp/provider sending enabled.
+- `supabase/migrations/0026_calendar_google_sync.sql` — Google Calendar Phase 2
+  appointment sync mapping/RPC groundwork (local only). **Not applied to hosted.**
+  `calendar-sync-appointment` Edge Function is local-only/not deployed.
+- `supabase/migrations/0030_review_suggestion_mvp.sql` — tokenized public review
+  link, feedback capture, and AI suggestion status fields/RPCs (local only). **Not
+  applied to hosted.** `review-suggest` Edge Function is local-only/not deployed.
+- `supabase/migrations/0031_deploy_provider_credentials.sql` — extends
+  `channel_credentials` provider support for Netlify/Vercel deploy secret
+  reference names (local only; no raw tokens). **Not applied to hosted.**
+- `supabase/migrations/0032_workflows_review_request_runner.sql` — review-request
+  runner MVP: DB trigger creates `pending_approval` review requests on
+  appointment completion for active `appointment_completed` workflows; adds
+  `review_request_set_status` RPC for approve/cancel. **Local only; not applied to
+  hosted.** No external messages are sent.
 
 Hosted therefore still has exactly 10 Sales Agent tables and 12
 `sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
@@ -234,7 +249,7 @@ Hosted therefore still has exactly 10 Sales Agent tables and 12
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
-4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs (from `0027`-`0029`, applied 2026-11-22; no execution/sending),
+4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs (from `0027`-`0029`, applied 2026-11-22; no execution/sending; 0030/0032 review token/runner/approval RPCs not applied),
 and no `tasks_*` RPCs. The Phase 3,
 Phase 4, and Tasks pages in this repo run against the hosted project through
 `.env.local` and correctly show schema-cache errors until a deliberate promotion

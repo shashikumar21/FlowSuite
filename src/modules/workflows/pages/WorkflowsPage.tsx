@@ -11,7 +11,7 @@ import { ErrorState, Skeleton } from '@/components/ui/Feedback'
 import { Input, Label, FieldError } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
-import { fetchReviewRequests, ensureReviewRequestToken, type ReviewRequestRow } from '@/modules/reviews/api'
+import { fetchReviewRequests, ensureReviewRequestToken, setReviewRequestStatus, type ReviewRequestRow } from '@/modules/reviews/api'
 import { createWorkflow, deleteWorkflow, setWorkflowStatus, updateWorkflow } from '../api'
 import { useWorkflows, useWorkflowsInvalidate } from '../hooks'
 import { workflowFormSchema, type WorkflowFormValues } from '../schemas'
@@ -83,6 +83,15 @@ export function WorkflowsPage() {
     } catch (e) { toast({ title: 'Could not generate review link', description: getErrorMessage(e), variant: 'error' }) }
   }
 
+  const updateReviewStatus = async (row: ReviewRequestRow, status: 'approved' | 'cancelled') => {
+    if (!tenantId) return
+    try {
+      await setReviewRequestStatus(tenantId, row.id, status)
+      toast({ title: status === 'approved' ? 'Review request approved' : 'Review request cancelled' })
+      void loadReviewRequests()
+    } catch (e) { toast({ title: 'Could not update review request', description: getErrorMessage(e), variant: 'error' }) }
+  }
+
   const form = useForm<WorkflowFormValues>({ resolver: zodResolver(workflowFormSchema), defaultValues: defaultValues() })
   const actions = useFieldArray({ control: form.control, name: 'actions' })
 
@@ -135,7 +144,7 @@ export function WorkflowsPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Automation</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Workflows</h1>
-          <p className="mt-1 text-sm text-ink-500">Define automation rules for your business. Execution engine is not enabled in this v1 shell.</p>
+          <p className="mt-1 text-sm text-ink-500">Define automation rules for your business. Review-request runner MVP (local migration 0032) creates pending-approval records; no external messages are sent.</p>
         </div>
         <Button onClick={openCreate}><Plus className="size-4" /> New workflow</Button>
       </div>
@@ -144,8 +153,8 @@ export function WorkflowsPage() {
         <CardContent className="flex items-start gap-3 py-4">
           <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
           <div className="text-sm text-amber-900">
-            <p className="font-semibold">Workflow definitions only (v1)</p>
-            <p className="mt-1 text-amber-800">You can create and manage workflow definitions. Automatic execution, webhooks, and external actions are not enabled yet. No messages are sent.</p>
+            <p className="font-semibold">Safe automation MVP</p>
+            <p className="mt-1 text-amber-800">Workflow definitions are active. Review-request runner (migration 0032, local-only until applied) creates <strong>pending approval</strong> records when appointments complete. No external messages are sent automatically.</p>
           </div>
         </CardContent>
       </Card>
@@ -168,7 +177,7 @@ export function WorkflowsPage() {
                     <Badge variant="neutral">{triggerLabels[row.trigger_type]}</Badge>
                   </div>
                   {row.description ? <p className="mt-1 text-sm text-ink-500">{row.description}</p> : null}
-                  <p className="mt-1 text-xs text-ink-400">{row.actions.length} action{row.actions.length === 1 ? '' : 's'} · Runs: {row.run_count} · Execution not enabled</p>
+                  <p className="mt-1 text-xs text-ink-400">{row.actions.length} action{row.actions.length === 1 ? '' : 's'} · Runs: {row.run_count} · No auto-send</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => void toggleStatus(row)}>{row.status === 'active' ? <><Pause className="size-4" /> Pause</> : <><Play className="size-4" /> Activate</>}</Button>
@@ -198,7 +207,15 @@ export function WorkflowsPage() {
                     <p className="font-medium text-ink-900">{r.customer_name || 'Customer'} · <span className="uppercase">{r.channel}</span> · {r.status}</p>
                     <p className="text-ink-500">Rating: {r.rating ?? '—'} · AI: {r.ai_suggestion_status ?? '—'} {r.public_token ? '· Link ready' : ''}</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => void copyReviewLink(r)}>Copy review link</Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => void copyReviewLink(r)}>Copy review link</Button>
+                    {r.status === 'pending_approval' ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'approved')}>Approve</Button>
+                        <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'cancelled')}>Cancel</Button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

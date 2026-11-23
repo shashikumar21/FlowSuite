@@ -71,3 +71,10 @@ export async function ensureReviewRequestToken(tenantId: string, requestId: stri
   if (error) throw error
   return data as string
 }
+
+export async function setReviewRequestStatus(tenantId: string, requestId: string, status: 'approved' | 'cancelled'): Promise<void> {
+  const { error } = await requireSupabase().rpc('review_request_set_status' as never, {
+    p_tenant: tenantId, p_request: requestId, p_status: status,
+  } as never)
+  if (error) throw error
+}
