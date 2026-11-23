@@ -160,7 +160,7 @@ was touched:
   availability rules in the hosted database; that is a hosted write and remains
   approval-gated.
 
-Still approval-gated: hosted promotion of `0019`, `0020`, `0026`, RLS hardening, Groq key
+Still approval-gated: hosted promotion of `0026`, RLS hardening, Groq key
 rotation (provider console), deletion of the failed Netlify site and project
 rename.
 
@@ -170,14 +170,14 @@ The following changes exist **only in the repository** as of 2026-11-22. They
 have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
 
 - `supabase/migrations/0019_phase3_email_outreach.sql` — approvals table and
-  nine Phase 3 RPCs. Read-only checks returned `404 PGRST202` for
-  `sales_create_campaign` and `404` for `public.sales_email_approvals`, so it is
-  definitely absent. `sales_dashboard_metrics` and `sales_is_suppressed` exist.
+  nine Phase 3 RPCs. **Applied to hosted 2026-11-23** with explicit user approval
+  via `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0019_phase3_email_outreach.sql`.
 - `supabase/functions/sales-email-draft/index.ts` — source only, not deployed.
-  `supabase functions list` still shows only `ai-chat` at version `9`.
+  No provider configured; nothing sends.
 - `supabase/migrations/0020_phase4_contacts_replies.sql` — nine Phase 4 RPCs for
-  decision makers, manual verification, signals and replies. Never submitted to
-  hosted.
+  decision makers, manual verification, signals and replies. **Applied to hosted
+  2026-11-23** with explicit user approval via
+  `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0020_phase4_contacts_replies.sql`.
 - `supabase/migrations/0021_growth_modules.sql` — six new `growth_*` tables and
   18 trusted RPCs for Marketing, Campaigns, Websites and Reputation. **Applied to
   hosted 2026-11-22** with explicit user approval via
@@ -262,17 +262,14 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   user approval via
   `supabase db query --remote=grkzontnyjnhijmphypo --yes -f supabase/migrations/0034_crm_delete_deal.sql`.
 
-Hosted therefore still has exactly 10 Sales Agent tables and 12
-`sales_*`/`can_manage_sales_agent` RPCs, 6 Growth tables and 18 `growth_*` RPCs
+Hosted therefore still has 11 Sales Agent tables and 30
+`sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
 (from `0021`, applied 2026-11-22), 5 Voice/Call Agent tables and 4 `voice_*` RPCs
 (from `0023`, applied 2026-11-22), 2 invoice/payment tables and 6 `payments_*`
 RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22; no OAuth secrets/sync/functions),
 4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; no external sending, runner creates pending-approval records only), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
-and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23). The Phase 3 and
-Phase 4 pages in this repo run against the hosted project through
-`.env.local` and correctly show schema-cache errors until a deliberate promotion
-is approved.
+and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
 
 ## Read-only verification commands
 
