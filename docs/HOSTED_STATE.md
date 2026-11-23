@@ -302,6 +302,17 @@ have not been applied, deployed or promoted to `grkzontnyjnhijmphypo`:
   type errors in `_shared/vault.ts`, `calendar-oauth-callback`, and
   `sales-email-draft` (no runtime behavior change). No live WhatsApp send was
   performed during this deploy.
+- Demo-tenant WhatsApp send prerequisites seeded 2026-11-23 with explicit user
+  approval, scoped strictly to tenant `09902c67-e585-427c-98be-df91c211e864`:
+  one `message_templates` row (`template_key='review_request'`, provider
+  `whatsapp`, `provider_template_name='review_request_v1'`, language `en`, local
+  status `approved`) and one `communication_consents` row (`channel='whatsapp'`,
+  `status='opt_in'`, `source='manual'`) for demo contact
+  `d0000000-0000-4000-8000-000000000010`. An audit log was written. The pending
+  review request was deliberately **not** approved and no message was sent, so
+  the human approval gate remains intact. `review_request_v1` is a placeholder
+  name — it must match the actual Meta-approved template name before a live send
+  can succeed.
 
 Hosted therefore still has 11 Sales Agent tables and 30
 `sales_*`/`can_manage_sales_agent` RPCs (from `0018`-`0020`, `0020` applied 2026-11-23), 6 Growth tables and 18 `growth_*` RPCs
