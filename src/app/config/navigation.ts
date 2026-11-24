@@ -42,12 +42,6 @@ export type NavGroup = {
   badge?: string
 }
 
-const planned = (label: string, to: string, icon: LucideIcon): NavItem => ({
-  label,
-  to: `/app/module/${to}`,
-  icon,
-})
-
 export const navigation: NavGroup[] = [
   {
     label: 'Overview',
@@ -119,7 +113,7 @@ export const navigation: NavGroup[] = [
       { label: 'Tasks', to: '/app/tasks', icon: FileText, available: true },
       { label: 'Team', to: '/app/team', icon: Users, available: true },
       { label: 'Payments', to: '/app/payments', icon: Receipt, available: true },
-      planned('Reports', 'reports', BarChart3),
+      { label: 'Reports', to: '/app/reports', icon: BarChart3, available: true },
     ],
   },
   {
