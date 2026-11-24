@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FieldError, Input, Label, Select } from '@/components/ui/Input'
 import { requireSupabase } from '@/integrations/supabase/client'
 import { getErrorMessage } from '@/lib/errors'
+import { updateBusinessReviewSettings } from '@/modules/reviews/api'
+import { isGoogleReviewUrl } from '@/modules/reviews/validation'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -16,6 +18,10 @@ const schema = z.object({
   email: z.union([z.string().email('Enter a valid email address'), z.literal('')]).optional(),
   phone: z.string().trim().optional(),
   website: z.string().trim().optional(),
+  google_review_url: z.string().trim().max(500, 'Link is too long').refine(
+    (value) => value === '' || isGoogleReviewUrl(value),
+    'Enter a valid Google review link',
+  ),
   timezone: z.string().min(1),
   currency: z.string().min(1),
 })
@@ -29,7 +35,7 @@ export function BusinessSettingsPage() {
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', email: '', phone: '', website: '', timezone: 'Asia/Kolkata', currency: 'INR' },
+    defaultValues: { name: '', email: '', phone: '', website: '', google_review_url: '', timezone: 'Asia/Kolkata', currency: 'INR' },
   })
 
   useEffect(() => {
@@ -39,6 +45,7 @@ export function BusinessSettingsPage() {
       email: business.email ?? '',
       phone: business.phone ?? '',
       website: business.website ?? '',
+      google_review_url: business.google_review_url ?? '',
       timezone: business.timezone,
       currency: business.currency,
     })
@@ -59,6 +66,7 @@ export function BusinessSettingsPage() {
         })
         .eq('id', activeTenant?.tenant_id as string)
       if (updateError) throw updateError
+      await updateBusinessReviewSettings(activeTenant?.tenant_id as string, values.google_review_url || null)
       await refresh()
       toast({ title: 'Business profile saved' })
     } catch (cause) {
@@ -110,6 +118,18 @@ export function BusinessSettingsPage() {
               <div>
                 <Label htmlFor="website">Website</Label>
                 <Input id="website" placeholder="https://" {...form.register('website')} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="google_review_url">Google review link</Label>
+                <Input
+                  id="google_review_url"
+                  placeholder="https://g.page/r/..."
+                  {...form.register('google_review_url')}
+                />
+                <p className="mt-1 text-xs text-ink-500">
+                  Paste the official “Write a review” link from your Google Business Profile. Leave blank to use the FlowSuite review page.
+                </p>
+                <FieldError>{form.formState.errors.google_review_url?.message}</FieldError>
               </div>
               <div>
                 <Label htmlFor="currency">Currency</Label>

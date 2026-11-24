@@ -12,6 +12,7 @@ type BusinessSummary = {
   email: string | null
   phone: string | null
   website: string | null
+  google_review_url: string | null
   currency: string
   timezone: string
   status: string
@@ -62,7 +63,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     const { data, error: queryError } = await requireSupabase()
       .from('business_members')
-      .select('tenant_id, role, status, businesses(id, name, slug, industry, email, phone, website, currency, timezone, status)')
+      .select('tenant_id, role, status, businesses(id, name, slug, industry, email, phone, website, google_review_url, currency, timezone, status)')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .returns<TenantMembership[]>()

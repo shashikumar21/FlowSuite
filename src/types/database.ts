@@ -89,6 +89,7 @@ export type BusinessRow = {
   email: string | null
   phone: string | null
   website: string | null
+  google_review_url: string | null
   country_code: string
   currency: string
   timezone: string

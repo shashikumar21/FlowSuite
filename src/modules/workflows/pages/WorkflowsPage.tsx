@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pause, Play, Pencil, Trash2, Workflow, ShieldAlert, Send, Zap } from 'lucide-react'
+import { Plus, Pause, Play, Pencil, Trash2, Workflow, ShieldAlert, Send, Zap, Sparkles } from 'lucide-react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTenant } from '@/app/providers/TenantProvider'
@@ -13,7 +13,8 @@ import { Modal } from '@/components/ui/Modal'
 import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { fetchReviewAudit, fetchReviewRequests, ensureReviewRequestToken, setReviewRequestStatus, sendReviewRequestWhatsApp, type ReviewAuditRow, type ReviewRequestRow } from '@/modules/reviews/api'
+import { fetchReviewAudit, fetchReviewRequests, ensureReviewRequestToken, setReviewRequestStatus, sendReviewRequestWhatsApp, generateOwnerReviewReply, setReviewReplyStatus, setReviewReplySource, type ReviewAuditRow, type ReviewRequestRow } from '@/modules/reviews/api'
+import { reviewLinkHost } from '@/modules/reviews/validation'
 import { createWorkflow, deleteWorkflow, runWorkflowManually, setWorkflowStatus, updateWorkflow } from '../api'
 import { useWorkflows, useWorkflowsInvalidate } from '../hooks'
 import { workflowFormSchema, type WorkflowFormValues } from '../schemas'
@@ -44,6 +45,13 @@ const reviewAuditLabels: Record<string, string> = {
   'review_request.send_failed': 'Review request failed',
   'review_request.send_blocked': 'Review request blocked',
   'review_request.rating_followup_created': 'Customer rating follow-up',
+  'review_request.google_link_missing': 'Google link missing — used FlowSuite page',
+  'business.review_settings_updated': 'Review link setting updated',
+  'review_reply.source_added': 'Google review details recorded',
+  'review_reply.generated': 'AI reply draft generated',
+  'review_reply.approved': 'AI reply approved',
+  'review_reply.rejected': 'AI reply rejected',
+  'review_reply.copied': 'AI reply copied for manual posting',
 }
 
 function auditDetail(metadata: Record<string, unknown>): string {
@@ -103,9 +111,9 @@ const painterTemplates: WorkflowTemplate[] = [
     description: 'After appointment completion, create a review request for approval.',
     trigger_type: 'appointment_completed',
     actions: [
-      { type: 'send_review_request', label: 'Request review via FlowSuite link (approval required)', config: { channel: 'whatsapp', delay_hours: '2', review_link_type: 'flowsuite', review_url: '' } },
+      { type: 'send_review_request', label: 'Request review via your Google link (approval required)', config: { channel: 'whatsapp', delay_hours: '2', review_link_type: 'google', review_url: '' } },
     ],
-    note: 'Uses the existing review-request runner and FlowSuite review page. Creates pending approval records; no external auto-send.',
+    note: 'Uses your Google review link from Business Settings. Falls back to the FlowSuite review page if not set. Creates pending approval records; no external auto-send.',
   },
   {
     id: 'painter-lead-nurture',
@@ -163,6 +171,13 @@ export function WorkflowsPage() {
   const [reviewLoading, setReviewLoading] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [runningId, setRunningId] = useState<string | null>(null)
+  const [replyForId, setReplyForId] = useState<string | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
+  const [replyStatus, setReplyStatus] = useState<string | null>(null)
+  const [replyBusyId, setReplyBusyId] = useState<string | null>(null)
+  const [sourceForId, setSourceForId] = useState<string | null>(null)
+  const [sourceRating, setSourceRating] = useState('5')
+  const [sourceFeedback, setSourceFeedback] = useState('')
 
   const loadReviewRequests = async () => {
     if (!tenantId) return
@@ -183,8 +198,13 @@ export function WorkflowsPage() {
     if (!tenantId) return
     let url: string
     try {
-      const token = await ensureReviewRequestToken(tenantId, row.id)
-      url = `${window.location.origin}/r/${token}`
+      if (row.review_link_type === 'flowsuite') {
+        const token = await ensureReviewRequestToken(tenantId, row.id)
+        url = `${window.location.origin}/r/${token}`
+      } else {
+        url = row.review_url?.trim() ?? ''
+        if (!url) throw new Error('No review link is configured for this request')
+      }
     } catch (e) {
       toast({ title: 'Could not generate review link', description: getErrorMessage(e), variant: 'error' })
       return
@@ -219,6 +239,60 @@ export function WorkflowsPage() {
       toast({ title: 'Could not send WhatsApp message', description: getErrorMessage(e), variant: 'error' })
       void loadReviewRequests()
     } finally { setSendingId(null) }
+  }
+
+  const saveReviewSource = async (row: ReviewRequestRow) => {
+    if (!tenantId) return
+    setReplyBusyId(row.id)
+    try {
+      await setReviewReplySource(tenantId, row.id, Number(sourceRating), sourceFeedback)
+      setSourceForId(null)
+      setSourceFeedback('')
+      toast({ title: 'Review details saved', description: 'You can now draft a reply.' })
+      void loadReviewRequests()
+    } catch (e) {
+      toast({ title: 'Could not save review details', description: getErrorMessage(e), variant: 'error' })
+    } finally { setReplyBusyId(null) }
+  }
+
+  const draftReply = async (row: ReviewRequestRow) => {
+    if (!tenantId) return
+    setReplyBusyId(row.id)
+    try {
+      const result = await generateOwnerReviewReply(tenantId, row.id)
+      setReplyForId(row.id)
+      setReplyDraft(result.draft)
+      setReplyStatus(result.status)
+      toast({
+        title: result.status === 'generated' ? 'AI reply draft ready' : 'Safe reply draft ready',
+        description: 'Review and approve it before pasting into Google Business Profile.',
+      })
+      void loadReviewRequests()
+    } catch (e) {
+      toast({ title: 'Could not draft reply', description: getErrorMessage(e), variant: 'error' })
+    } finally { setReplyBusyId(null) }
+  }
+
+  const updateReply = async (row: ReviewRequestRow, status: 'approved' | 'rejected' | 'copied') => {
+    if (!tenantId || !replyDraft) return
+    setReplyBusyId(row.id)
+    try {
+      await setReviewReplyStatus(tenantId, row.id, status)
+      if (status === 'copied') {
+        const copied = await copyText(replyDraft)
+        toast({
+          title: copied ? 'Reply copied' : 'Copy this reply manually',
+          description: copied ? 'Paste it into your Google Business Profile response.' : replyDraft,
+          variant: copied ? 'success' : 'info',
+        })
+      } else {
+        toast({ title: status === 'approved' ? 'Reply approved' : 'Reply rejected' })
+      }
+      if (status !== 'rejected') setReplyStatus(status)
+      void loadReviewRequests()
+    } catch (e) {
+      toast({ title: 'Could not update reply', description: getErrorMessage(e), variant: 'error' })
+    } finally { setReplyBusyId(null) }
   }
 
   const form = useForm<WorkflowFormValues>({ resolver: zodResolver(workflowFormSchema), defaultValues: defaultValues() })
@@ -384,23 +458,97 @@ export function WorkflowsPage() {
           {reviewRequests.length === 0 ? <p className="text-sm text-ink-500">No review requests yet.</p> : (
             <div className="space-y-2">
               {reviewRequests.map((r) => (
-                <div key={r.id} className="flex flex-col gap-2 rounded-lg border border-line-200 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm">
-                    <p className="font-medium text-ink-900">{r.customer_name || 'Customer'} · <span className="uppercase">{r.channel}</span> · {r.status}</p>
-                    <p className="text-ink-500">Rating: {r.rating ?? '—'} · AI: {r.ai_suggestion_status ?? '—'} {r.public_token ? '· Link ready' : ''}</p>
+                <div key={r.id} className="space-y-3 rounded-lg border border-line-200 p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm">
+                      <p className="font-medium text-ink-900">{r.customer_name || 'Customer'} · <span className="uppercase">{r.channel}</span> · {r.status}</p>
+                      <p className="text-ink-500">Rating: {r.rating ?? '—'} · Link: {r.review_link_type === 'flowsuite' ? 'FlowSuite' : reviewLinkHost(r.review_url)} · Customer AI: {r.ai_suggestion_status ?? '—'}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => void copyReviewLink(r)}>Copy review link</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSourceForId(r.id)
+                          setSourceRating(String(r.rating ?? 5))
+                          setSourceFeedback(r.customer_feedback ?? '')
+                        }}
+                      >Edit review details</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={r.rating === null}
+                        loading={replyBusyId === r.id}
+                        onClick={() => void draftReply(r)}
+                      >
+                        <Sparkles className="size-4" /> Draft AI reply
+                      </Button>
+                      {r.status === 'pending_approval' ? (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'approved')}>Approve</Button>
+                          <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'cancelled')}>Cancel</Button>
+                        </>
+                      ) : null}
+                      {r.status === 'approved' && r.channel === 'whatsapp' ? (
+                        <Button size="sm" onClick={() => void sendWhatsApp(r)} loading={sendingId === r.id}><Send className="size-4" /> Send WhatsApp</Button>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void copyReviewLink(r)}>Copy review link</Button>
-                    {r.status === 'pending_approval' ? (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'approved')}>Approve</Button>
-                        <Button variant="outline" size="sm" onClick={() => void updateReviewStatus(r, 'cancelled')}>Cancel</Button>
-                      </>
-                    ) : null}
-                    {r.status === 'approved' && r.channel === 'whatsapp' ? (
-                      <Button size="sm" onClick={() => void sendWhatsApp(r)} loading={sendingId === r.id}><Send className="size-4" /> Send WhatsApp</Button>
-                    ) : null}
-                  </div>
+                  {sourceForId === r.id ? (
+                    <div className="space-y-2 rounded-lg bg-ink-50 p-3">
+                      <p className="text-xs text-ink-500">Customers who leave Google reviews do not send FlowSuite feedback. Enter the published rating and review text so AI can draft an accurate reply.</p>
+                      <div className="grid gap-2 sm:grid-cols-[120px_1fr]">
+                        <div>
+                          <Label htmlFor={`review-rating-${r.id}`}>Rating</Label>
+                          <Input
+                            id={`review-rating-${r.id}`}
+                            type="number"
+                            min={1}
+                            max={5}
+                            value={sourceRating}
+                            onChange={(event) => setSourceRating(event.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`review-text-${r.id}`}>Review text (optional)</Label>
+                          <textarea
+                            id={`review-text-${r.id}`}
+                            value={sourceFeedback}
+                            maxLength={1000}
+                            onChange={(event) => setSourceFeedback(event.target.value)}
+                            className="min-h-20 w-full rounded-lg border border-line-200 bg-white p-2 text-sm text-ink-900"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" loading={replyBusyId === r.id} onClick={() => void saveReviewSource(r)}>Save review details</Button>
+                        <Button size="sm" variant="outline" onClick={() => setSourceForId(null)}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {replyForId === r.id && replyDraft ? (
+                    <div className="space-y-2 rounded-lg bg-ink-50 p-3">
+                      <p className="text-xs text-ink-500">AI-assisted draft. Nothing is posted automatically. Review it, approve it, then paste it into Google Business Profile.</p>
+                      <textarea
+                        readOnly
+                        value={replyDraft}
+                        aria-label="AI reply draft"
+                        className="min-h-20 w-full rounded-lg border border-line-200 bg-white p-2 text-sm text-ink-900"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={replyBusyId === r.id}
+                          disabled={replyStatus === 'approved' || replyStatus === 'copied'}
+                          onClick={() => void updateReply(r, 'approved')}
+                        >Approve reply</Button>
+                        <Button size="sm" variant="outline" loading={replyBusyId === r.id} onClick={() => void updateReply(r, 'rejected')}>Reject</Button>
+                        <Button size="sm" loading={replyBusyId === r.id} onClick={() => void updateReply(r, 'copied')}>Copy reply</Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

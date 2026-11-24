@@ -78,6 +78,7 @@ export type ReviewRequestRow = {
   review_url: string | null
   status: string
   rating: number | null
+  customer_feedback: string | null
   ai_suggestion_status: string | null
   public_token: string | null
   scheduled_for: string | null
@@ -85,12 +86,9 @@ export type ReviewRequestRow = {
 }
 
 export async function fetchReviewRequests(tenantId: string): Promise<ReviewRequestRow[]> {
-  const { data, error } = await requireSupabase()
-    .from('review_requests' as never)
-    .select('id,tenant_id,customer_name,customer_phone,channel,review_link_type,review_url,status,rating,ai_suggestion_status,public_token,scheduled_for,created_at')
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  const { data, error } = await requireSupabase().rpc('review_requests_list_for_ui' as never, {
+    p_tenant: tenantId,
+  } as never)
   if (error) throw error
   return (data ?? []) as unknown as ReviewRequestRow[]
 }
@@ -138,9 +136,81 @@ export async function fetchReviewAudit(tenantId: string): Promise<ReviewAuditRow
       'review_request.send_failed',
       'review_request.send_blocked',
       'review_request.rating_followup_created',
+      'review_request.google_link_missing',
+      'business.review_settings_updated',
+      'review_reply.source_added',
+      'review_reply.generated',
+      'review_reply.approved',
+      'review_reply.rejected',
+      'review_reply.copied',
     ])
     .order('created_at', { ascending: false })
     .limit(20)
   if (error) throw error
   return reviewAuditSchema.parse(data ?? [])
+}
+
+export async function updateBusinessReviewSettings(
+  tenantId: string,
+  googleReviewUrl: string | null,
+): Promise<void> {
+  const { error } = await requireSupabase().rpc('business_update_review_settings' as never, {
+    p_tenant: tenantId,
+    p_google_review_url: googleReviewUrl,
+  } as never)
+  if (error) throw error
+}
+
+export async function setReviewReplySource(
+  tenantId: string,
+  reviewRequestId: string,
+  rating: number,
+  feedback: string,
+): Promise<void> {
+  const parsed = z.object({
+    rating: z.number().int().min(1).max(5),
+    feedback: z.string().trim().max(1000),
+  }).safeParse({ rating, feedback })
+  if (!parsed.success) throw new Error('Enter a rating from 1 to 5 and review text under 1000 characters')
+  const { error } = await requireSupabase().rpc('review_reply_set_source' as never, {
+    p_tenant: tenantId,
+    p_request: reviewRequestId,
+    p_rating: parsed.data.rating,
+    p_feedback: parsed.data.feedback || null,
+  } as never)
+  if (error) throw error
+}
+
+export type ReviewReplyDraft = {
+  draft: string
+  status: 'generated' | 'fallback'
+}
+
+export async function generateOwnerReviewReply(
+  tenantId: string,
+  reviewRequestId: string,
+): Promise<ReviewReplyDraft> {
+  const { data, error } = await requireSupabase().functions.invoke('review-reply-suggest', {
+    body: { tenant_id: tenantId, review_request_id: reviewRequestId },
+  })
+  if (error) throw error
+  const parsed = z.object({
+    draft: z.string().min(10).max(600),
+    status: z.enum(['generated', 'fallback']),
+  }).safeParse(data)
+  if (!parsed.success) throw new Error('Unexpected reply draft response')
+  return parsed.data
+}
+
+export async function setReviewReplyStatus(
+  tenantId: string,
+  reviewRequestId: string,
+  status: 'approved' | 'rejected' | 'copied',
+): Promise<void> {
+  const { error } = await requireSupabase().rpc('review_reply_set_status' as never, {
+    p_tenant: tenantId,
+    p_request: reviewRequestId,
+    p_status: status,
+  } as never)
+  if (error) throw error
 }
