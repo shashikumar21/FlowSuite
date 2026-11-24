@@ -131,9 +131,20 @@ reply is never reported as failed or retried. The three earlier demo rows remain
 `pending`; only new sends are corrected. Local checks passed: typecheck, 385
 tests, build, and diff check.
 
-Second, the `I need to book a appointment` reply was skipped because the AI
-provider returned `rate_limited`; this is tied to the Groq key rotation still
-required by the owner.
+Second, later replies were skipped with `rate_limited`. This was initially
+misattributed to the Groq provider key. Read-only checks on 2026-11-24 showed the
+actual cause: the demo agent `4858b4f6-3c9b-4c4d-a0a5-73d3fe303176` had a
+`monthly_token_limit` of `1000` and had already used `1041` tokens this month, so
+FlowSuite's own allowance check blocked the reply before any provider call. The
+owner first rotated the hosted `OPENAI_API_KEY` and later, with explicit
+approval, raised this demo agent cap to `5000` with one metadata-only audit row.
+
+With the cap raised, a final non-patient live test succeeded on 2026-11-24. The
+inbound message `I need to book a appointment` was stored, the AI reply
+`Sure, a team member will help you with booking an appointment.` was generated
+successfully, and the outbound row was stored with `delivery_status = 'sent'`, a
+Meta `provider_message_id`, and `delivered_at` set. Chat and qualification usage
+rows both succeeded. This verifies the delivery-status write-back end to end.
 
 ## Server-side secrets (names only — never values)
 
@@ -170,10 +181,12 @@ required by the owner.
 Secrets are referenced by name only in source. No provider key belongs in a
 `VITE_*` variable. Random origins receive `403 {"error":{"code":"origin_not_allowed"}}`.
 
-**Action required by the owner:** the Groq key was pasted into chat earlier and
-must be rotated at the provider console. After rotation, set the new value as
-the hosted `OPENAI_API_KEY` secret and redeploying `ai-chat` is NOT required
-(secret changes are picked up by the runtime).
+**Completed by the owner on 2026-11-24:** the Groq key that had been pasted into
+chat earlier was rotated at the provider console and the new value was set
+directly as the hosted `OPENAI_API_KEY` secret. The value was never displayed or
+recorded here, and no function redeploy was needed for the secret change. This
+rotation was good hygiene but was not the cause of the `rate_limited` webhook
+replies, which came from the demo agent's monthly token cap.
 
 ## Backup status
 
