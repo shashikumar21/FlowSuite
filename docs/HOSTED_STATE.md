@@ -69,7 +69,7 @@ Verified hosted ACLs after `0018`: `anon_rpc_exec:false`,
 
 ## Edge Functions already deployed
 
-Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphypo --output-format json` on 2026-11-23:
+Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphypo --output-format json` on 2026-11-23, re-verified 2026-11-24:
 
 | Slug | Status | Version | verify_jwt | import_map | Source hash (sha256) |
 | --- | --- | --- | --- | --- | --- |
@@ -82,12 +82,20 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | `calendar-sync-appointment` | `ACTIVE` | `3` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
 | `review-request-send-whatsapp` | `ACTIVE` | `3` | `true` | `true` | `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242` |
 | `patient-documents` | `ACTIVE` | `1` | `true` | `true` | `3783a83fa32f60bc30b762ff1ee4d00ccad9cba7542f2d81df0f4e55836ce77c` |
+| `whatsapp-webhook` | `ACTIVE` | `3` | `false` | `true` | `e5f5db657c19c0746c496ad80a485c74388d6e761860be90e4f1ce979328ebda` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
-function folders in the repo (`whatsapp-webhook`, `whatsapp-send`,
-`ai-follow-up-worker`, `telephony-webhook`) are **not** deployed. No scheduler
-is configured.
+function folders in the repo (`whatsapp-send`, `ai-follow-up-worker`,
+`telephony-webhook`) are **not** deployed. No scheduler is configured.
+
+`whatsapp-webhook` was deployed on 2026-11-24 with explicit user approval via
+`supabase functions deploy whatsapp-webhook --project-ref grkzontnyjnhijmphypo --no-verify-jwt --yes`.
+Meta's Step 2 webhook verification succeeded and auto-subscribed `messages`,
+`account_update`, `account_alerts`, `account_review_update`, template-status and
+phone-number-quality fields. Inbound processing still needs an active
+`channel_credentials` row mapping the Meta Phone Number ID to a tenant; a POST
+with a bad signature correctly returns `401`. No real message has been sent.
 
 ## Server-side secrets (names only — never values)
 
@@ -108,6 +116,12 @@ is configured.
   default still points at the old Netlify origin, so this secret must stay set.
 - `APP_PUBLIC_URL` and `PATIENT_EMAIL_CRON_SECRET` — **set on hosted 2026-11-24**
   for the patient-email dispatcher (see the patient emails section below).
+- `WHATSAPP_VERIFY_TOKEN` — **set on hosted 2026-11-24** by Supabase CLI with
+  explicit user approval. Used only for Meta's webhook handshake; value is not
+  recorded in this file.
+- `WHATSAPP_APP_SECRET` — **set on hosted 2026-11-24** by the owner directly in
+  the Supabase dashboard. Used to verify `x-hub-signature-256` on inbound
+  webhook POSTs; value is never displayed or recorded here.
 - Tenant vault secret names (stored encrypted in `integration_secrets`, provider
   `whatsapp`, never in client code/chat): `WHATSAPP_ACCESS_TOKEN`,
   `WHATSAPP_PHONE_NUMBER_ID`.
