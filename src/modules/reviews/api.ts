@@ -82,6 +82,7 @@ export type ReviewRequestRow = {
   ai_suggestion_status: string | null
   public_token: string | null
   scheduled_for: string | null
+  owner_reply_status: string | null
   created_at: string
 }
 

@@ -188,6 +188,7 @@ begin
   if v_draft is null or v_status <> 'generated' then raise exception 'FAIL: service draft was not saved'; end if;
 
   perform test.act_as('81111111-1111-4111-8111-111111111111', 'review-flow-owner-a@example.test');
+  perform test.expect_error(format('select public.review_reply_set_status(%L, %L, %L)', v_tenant_a, v_request_a, 'copied'));
   perform public.review_reply_set_status(v_tenant_a, v_request_a, 'approved');
   perform test.act_as(null, null, 'service_role');
   select owner_reply_status, owner_reply_approved_by into v_status, v_approver from public.review_requests where id = v_request_a;
@@ -199,6 +200,8 @@ begin
   if v_status <> 'fallback' or v_approver is not null then raise exception 'FAIL: stale approval survived draft regeneration'; end if;
 
   perform test.act_as('81111111-1111-4111-8111-111111111111', 'review-flow-owner-a@example.test');
+  perform test.expect_error(format('select public.review_reply_set_status(%L, %L, %L)', v_tenant_a, v_request_a, 'copied'));
+  perform public.review_reply_set_status(v_tenant_a, v_request_a, 'approved');
   perform public.review_reply_set_status(v_tenant_a, v_request_a, 'copied');
   select count(*) into v_audits
     from public.audit_logs
@@ -206,9 +209,9 @@ begin
      and entity_id = v_request_a::text
      and action in ('review_reply.generated', 'review_reply.approved', 'review_reply.copied')
      and metadata -> 'ai_assisted' = 'true'::jsonb;
-  if v_audits <> 4 then raise exception 'FAIL: expected four AI-assisted reply audit rows, got %', v_audits; end if;
+  if v_audits <> 5 then raise exception 'FAIL: expected five AI-assisted reply audit rows, got %', v_audits; end if;
 
-  raise notice 'PASS: owner reply RPCs are tenant-scoped, role-gated, service-only for writes and audited';
+  raise notice 'PASS: owner reply RPCs require approval before copy and remain tenant-scoped, role-gated and audited';
 end;
 $$;
 

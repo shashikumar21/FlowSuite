@@ -288,7 +288,7 @@ export function WorkflowsPage() {
       } else {
         toast({ title: status === 'approved' ? 'Reply approved' : 'Reply rejected' })
       }
-      if (status !== 'rejected') setReplyStatus(status)
+      setReplyStatus(status)
       void loadReviewRequests()
     } catch (e) {
       toast({ title: 'Could not update reply', description: getErrorMessage(e), variant: 'error' })
@@ -457,7 +457,9 @@ export function WorkflowsPage() {
           </div>
           {reviewRequests.length === 0 ? <p className="text-sm text-ink-500">No review requests yet.</p> : (
             <div className="space-y-2">
-              {reviewRequests.map((r) => (
+              {reviewRequests.map((r) => {
+                const replyState = replyForId === r.id ? replyStatus : r.owner_reply_status
+                return (
                 <div key={r.id} className="space-y-3 rounded-lg border border-line-200 p-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm">
@@ -530,6 +532,7 @@ export function WorkflowsPage() {
                   {replyForId === r.id && replyDraft ? (
                     <div className="space-y-2 rounded-lg bg-ink-50 p-3">
                       <p className="text-xs text-ink-500">AI-assisted draft. Nothing is posted automatically. Review it, approve it, then paste it into Google Business Profile.</p>
+                      <p className="text-xs text-ink-500">Reply state: {replyState ?? 'not requested'}{replyState === 'rejected' ? ' — generate a new draft to continue.' : ''}</p>
                       <textarea
                         readOnly
                         value={replyDraft}
@@ -541,16 +544,28 @@ export function WorkflowsPage() {
                           size="sm"
                           variant="outline"
                           loading={replyBusyId === r.id}
-                          disabled={replyStatus === 'approved' || replyStatus === 'copied'}
+                          disabled={replyState === 'approved' || replyState === 'copied' || replyState === 'rejected'}
                           onClick={() => void updateReply(r, 'approved')}
                         >Approve reply</Button>
-                        <Button size="sm" variant="outline" loading={replyBusyId === r.id} onClick={() => void updateReply(r, 'rejected')}>Reject</Button>
-                        <Button size="sm" loading={replyBusyId === r.id} onClick={() => void updateReply(r, 'copied')}>Copy reply</Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={replyBusyId === r.id}
+                          disabled={replyState === 'approved' || replyState === 'copied' || replyState === 'rejected'}
+                          onClick={() => void updateReply(r, 'rejected')}
+                        >Reject</Button>
+                        <Button
+                          size="sm"
+                          loading={replyBusyId === r.id}
+                          disabled={replyState !== 'approved'}
+                          onClick={() => void updateReply(r, 'copied')}
+                        >Copy reply</Button>
                       </div>
                     </div>
                   ) : null}
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
