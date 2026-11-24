@@ -29,7 +29,6 @@ export async function fetchInvoiceContacts(tenantId: string): Promise<InvoiceCon
     .from('contacts')
     .select('id, first_name, last_name')
     .eq('tenant_id', tenantId)
-    .is('archived_at', null)
     .order('first_name')
     .limit(200)
   if (error) throw error
