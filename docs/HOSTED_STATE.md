@@ -34,6 +34,15 @@ cross-tenant access returned HTTP 403, and 16 metadata-only audit rows were
 written across all controlled tests. Final hosted check: 0 objects in the
 bucket. The scanner UI is deployed to Vercel (see below).
 
+Local-only forward migrations `0049_review_flow_upgrade.sql`,
+`0050_service_only_acl_hardening.sql`,
+`0051_view_reports_server_enforcement.sql`,
+`0052_sales_email_approval_decision_fix.sql` and
+`0053_sales_email_queue_idempotency_fix.sql` were applied and tested against the
+local stack only. **They are not applied to hosted and must not be treated as
+hosted state.** Hosted rollout requires renewed explicit approval. The new
+`review-reply-suggest` Edge Function also exists locally only and is not deployed.
+
 ## Project
 
 | Field | Value |
@@ -43,7 +52,22 @@ bucket. The scanner UI is deployed to Vercel (see below).
 | URL | `https://grkzontnyjnhijmphypo.supabase.co` |
 | Primary tenant | `06a77082-53a2-4e9c-9c35-3214a76c9ba6` (Abhishek Dental Care and Poly Clinic) |
 | Demo tenant | `09902c67-e585-427c-98be-df91c211e864` (`Demo Dental Clinic`), demo user `ce68894b-0ae5-44d8-9d75-f1fa10bf2cba` |
-| Catalog inventory | 64 public tables at the 2026-11-22 snapshot, all with RLS enabled; 115 `SECURITY DEFINER` functions; 12 `sales_*`/`can_manage_sales_agent` RPCs. `0043` added one RLS-enabled table on 2026-11-24. |
+| Catalog inventory | 94 public tables at the 2026-11-24 verification, all with RLS enabled; 224 `SECURITY DEFINER` functions (223 with empty `search_path`, 1 with `pg_catalog`); 124 DEFINER functions expose `EXECUTE` to `anon`, 205 to `authenticated`; 12 `sales_*`/`can_manage_sales_agent` RPCs. The older 64-table/115-function snapshot is stale. |
+
+The wide `anon` grants are intentional for public booking/review/webhook and
+signup flows, but they increase the burden on each function's internal checks.
+Patient-document, patient-email and payments service RPCs grant `EXECUTE` only
+to `postgres`/`service_role`. However, most `ai_service_*` functions and all
+`billing_service_*` functions still grant `EXECUTE` to `anon` and
+`authenticated`; current call sites are Edge Functions using a service client,
+so this is a hardening opportunity for a future forward migration, not a change
+made during Milestone 0. Local forward migration `0050` revokes those browser
+roles, but hosted ACLs are unchanged. The hosted dashboard metric RPCs
+(`crm_dashboard_metrics`, `booking_dashboard_metrics`, `inbox_metrics`,
+`sales_dashboard_metrics`, `billing_get_usage`) check tenant membership but do
+**not** call `has_tenant_role`; `view_reports` remains a client-side UX gate on
+hosted. Local forward migration `0051` adds server-authoritative enforcement,
+but hosted RPCs are unchanged.
 
 ## Migrations already applied to hosted
 
@@ -59,9 +83,13 @@ query endpoint / dashboard. **Do not re-apply any of these.**
 - `0043_patient_medical_history.sql` — applied 2026-11-24 after a rollback smoke test; adds the `doctor` role and consented medical-history table/RPCs. **Do not re-apply.**
 - `0048_payments_razorpay_invoice_collection.sql` — applied 2026-11-24 with explicit approval. **Do not re-apply.**
 
-`0014_milestone4_ai_communication.sql` exists in the repo and is part of the
-migration sequence; verify before assuming it is absent from hosted. No
-migration may be edited retroactively — corrections go in a new numbered file.
+`0014_milestone4_ai_communication.sql` is present on hosted: all 15 of its core
+tables were confirmed RLS-enabled in a read-only catalog query on 2026-11-24.
+No migration may be edited retroactively — corrections go in a new numbered file.
+
+The `supabase_migrations.schema_migrations` relation is not visible to the CLI
+login role, so migration history could not be re-verified with SQL. Continue to
+use the object-level checks below as the practical source of truth.
 
 Verified hosted ACLs after `0018`: `anon_rpc_exec:false`,
 `anon_table_select:false`, `auth_rpc_exec:true`, `auth_table_select:true`,
@@ -74,24 +102,35 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 
 | Slug | Status | Version | verify_jwt | import_map | Source hash (sha256) |
 | --- | --- | --- | --- | --- | --- |
-| `ai-chat` | `ACTIVE` | `11` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
-| `website-generate` | `ACTIVE` | `3` | `true` | `true` | `f7bed983a2a39fdb55d2073542a17bb72a53acc433ce880f9a321e40a848b674` |
-| `calendar-oauth-start` | `ACTIVE` | `7` | `true` | `true` | `c34fc431a7e6c6fa9d4088ed556ce09756e848bdebb06c72eab5fe036c0ceeba` |
-| `calendar-oauth-callback` | `ACTIVE` | `6` | `false` | `true` | `1fb133a9e0848f140370cefab2ff603ab2d3aed5b884ecc6f30ef8d7584bd908` |
-| `review-suggest` | `ACTIVE` | `3` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
+| `ai-chat` | `ACTIVE` | `35` | `false` | `true` | `d3b5528f210603b1a378d057e6855718b19193441630a7328e44c0101e19df35` |
+| `website-generate` | `ACTIVE` | `27` | `true` | `true` | `f7bed983a2a39fdb55d2073542a17bb72a53acc433ce880f9a321e40a848b674` |
+| `calendar-oauth-start` | `ACTIVE` | `28` | `true` | `true` | `c34fc431a7e6c6fa9d4088ed556ce09756e848bdebb06c72eab5fe036c0ceeba` |
+| `calendar-oauth-callback` | `ACTIVE` | `27` | `false` | `true` | `1fb133a9e0848f140370cefab2ff603ab2d3aed5b884ecc6f30ef8d7584bd908` |
+| `review-suggest` | `ACTIVE` | `27` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
 | `integrations-vault-save` | `ACTIVE` | `28` | `true` | `true` | `39f4c1563f6fdc9e903bc3b37571136cc7204480a8b281a2738a3f5bd5b273b4` |
-| `calendar-sync-appointment` | `ACTIVE` | `3` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
-| `review-request-send-whatsapp` | `ACTIVE` | `3` | `true` | `true` | `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242` |
-| `patient-documents` | `ACTIVE` | `1` | `true` | `true` | `3783a83fa32f60bc30b762ff1ee4d00ccad9cba7542f2d81df0f4e55836ce77c` |
-| `whatsapp-webhook` | `ACTIVE` | `15` | `false` | `true` | `2849de84caf7fd8d3d5956169d7368f3d9bdbd0027726b3b0479b999de7c5517` |
+| `calendar-sync-appointment` | `ACTIVE` | `27` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
+| `review-request-send-whatsapp` | `ACTIVE` | `27` | `true` | `true` | `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242` |
+| `patient-documents` | `ACTIVE` | `22` | `true` | `true` | `3783a83fa32f60bc30b762ff1ee4d00ccad9cba7542f2d81df0f4e55836ce77c` |
+| `whatsapp-webhook` | `ACTIVE` | `16` | `false` | `true` | `2849de84caf7fd8d3d5956169d7368f3d9bdbd0027726b3b0479b999de7c5517` |
 | `invoice-payment-create` | `ACTIVE` | `1` | `true` | `true` | `d767b635877e62ae03b537b33ef8c71ace78bb81c9d27b2835bbf31b553b261a` |
 | `invoice-payment-verify` | `ACTIVE` | `1` | `true` | `true` | `2ec91cac9625a7eaa0852285ef580fa79eb88e01da3d59a0d5bd8575123211c5` |
 | `invoice-payment-webhook` | `ACTIVE` | `1` | `false` | `true` | `e2fded3afdba88e39664692e725e498c5a8231b4b0faaa4c21e5b53731967232` |
+| `razorpay-create-order` | `ACTIVE` | `25` | `true` | `true` | `2dc0551ef349b946fae7cbbd0d6d981ebfdcb066ce7f3d50da6c777409b0d576` |
+| `razorpay-verify-payment` | `ACTIVE` | `25` | `true` | `true` | `dc186f5ccbc112af3ef7dae8a50bbddd3bee35b1d2775e53098e111751c98033` |
+| `razorpay-webhook` | `ACTIVE` | `26` | `false` | `true` | `f9c5ac8a00823dc106b56d39c69d901c27a63758b8ef4c70a7fa3028ead82745` |
+| `patient-email-dispatch` | `ACTIVE` | `16` | `false` | `true` | `949f247222e14f4bac3bab70c1fca20d72a956599c21e9e839bcb8495fcfba9e` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
 function folders in the repo (`whatsapp-send`, `ai-follow-up-worker`,
-`telephony-webhook`) are **not** deployed. No scheduler is configured.
+`telephony-webhook`, `sales-email-draft`, `notify-email`,
+`review-reply-suggest`) are **not** deployed. No scheduler is configured.
+
+Local source divergence recorded on 2026-11-24: the local fallbacks in
+`calendar-oauth-callback` and `review-request-send-whatsapp` now point to the
+Vercel origin. The hosted bundles still use their previous fallbacks until a
+separately approved redeploy. Hosted `APP_URL` is already set to the Vercel
+origin, so this is a defence-in-depth cleanup, not an active outage fix.
 
 `whatsapp-webhook` was deployed on 2026-11-24 with explicit user approval via
 `supabase functions deploy whatsapp-webhook --project-ref grkzontnyjnhijmphypo --no-verify-jwt --yes`.
@@ -251,12 +290,14 @@ client secret, and existing calendar connections may require re-consent.
 ## Backup status
 
 A schema-only dump via `supabase db dump --remote --schema public` was attempted
-on 2026-11-22 and **failed** because Docker Desktop is not running on this
-machine (`DockerRunError`). No backup file was produced.
+on 2026-11-22 and again on 2026-11-24. Both attempts **failed** because Docker
+Desktop is not running on this machine (`DockerRunError`). No backup file was
+produced.
 
-Until Docker or `pg_dump` is available, take a backup from the Supabase
-dashboard: **Project → Database → Backups**, or use the dashboard SQL editor.
-Do not store a data dump containing real customer records inside the git repo.
+Until Docker or `pg_dump` is available, take and verify a backup from the
+Supabase dashboard: **Project → Database → Backups**, then perform a restore
+drill into a non-production project. Do not store a data dump containing real
+customer records inside the git repo. Backup/restore remains a launch blocker.
 
 ## Git-connected production deploy (2026-11-22)
 
@@ -312,6 +353,13 @@ The frontend was moved to Vercel with explicit approval. The GitHub repo
   sites themselves still exist in Netlify: `flowsuite-tbyz` has scanner code but
   no Supabase env vars; `rococo-florentine-8dbe2c` has env vars but a stale
   pre-scanner bundle. They should not be used.
+- Milestone 0 note: the authoritative docs name Vercel as production, and the
+  hosted `APP_URL`/CORS configuration follows Vercel. The owner had also quoted
+  a Netlify URL earlier, so final owner confirmation of the canonical login
+  origin is still required. Local Edge Function fallbacks were updated from the
+  old Netlify origin to `https://flow-suite-two.vercel.app`, but hosted function
+  bundles were not redeployed during Milestone 0. Auth Site URL/redirect current
+  values still require owner verification in the Supabase dashboard.
 
 ## Demo account and write-path validation (2026-11-22)
 
