@@ -38,7 +38,11 @@ begin
 end;
 $$;
 
+-- Supabase default privileges can grant EXECUTE directly to anon/authenticated,
+-- so revoking only PUBLIC is not sufficient.
 revoke all on function public.ai_service_mark_message_delivered(uuid, uuid, text) from public;
+revoke all on function public.ai_service_mark_message_delivered(uuid, uuid, text) from anon;
+revoke all on function public.ai_service_mark_message_delivered(uuid, uuid, text) from authenticated;
 grant execute on function public.ai_service_mark_message_delivered(uuid, uuid, text) to service_role;
 
 commit;

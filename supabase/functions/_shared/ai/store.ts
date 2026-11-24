@@ -253,6 +253,26 @@ export function createAiStore(client: StoreClient): AiStore {
       });
     },
 
+    markMessageSendFailed: async (input: {
+      tenantId: string;
+      messageId: string;
+      code: string;
+      providerCode?: string | null;
+      providerMessage?: string | null;
+      providerType?: string | null;
+      providerTraceId?: string | null;
+    }): Promise<boolean> => {
+      return rpc<boolean>(client, 'ai_service_mark_message_send_failed', {
+        p_tenant: input.tenantId,
+        p_message: input.messageId,
+        p_error_code: input.code,
+        p_provider_code: input.providerCode ?? null,
+        p_provider_message: input.providerMessage ?? null,
+        p_provider_type: input.providerType ?? null,
+        p_provider_trace_id: input.providerTraceId ?? null,
+      });
+    },
+
     getCredentialSecretRef: async (tenantId: string, phoneNumberId: string): Promise<string | null> => {
       const { data, error } = await client
         .from('channel_credentials')

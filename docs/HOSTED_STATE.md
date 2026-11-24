@@ -82,7 +82,7 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | `calendar-sync-appointment` | `ACTIVE` | `3` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
 | `review-request-send-whatsapp` | `ACTIVE` | `3` | `true` | `true` | `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242` |
 | `patient-documents` | `ACTIVE` | `1` | `true` | `true` | `3783a83fa32f60bc30b762ff1ee4d00ccad9cba7542f2d81df0f4e55836ce77c` |
-| `whatsapp-webhook` | `ACTIVE` | `3` | `false` | `true` | `e5f5db657c19c0746c496ad80a485c74388d6e761860be90e4f1ce979328ebda` |
+| `whatsapp-webhook` | `ACTIVE` | `15` | `false` | `true` | `2849de84caf7fd8d3d5956169d7368f3d9bdbd0027726b3b0479b999de7c5517` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
@@ -145,6 +145,53 @@ inbound message `I need to book a appointment` was stored, the AI reply
 successfully, and the outbound row was stored with `delivery_status = 'sent'`, a
 Meta `provider_message_id`, and `delivered_at` set. Chat and qualification usage
 rows both succeeded. This verifies the delivery-status write-back end to end.
+
+That reply happened because the demo agent has `booking_permission = false`, no
+`create_booking` tool, no handoff user and no knowledge entries, so the system
+prompt gave it no way to book. With explicit approval, one active
+`booking_policy` knowledge entry (`5dd62c04-d4da-447a-ab60-63a600c23c2e`, title
+`Public booking link`) was added to the demo agent on 2026-11-24. It points at
+`https://flow-suite-two.vercel.app/book/demo-dental-clinic` and tells the agent
+not to claim a booking is confirmed. One metadata-only `ai.knowledge_saved`
+audit row was written. A following non-patient test message,
+`How do I book an appointment?`, produced the correct reply
+`You can book an appointment at https://flow-suite-two.vercel.app/book/demo-dental-clinic`,
+so the knowledge injection works. That send did not complete: the outbound row
+`ec7e061b-b4fc-4309-9b85-a45a60e220df` stayed `pending` with no provider message
+ID, and the webhook returned `200` with a short result body consistent with a
+failed Meta send. The exact Meta error is not persisted because
+`sendWhatsAppMessage` collapses provider responses to `provider_error`; the
+webhook stayed `200` to avoid Meta retries. The owner confirmed the reply was
+not received on the test number. No further send was attempted.
+
+With explicit approval, a diagnostic fix was implemented and applied on
+2026-11-24, but it has not been used for a live send. `whatsapp_send.ts` now
+keeps sanitized Meta error fields (`code`, `message`, `type`, `fbtrace_id`) on
+`WhatsAppSendError`; `whatsapp_inbound.ts` logs them server-side and asks the
+store to mark the exact pending outbound row as `failed`; migration
+`0047_ai_mark_outbound_message_send_failed.sql` adds a service-role-only RPC
+that updates only a matching pending outbound row in the same tenant and writes
+one metadata-only audit row. Supabase default privileges also granted EXECUTE
+to `anon`/`authenticated`; the migration was corrected and re-run so only
+`service_role` has EXECUTE. `whatsapp-webhook` was redeployed as ACTIVE v15
+(`verify_jwt=false`, `import_map=true`, hash
+`2849de84caf7fd8d3d5956169d7368f3d9bdbd0027726b3b0479b999de7c5517`). A GET
+without verification parameters still returns `403`, and a bad-signature POST
+still returns `401`. Local typecheck, 387 tests, build, and diff check passed.
+No real WhatsApp send or cap change was made. The owner later reported updating
+`WHATSAPP_ACCESS_TOKEN_DEMO` directly in Supabase; its value was neither read nor
+stored here.
+
+A related read-only privilege check found that the older
+`ai_service_mark_message_delivered(uuid, uuid, text)` RPC also had Supabase
+default EXECUTE for `anon`/`authenticated`. With explicit approval, the corrected
+`0046_ai_mark_outbound_message_delivered.sql` was re-run. Both service-role RPCs
+now have `anon_execute = false`, `authenticated_execute = false`, and
+`service_execute = true`.
+
+The demo agent cap remains `5000`, with `4829` tokens used this month. The owner
+chose not to raise it, so any further AI reply would be blocked by FlowSuite's
+allowance check before a Meta send. No further test was attempted.
 
 ## Server-side secrets (names only — never values)
 

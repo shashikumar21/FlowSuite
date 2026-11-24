@@ -35,6 +35,14 @@ export interface WhatsAppSendResult {
   mode: 'text' | 'template';
 }
 
+/** Sanitized, non-secret details from a rejected Graph API response. */
+export interface WhatsAppProviderErrorDetails {
+  code: string | null;
+  message: string | null;
+  type: string | null;
+  fbtraceId: string | null;
+}
+
 export type WhatsAppSendErrorCode =
   | 'opted_out'
   | 'consent_required'
@@ -47,17 +55,38 @@ export type WhatsAppSendErrorCode =
 
 export class WhatsAppSendError extends Error {
   readonly code: WhatsAppSendErrorCode;
+  readonly providerDetails: WhatsAppProviderErrorDetails | null;
 
-  constructor(code: WhatsAppSendErrorCode, message: string) {
+  constructor(
+    code: WhatsAppSendErrorCode,
+    message: string,
+    providerDetails: WhatsAppProviderErrorDetails | null = null
+  ) {
     super(message);
     this.name = 'WhatsAppSendError';
     this.code = code;
+    this.providerDetails = providerDetails;
   }
 }
 
 interface GraphResponse {
   messages?: Array<{ id?: string }>;
-  error?: { message?: string };
+  error?: {
+    message?: string;
+    code?: number | string;
+    error_subcode?: number | string;
+    type?: string;
+    fbtrace_id?: string;
+  };
+}
+
+function cleanDetail(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const cleaned = String(value)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+  return cleaned || null;
 }
 
 /**
@@ -134,7 +163,17 @@ export async function sendWhatsAppMessage(input: WhatsAppSendInput): Promise<Wha
 
   const body = await response.json().catch(() => null) as GraphResponse | null;
   if (!response.ok || body?.error) {
-    throw new WhatsAppSendError('provider_error', 'WhatsApp provider rejected the message');
+    const providerDetails: WhatsAppProviderErrorDetails = {
+      code: cleanDetail(body?.error?.code ?? body?.error?.error_subcode, 40),
+      message: cleanDetail(body?.error?.message, 300),
+      type: cleanDetail(body?.error?.type, 80),
+      fbtraceId: cleanDetail(body?.error?.fbtrace_id, 80),
+    };
+    throw new WhatsAppSendError(
+      'provider_error',
+      'WhatsApp provider rejected the message',
+      providerDetails
+    );
   }
 
   return {

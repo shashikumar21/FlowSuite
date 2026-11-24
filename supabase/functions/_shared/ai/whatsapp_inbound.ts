@@ -23,6 +23,16 @@ export interface WhatsAppInboundStore extends ChatStore, QualificationStore {
     messageId: string;
     providerMessageId: string;
   }): Promise<boolean>;
+  /** Persists sanitized failure details on the exact outbound row after a rejected send. */
+  markMessageSendFailed(input: {
+    tenantId: string;
+    messageId: string;
+    code: string;
+    providerCode?: string | null;
+    providerMessage?: string | null;
+    providerType?: string | null;
+    providerTraceId?: string | null;
+  }): Promise<boolean>;
   findContactId?(tenantId: string, phone: string): Promise<string | null>;
 }
 
@@ -173,17 +183,50 @@ export async function processWhatsAppInbound(
         metadata: { externalMessageId: externalId, phoneNumberId: message.phoneNumberId },
       });
 
-      const sent = await sendWhatsAppMessage({
-        tenantId: message.tenantId,
-        contactId: contactId ?? '',
-        to,
-        content: reply.reply,
-        accessToken,
-        phoneNumberId: message.phoneNumberId,
-        state,
-        idempotencyKey: `whatsapp:${externalId}`,
-        fetchImpl,
-      });
+      let sent: Awaited<ReturnType<typeof sendWhatsAppMessage>>;
+      try {
+        sent = await sendWhatsAppMessage({
+          tenantId: message.tenantId,
+          contactId: contactId ?? '',
+          to,
+          content: reply.reply,
+          accessToken,
+          phoneNumberId: message.phoneNumberId,
+          state,
+          idempotencyKey: `whatsapp:${externalId}`,
+          fetchImpl,
+        });
+      } catch (error) {
+        const code = reasonFor(error);
+        const details = error instanceof WhatsAppSendError ? error.providerDetails : null;
+        let failureRecorded = false;
+        let failureRecordError: string | undefined;
+        try {
+          failureRecorded = await store.markMessageSendFailed({
+            tenantId: message.tenantId,
+            messageId: reply.outboundMessageId,
+            code,
+            providerCode: details?.code ?? null,
+            providerMessage: details?.message ?? null,
+            providerType: details?.type ?? null,
+            providerTraceId: details?.fbtraceId ?? null,
+          });
+        } catch (writeError) {
+          failureRecordError = reasonFor(writeError);
+        }
+        console.warn('whatsapp-webhook: outbound send failed', {
+          externalMessageId: externalId,
+          reason: code,
+          providerCode: details?.code ?? null,
+          providerMessage: details?.message ?? null,
+          providerType: details?.type ?? null,
+          providerTraceId: details?.fbtraceId ?? null,
+          failureRecorded,
+          ...(failureRecordError ? { failureRecordError } : {}),
+        });
+        outcomes.push({ externalMessageId: externalId, status: 'failed', reason: code });
+        continue;
+      }
 
       // Delivery bookkeeping and qualification are best-effort enrichment after
       // the customer already received their reply. A store/AI failure must

@@ -203,6 +203,34 @@ describe('WhatsApp outbound safety', () => {
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as Record<string, unknown>
     expect(body).toMatchObject({ type: 'text', to: '+919876543210' })
   })
+
+  it('preserves sanitized Meta error details on provider rejection', async () => {
+    const fetchImpl = vi.fn(async () => new Response(
+      JSON.stringify({
+        error: {
+          message: 'Invalid OAuth access token\n',
+          code: 190,
+          type: 'OAuthException',
+          fbtrace_id: 'TRACE-1',
+        },
+      }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } },
+    ))
+
+    await expect(sendWhatsAppMessage({
+      ...base,
+      state: { sessionOpen: true, optedOut: false, consented: false },
+      fetchImpl,
+    })).rejects.toMatchObject({
+      code: 'provider_error',
+      providerDetails: {
+        code: '190',
+        message: 'Invalid OAuth access token',
+        type: 'OAuthException',
+        fbtraceId: 'TRACE-1',
+      },
+    })
+  })
 })
 
 function makeWhatsAppStore(overrides: Partial<WhatsAppInboundStore> = {}): WhatsAppInboundStore {
@@ -214,6 +242,7 @@ function makeWhatsAppStore(overrides: Partial<WhatsAppInboundStore> = {}): Whats
     getMessagingState: vi.fn(async () => ({ sessionOpen: true, optedOut: false, consented: false })),
     getCredentialSecretRef: vi.fn(async () => 'WHATSAPP_ACCESS_TOKEN'),
     markMessageDelivered: vi.fn(async () => true),
+    markMessageSendFailed: vi.fn(async () => true),
     findContactId: vi.fn(async () => 'contact-1'),
     recordAssessment: vi.fn(async () => 'assessment-1'),
     getActiveFollowUpSequence: vi.fn(async () => 'sequence-1'),
@@ -299,6 +328,41 @@ describe('WhatsApp inbound processing', () => {
       externalId: 'wamid.in.1',
       direction: 'inbound',
     }))
+  })
+
+  it('marks the outbound row failed with sanitized provider details when Meta rejects', async () => {
+    const store = makeWhatsAppStore()
+    const fetchImpl = vi.fn(async () => new Response(
+      JSON.stringify({
+        error: {
+          message: 'Invalid OAuth access token',
+          code: 190,
+          type: 'OAuthException',
+          fbtrace_id: 'TRACE-1',
+        },
+      }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } },
+    ))
+
+    const outcomes = await processWhatsAppInbound({
+      messages: [inboundMessage()],
+      store,
+      provider: fakeProvider(),
+      resolveAccessToken: () => 'token',
+      fetchImpl,
+    })
+
+    expect(outcomes[0]).toMatchObject({ status: 'failed', reason: 'provider_error' })
+    expect(store.markMessageSendFailed).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      messageId: 'message-1',
+      code: 'provider_error',
+      providerCode: '190',
+      providerMessage: 'Invalid OAuth access token',
+      providerType: 'OAuthException',
+      providerTraceId: 'TRACE-1',
+    })
+    expect(store.markMessageDelivered).not.toHaveBeenCalled()
   })
 
   it('keeps a delivered reply successful when delivery bookkeeping fails', async () => {
