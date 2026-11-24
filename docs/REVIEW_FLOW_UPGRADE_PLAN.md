@@ -249,8 +249,9 @@ No real WhatsApp send, no real Google post and no patient data during tests.
 
 ## 7. Deployment requirements — owner approval needed
 
-1. Approve forward migration `0049_review_flow_upgrade.sql` and its hosted
-   application. It must never be edited after application.
+1. Approve forward migrations `0049_review_flow_upgrade.sql` and
+   `0054_review_reply_approval_gate.sql` for hosted application, in that order.
+   They must never be edited after application.
 2. Approve deployment of `review-reply-suggest`.
 3. Confirm the AI provider secrets already used by `ai-chat` may be reused.
    Only secret names may be discussed; values must never be pasted in chat.
@@ -287,12 +288,18 @@ checked after local Docker/Supabase and Deno became available:
 
 | Check | Result |
 | --- | --- |
-| `0049` applied locally with `supabase migration up` | Pass |
-| `supabase/tests/review_flow_upgrade.sql` | Pass; rolled back |
+| `0049` and `0054` applied locally with `supabase migration up` | Pass |
+| `supabase/tests/review_flow_upgrade.sql` | Pass; rolled back; includes copy-before-approval denial |
 | Other 13 local SQL test files | Pass; all rolled back |
 | `deno check` on all Edge Functions, including `review-reply-suggest` | Pass |
-| `npm run typecheck`, `npm test`, `npm run lint`, `npm run build` | Pass |
+| `npm test` | Pass — 60 files, 426 tests, including prompt-screening tests |
+| `npm run typecheck`, `npm run lint`, `npm run build` | Pass; lint warnings only |
 | `git diff --check` | Pass; only CRLF line-ending warnings |
+
+A final independent audit found no secrets, RLS regressions or patient-data
+exposure. Its four findings were fixed locally: server-side approval before
+copy, rejection state handling, prompt screening for contact/clinical text and
+AI usage logging for the new function.
 
 Nothing has been applied to hosted, deployed, or saved through the hosted UI.
 Local code was committed and pushed separately from hosted rollout. Verification

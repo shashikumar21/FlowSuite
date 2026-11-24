@@ -130,7 +130,10 @@ contract. Only the new `google_review_url` field was added to that contract.
 - `src/modules/workflows/pages/WorkflowsPage.tsx` — Painter 4 Google default,
   custom URL preservation and AI reply UI.
 - `src/types/database.ts` — new `google_review_url` field only.
-- `supabase/tests/review_flow_upgrade.sql` — rolled-back SQL assertions.
+- `src/modules/reviews/reviewReplyPrompt.ts` — screens contact details and
+  clinical/patient-related text before any free text reaches the AI provider.
+- `supabase/tests/review_flow_upgrade.sql` — rolled-back SQL assertions, now
+  including copy-before-approval denial.
 
 ### Security and test-harness hardening
 
@@ -142,6 +145,9 @@ contract. Only the new `google_review_url` field was added to that contract.
   stored `approved`/`rejected` constraint values.
 - `0053_sales_email_queue_idempotency_fix.sql` — check idempotency before the
   approved-status check.
+- `0054_review_reply_approval_gate.sql` — require recorded approval before
+  copying a reply, and expose reply status only (never draft text) in the safe
+  UI list.
 - SQL test fixes in `billing_and_review_rls.sql`,
   `review_rating_followup.sql`, `workflows_local_runners.sql`,
   `milestone4_ai_service_rpcs.sql` and
@@ -161,11 +167,11 @@ contract. Only the new `google_review_url` field was added to that contract.
 | Command | Result |
 | --- | --- |
 | `supabase start` | Pass; local stack on `127.0.0.1:54322` |
-| `supabase migration up` | Pass; local migrations through `0053` |
+| `supabase migration up` | Pass; local migrations through `0054` |
 | All 14 `supabase/tests/*.sql` files | Pass; each file rolled back |
 | Deno check on all `supabase/functions/*/index.ts` | Pass, including `review-reply-suggest` |
 | `npm run typecheck` | Pass |
-| `npm test` | Pass — 59 files, 421 tests |
+| `npm test` | Pass — 60 files, 426 tests |
 | `npm run lint` | Pass with pre-existing warnings only; no new blocking warnings |
 | `npm run build` | Pass |
 | `git diff --check` | Pass; only CRLF line-ending warnings |
@@ -178,6 +184,11 @@ The full SQL suite initially exposed three extra problems: two stale test
 helpers that did not switch the database role to `service_role`, and two real
 sales-email bugs. All were fixed locally and the full suite now passes.
 
+A final independent audit found no secrets, RLS regressions or patient-data
+exposure. Its four findings — missing server-side approval before copy, stale
+rejection state, unscreened free text in the AI prompt and missing AI usage
+logging — were fixed locally and covered by the checks above.
+
 ## 4. Deployment requirements / owner-only actions
 
 Before public selling or closing Milestone 0, the owner must:
@@ -185,7 +196,7 @@ Before public selling or closing Milestone 0, the owner must:
 1. Confirm the canonical production origin and verify Auth Site URL/redirects.
 2. Take a hosted backup and complete a restore drill into a non-production project.
 3. Decide the `support` role policy: no admin UI, or limited read-only admin UI.
-4. Explicitly approve applying local forward migrations `0049`–`0053` to hosted.
+4. Explicitly approve applying local forward migrations `0049`–`0054` to hosted.
 5. Explicitly approve deploying `review-reply-suggest`.
 6. Confirm the AI provider secret names used by `ai-chat` may be reused. Never
    paste secret values into chat.
@@ -212,7 +223,8 @@ No hosted change should be made until explicit deployment approval is given.
 - `super_admin`-only admin UI narrowing.
 - Vercel fallback URL changes in two Edge Function sources.
 - Generated types reference snapshot.
-- Review flow upgrade, including Google URL and owner-side AI draft.
+- Review flow upgrade, including Google URL, owner-side AI draft, enforced
+  approval before copy, prompt screening and AI usage logging.
 - Service-only RPC ACL hardening.
 - Server-side report-role enforcement.
 - Sales-email approval/idempotency fixes.
@@ -221,7 +233,7 @@ No hosted change should be made until explicit deployment approval is given.
 ### Not verified / blocked
 
 - Hosted backup and restore.
-- Hosted acceptance of local migrations `0049`–`0053`.
+- Hosted acceptance of local migrations `0049`–`0054`.
 - Hosted deployment of `review-reply-suggest`.
 - Real Razorpay payment and webhook delivery.
 - WhatsApp patient-data flows.

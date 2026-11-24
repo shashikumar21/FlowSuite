@@ -38,9 +38,10 @@ Local-only forward migrations `0049_review_flow_upgrade.sql`,
 `0050_service_only_acl_hardening.sql`,
 `0051_view_reports_server_enforcement.sql`,
 `0052_sales_email_approval_decision_fix.sql` and
-`0053_sales_email_queue_idempotency_fix.sql` were applied and tested against the
-local stack only. **They are not applied to hosted and must not be treated as
-hosted state.** Hosted rollout requires renewed explicit approval. The new
+`0053_sales_email_queue_idempotency_fix.sql` and
+`0054_review_reply_approval_gate.sql` were applied and tested against the local
+stack only. **They are not applied to hosted and must not be treated as hosted
+state.** Hosted rollout requires renewed explicit approval. The new
 `review-reply-suggest` Edge Function also exists locally only and is not deployed.
 
 ## Project
