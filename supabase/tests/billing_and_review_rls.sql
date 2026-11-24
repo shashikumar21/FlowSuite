@@ -11,14 +11,15 @@ begin;
 
 create schema if not exists test;
 
-create or replace function test.act_as(p_user uuid, p_email text)
+create or replace function test.act_as(p_user uuid, p_email text, p_role text default 'authenticated')
 returns void
 language sql
 as $$
   select
-    set_config('role', 'authenticated', true),
-    set_config('request.jwt.claim.sub', p_user::text, true),
-    set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'email', p_email)::text, true);
+    set_config('role', p_role, true),
+    set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true),
+    set_config('request.jwt.claim.role', p_role, true),
+    set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', p_role, 'email', p_email)::text, true);
 $$;
 
 create or replace function test.expect_error(p_sql text)
@@ -34,8 +35,8 @@ exception when others then
 end;
 $$;
 
-grant usage on schema test to authenticated;
-grant execute on all functions in schema test to authenticated;
+grant usage on schema test to authenticated, service_role;
+grant execute on all functions in schema test to authenticated, service_role;
 
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
 values
@@ -58,9 +59,12 @@ select public.create_business('Billing Beta', 'billing-beta', 'salon-spa');
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  v_tenant_a uuid := (select id from public.businesses where slug = 'billing-alpha');
-  v_tenant_b uuid := (select id from public.businesses where slug = 'billing-beta');
+  v_tenant_a uuid;
+  v_tenant_b uuid;
 begin
+  perform test.act_as(null, null, 'service_role');
+  select id into v_tenant_a from public.businesses where slug = 'billing-alpha';
+  select id into v_tenant_b from public.businesses where slug = 'billing-beta';
   perform test.act_as('51111111-1111-4111-8111-111111111111', 'billing-owner-a@example.test');
   perform public.billing_get_overview(v_tenant_a);
   perform public.billing_get_usage(v_tenant_a);
@@ -78,9 +82,12 @@ $$;
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  v_tenant_a uuid := (select id from public.businesses where slug = 'billing-alpha');
-  v_plan uuid := (select id from public.plans order by price_monthly limit 1);
+  v_tenant_a uuid;
+  v_plan uuid;
 begin
+  perform test.act_as(null, null, 'service_role');
+  select id into v_tenant_a from public.businesses where slug = 'billing-alpha';
+  select id into v_plan from public.plans order by price_monthly limit 1;
   perform test.act_as('51111111-1111-4111-8111-111111111111', 'billing-owner-a@example.test');
 
   begin
@@ -117,13 +124,19 @@ $$;
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  v_tenant_a uuid := (select id from public.businesses where slug = 'billing-alpha');
-  v_plan uuid := (select id from public.plans order by price_monthly limit 1);
+  v_tenant_a uuid;
+  v_plan uuid;
   v_count integer;
 begin
+  perform test.act_as(null, null, 'service_role');
+  select id into v_tenant_a from public.businesses where slug = 'billing-alpha';
+  select id into v_plan from public.plans order by price_monthly limit 1;
   perform test.act_as('54444444-4444-4444-8444-444444444444', 'billing-admin@example.test');
 
   perform public.admin_set_tenant_plan(v_tenant_a, v_plan, 'rls test');
+
+  -- Platform admins are not tenant members, so trusted reads run as service_role.
+  perform test.act_as(null, null, 'service_role');
   select count(*) into v_count
   from public.subscriptions
   where tenant_id = v_tenant_a and plan_id = v_plan and provider = 'manual' and status = 'active';
@@ -134,7 +147,9 @@ begin
   where tenant_id = v_tenant_a and action = 'billing.plan_assigned';
   if v_count <> 1 then raise exception 'FAIL: plan assignment was not audited'; end if;
 
+  perform test.act_as('54444444-4444-4444-8444-444444444444', 'billing-admin@example.test');
   perform public.admin_set_billing_enforcement(false);
+  perform test.act_as(null, null, 'service_role');
   select count(*) into v_count
   from public.audit_logs
   where action = 'billing.enforcement_disabled';
@@ -149,28 +164,35 @@ $$;
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  v_tenant_a uuid := (select id from public.businesses where slug = 'billing-alpha');
+  v_tenant_a uuid;
   v_token text;
   v_request uuid;
   v_status text;
   v_count integer;
 begin
+  perform test.act_as(null, null, 'service_role');
+  select id into v_tenant_a from public.businesses where slug = 'billing-alpha';
   perform test.act_as('51111111-1111-4111-8111-111111111111', 'billing-owner-a@example.test');
   v_token := public.create_business_invitation(v_tenant_a, 'billing-employee@example.test', 'employee');
 
   perform test.act_as('53333333-3333-4333-8333-333333333333', 'billing-employee@example.test');
   perform public.accept_business_invitation(v_token);
 
+  -- Review request rows are written by trusted runners; browser roles use RPCs.
+  perform test.act_as(null, null, 'service_role');
   insert into public.review_requests (tenant_id, channel, customer_name, customer_phone)
   values (v_tenant_a, 'whatsapp', 'RLS Test Customer', '+911234567890')
   returning id into v_request;
 
+  perform test.act_as('53333333-3333-4333-8333-333333333333', 'billing-employee@example.test');
   perform test.expect_error(format('select public.review_request_set_status(%L, %L, %L)', v_tenant_a, v_request, 'approved'));
 
   perform test.act_as('51111111-1111-4111-8111-111111111111', 'billing-owner-a@example.test');
   perform public.review_request_set_status(v_tenant_a, v_request, 'approved');
 
+  perform test.act_as(null, null, 'service_role');
   select status into v_status from public.review_requests where id = v_request;
+  perform test.act_as('51111111-1111-4111-8111-111111111111', 'billing-owner-a@example.test');
   if v_status <> 'approved' then raise exception 'FAIL: owner approval did not set status'; end if;
 
   select count(*) into v_count

@@ -41,6 +41,7 @@ $$;
 create or replace function test.act_service()
 returns void language sql as $$
   select
+    set_config('role', 'service_role', true),
     set_config('request.jwt.claim.sub', '', true),
     set_config('request.jwt.claim.role', 'service_role', true),
     set_config('request.jwt.claims', jsonb_build_object('role', 'service_role')::text, true);
@@ -92,7 +93,7 @@ begin
   v_a := (select id from public.businesses where slug = 'm4-qual-clinic');
   v_b := (select id from public.businesses where slug = 'm4-qual-other');
 
-  select test.act_service();
+  perform test.act_service();
 
   insert into public.contacts (tenant_id, first_name, phone, source)
   values (v_a, 'Qual Customer', '+919876540001', 'website_chat') returning id into v_contact;
@@ -161,7 +162,7 @@ begin
   select count(*) into v_count from public.ai_lead_assessments where tenant_id = v_a;
   perform test.qual_assert('assessment rows exist for fixtures', v_count = 1);
 
-  select test.act_anon();
+  perform test.act_anon();
   perform test.expect_error(format(
     $q$select public.ai_service_record_assessment(%L::uuid, %L::uuid, 'high_intent', 'Anon', null, null, null, null, null, null, null)$q$,
     v_a, v_contact

@@ -40,6 +40,7 @@ $$;
 create or replace function test.act_service()
 returns void language sql as $$
   select
+    set_config('role', 'service_role', true),
     set_config('request.jwt.claim.sub', '', true),
     set_config('request.jwt.claim.role', 'service_role', true),
     set_config('request.jwt.claims', jsonb_build_object('role', 'service_role')::text, true);

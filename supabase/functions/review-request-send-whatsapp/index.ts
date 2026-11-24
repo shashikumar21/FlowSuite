@@ -154,7 +154,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return errorResponse(422, 'template_not_configured', `Save an approved WhatsApp template with key "${REVIEW_TEMPLATE_KEY}" and its Meta template name in Settings -> Integrations -> Message templates.`)
   }
 
-  const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || 'https://rococo-florentine-8dbe2c.netlify.app'
+  const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || 'https://flow-suite-two.vercel.app'
   const content = buildMessage(row, origin)
   const idempotencyKey = `review-request-${row.id}`
 

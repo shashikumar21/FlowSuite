@@ -10,14 +10,15 @@ begin;
 
 create schema if not exists test;
 
-create or replace function test.act_as(p_user uuid, p_email text)
+create or replace function test.act_as(p_user uuid, p_email text, p_role text default 'authenticated')
 returns void
 language sql
 as $$
   select
-    set_config('role', 'authenticated', true),
-    set_config('request.jwt.claim.sub', p_user::text, true),
-    set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'email', p_email)::text, true);
+    set_config('role', p_role, true),
+    set_config('request.jwt.claim.sub', coalesce(p_user::text, ''), true),
+    set_config('request.jwt.claim.role', p_role, true),
+    set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', p_role, 'email', p_email)::text, true);
 $$;
 
 create or replace function test.expect_error(p_sql text)
@@ -33,18 +34,19 @@ exception when others then
 end;
 $$;
 
-grant usage on schema test to authenticated;
-grant execute on all functions in schema test to authenticated;
+grant usage on schema test to authenticated, service_role;
+grant execute on all functions in schema test to authenticated, service_role;
 
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
 values
   ('00000000-0000-0000-0000-000000000000', '61111111-1111-4111-8111-111111111111', 'authenticated', 'authenticated', 'runner-owner@example.test', crypt('test-password', gen_salt('bf')), now(), '{"full_name":"Runner Owner"}', now(), now()),
-  ('00000000-0000-0000-0000-000000000000', '62222222-2222-4222-8222-222222222222', 'authenticated', 'authenticated', 'runner-employee@example.test', crypt('test-password', gen_salt('bf')), now(), '{"full_name":"Runner Employee"}', now(), now());
+  ('00000000-0000-0000-0000-000000000000', '62222222-2222-4222-8222-222222222222', 'authenticated', 'authenticated', 'runner-employee@example.test', crypt('test-password', gen_salt('bf')), now(), '{"full_name":"Runner Employee"}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '63333333-3333-4333-8333-333333333333', 'authenticated', 'authenticated', 'runner-manager@example.test', crypt('test-password', gen_salt('bf')), now(), '{"full_name":"Runner Manager"}', now(), now());
 
 select test.act_as('61111111-1111-4111-8111-111111111111', 'runner-owner@example.test');
 select public.create_business('Runner Clinic', 'runner-clinic', 'dental-clinic');
 
-select test.act_as('62222222-2222-4222-8222-222222222222', 'runner-employee@example.test');
+select test.act_as('61111111-1111-4111-8111-111111111111', 'runner-owner@example.test');
 select public.create_business_invitation(
   (select id from public.businesses where slug = 'runner-clinic'),
   'runner-employee@example.test', 'employee'
@@ -61,8 +63,26 @@ begin
 end;
 $$;
 
--- Definitions are inserted directly as the migration owner; the browser can
+-- A manager is the notify_team recipient; notify_team skips the acting owner.
+select test.act_as('61111111-1111-4111-8111-111111111111', 'runner-owner@example.test');
+select public.create_business_invitation(
+  (select id from public.businesses where slug = 'runner-clinic'),
+  'runner-manager@example.test', 'manager'
+);
+
+do $$
+declare v_token text;
+begin
+  select token into v_token from public.business_invitations
+  where email = 'runner-manager@example.test' order by created_at desc limit 1;
+  perform test.act_as('63333333-3333-4333-8333-333333333333', 'runner-manager@example.test');
+  perform public.accept_business_invitation(v_token);
+end;
+$$;
+
+-- Definitions are inserted directly with the trusted role; the browser can
 -- only create them through the audited workflows_create RPC.
+select test.act_as(null, null, 'service_role');
 insert into public.workflows (tenant_id, name, trigger_type, actions, status, created_by)
 select b.id, 'Local lead runner', 'lead_created',
        jsonb_build_array(
@@ -103,9 +123,15 @@ begin
 
   select count(*) into v_runs from public.workflow_runs where tenant_id = v_tenant and source_id = v_contact;
   select count(*) into v_tasks from public.tasks where tenant_id = v_tenant and title = 'Callback task';
+
+  -- notify_team excludes the acting owner, so count tenant-wide with service_role.
+  perform test.act_as(null, null, 'service_role');
   select count(*) into v_notices from public.notifications where tenant_id = v_tenant and notification_type = 'workflow_notification';
+  perform test.act_as('61111111-1111-4111-8111-111111111111', 'runner-owner@example.test');
+
   select count(*) into v_steps from public.workflow_run_steps s join public.workflow_runs r on r.id = s.run_id where r.tenant_id = v_tenant and r.source_id = v_contact;
   select count(*) into v_skipped from public.workflow_run_steps s join public.workflow_runs r on r.id = s.run_id where r.tenant_id = v_tenant and r.source_id = v_contact and s.status = 'skipped';
+  perform test.act_as(null, null, 'service_role');
   select count(*) into v_reviews from public.review_requests where tenant_id = v_tenant and appointment_id = v_contact;
 
   if v_runs <> 1 then raise exception 'FAIL: expected 1 lead run, got %', v_runs; end if;
@@ -133,6 +159,7 @@ begin
   returning id into v_appointment;
 
   select count(*) into v_runs from public.workflow_runs where tenant_id = v_tenant and source_id = v_appointment;
+  perform test.act_as(null, null, 'service_role');
   select count(*) into v_reviews from public.review_requests where tenant_id = v_tenant and appointment_id = v_appointment;
   if v_runs <> 1 then raise exception 'FAIL: expected 1 appointment run, got %', v_runs; end if;
   if v_reviews <> 0 then raise exception 'FAIL: appointment-created runner must not create review requests'; end if;

@@ -11,7 +11,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
 const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
 const GOOGLE_REDIRECT_URI = Deno.env.get('GOOGLE_REDIRECT_URI') ?? '';
-const APP_URL = (Deno.env.get('APP_URL') ?? 'https://rococo-florentine-8dbe2c.netlify.app').replace(/\/$/, '');
+const APP_URL = (Deno.env.get('APP_URL') ?? 'https://flow-suite-two.vercel.app').replace(/\/$/, '');
 
 const stateRowSchema = z.object({
   tenant_id: z.string().uuid(),
