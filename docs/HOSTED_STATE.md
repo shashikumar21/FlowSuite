@@ -32,7 +32,7 @@ demo-tenant test exercised sign-upload → upload → list → signed open → d
 through the local UI with a clearly labelled dummy file; the file was removed,
 cross-tenant access returned HTTP 403, and 16 metadata-only audit rows were
 written across all controlled tests. Final hosted check: 0 objects in the
-bucket. The scanner UI remains local-only.
+bucket. The scanner UI is deployed to Vercel (see below).
 
 ## Project
 
@@ -95,7 +95,9 @@ is configured.
 - `OPENAI_BASE_URL` — currently the Groq OpenAI-compatible endpoint
 - `OPENAI_MODEL` — currently `openai/gpt-oss-120b`
 - `OPENAI_API_KEY` — currently a Groq key
-- `AI_CHAT_ALLOWED_ORIGINS` — `http://localhost:5173,http://127.0.0.1:5173,https://testingdemo45.netlify.app,https://rococo-florentine-8dbe2c.netlify.app` (new FlowSuite origin added 2026-11-22; no function redeploy needed)
+- `AI_CHAT_ALLOWED_ORIGINS` — localhost, `testingdemo45.netlify.app`,
+  `rococo-florentine-8dbe2c.netlify.app`, plus the three Vercel origins listed
+  below (updated 2026-11-24 with explicit approval; no function redeploy needed).
 - `CREDENTIALS_ENCRYPTION_KEY` — required by `integrations-vault-save` and
   `review-request-send-whatsapp` for server-side vault encryption/decryption.
   **Set on hosted 2026-11-23** with explicit user approval; a random 32-byte
@@ -142,6 +144,37 @@ is now the source of truth; manual static drops are deprecated.
   secret is exposed to the browser.
 - Every push to `master` starts a new production build; re-deploy after changing
   Netlify env values because they are read at build time.
+
+## Vercel production deploy (2026-11-24)
+
+The frontend was moved to Vercel with explicit approval. The GitHub repo
+`shashikumar21/FlowSuite`, branch `master`, is the source of truth.
+
+- Project: `shashi-a0fc/flow-suite`, root directory `./` (the git repo root is
+  the Vite app), framework preset Vite, build `npm run build`, output `dist`.
+- Primary URL: `https://flow-suite-two.vercel.app`
+  (aliases: `https://flow-suite-shashi-a0fc.vercel.app` and
+  `https://flow-suite-git-master-shashi-a0fc.vercel.app`).
+- Deployed commit `1df78c1` (`Add Vercel SPA rewrite`), built from the scanner
+  commit `6be9e6e`. Status: `Ready`.
+- `vercel.json` adds an SPA fallback rewrite to `index.html`, so deep links such
+  as `/privacy`, `/terms`, `/app/booking/calendar` and
+  `/book/demo-dental-clinic` render correctly instead of returning Vercel 404.
+- Production-only env vars set in Vercel (browser-safe values taken from local
+  `.env.local`, never printed or committed): `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_PUBLISHABLE_KEY`. No service-role or provider secret is in
+  Vercel. Rebuild after changing them because Vite bakes them into the bundle.
+- Verified live: no “Connect your Supabase project” screen; login page, privacy
+  and terms pages, booking calendar route, and public booking page with
+  Asia/Kolkata slots all render. The deployed `ContactsPage` chunk contains the
+  Patient files scanner strings.
+- Supabase Auth redirect URLs now include all three Vercel origins with `/**`.
+  The Site URL was deliberately left on the old Netlify origin.
+- `AI_CHAT_ALLOWED_ORIGINS` was updated with the three Vercel origins; no
+  `ai-chat` function redeploy was needed.
+- The older Netlify sites are left alone. `flowsuite-tbyz` has the scanner code
+  but no Supabase env vars, so it shows the setup screen;
+  `rococo-florentine-8dbe2c` has env vars but a stale pre-scanner bundle.
 
 ## Demo account and write-path validation (2026-11-22)
 
