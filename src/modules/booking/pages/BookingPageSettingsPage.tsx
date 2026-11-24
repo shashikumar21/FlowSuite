@@ -13,6 +13,7 @@ import { copyText } from '@/lib/clipboard'
 import { getErrorMessage } from '@/lib/errors'
 import { updatePageSettings } from '../api'
 import { FormError } from '../components/FormError'
+import { PatientEmailSettingsCard } from '../components/PatientEmailSettingsCard'
 import { useBookingInvalidate, useBookingOptions, useBookingPageSettings } from '../hooks'
 import { pageSettingsSchema, type PageSettingsFormInput, type PageSettingsFormValues } from '../schemas'
 
@@ -268,6 +269,14 @@ export function BookingPageSettingsPage() {
             </Card>
 
             <div className="space-y-4">
+              {tenantId ? (
+                <PatientEmailSettingsCard
+                  tenantId={tenantId}
+                  canManage={canManageConfig}
+                  timezone={activeTenant?.businesses?.timezone ?? 'Asia/Kolkata'}
+                />
+              ) : null}
+
               <Card>
                 <CardHeader>
                   <CardTitle>Share this page</CardTitle>

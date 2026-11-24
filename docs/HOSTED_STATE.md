@@ -103,6 +103,11 @@ is configured.
   **Set on hosted 2026-11-23** with explicit user approval; a random 32-byte
   base64 key was generated locally and passed directly to Supabase without being
   displayed in chat or stored in the repo.
+- `APP_URL` — **set on hosted 2026-11-24** to `https://flow-suite-two.vercel.app`.
+  Used by `calendar-oauth-callback` for the post-consent UI redirect; the source
+  default still points at the old Netlify origin, so this secret must stay set.
+- `APP_PUBLIC_URL` and `PATIENT_EMAIL_CRON_SECRET` — **set on hosted 2026-11-24**
+  for the patient-email dispatcher (see the patient emails section below).
 - Tenant vault secret names (stored encrypted in `integration_secrets`, provider
   `whatsapp`, never in client code/chat): `WHATSAPP_ACCESS_TOKEN`,
   `WHATSAPP_PHONE_NUMBER_ID`.
@@ -525,10 +530,25 @@ the hosted project via `.env.local`, so local UI work still runs against real
 Supabase data. `supabase/tests/ai_sales_agent.sql` therefore remains unexecuted
 and is tracked as an outstanding task.
 
-## Local only — patient emails (2026-11-24)
+## Patient emails (applied fail-closed 2026-11-24)
 
-- `supabase/migrations/0044_patient_email_outbox.sql` — **not applied to hosted.**
-- `patient-email-dispatch` Edge Function — **not deployed**; no cron job created.
-- Required secrets (names only, none set): `EMAIL_PROVIDER`, `EMAIL_PROVIDER_API_KEY`,
-  `EMAIL_FROM_ADDRESS`, `PATIENT_EMAIL_CRON_SECRET`, `APP_PUBLIC_URL`.
-- See [PATIENT_EMAILS.md](PATIENT_EMAILS.md) for the approval-gated go-live steps.
+- `supabase/migrations/0044_patient_email_outbox.sql` — **applied to hosted** with
+  explicit approval via `supabase db query --remote=grkzontnyjnhijmphypo --yes -f`.
+  Preflight confirmed objects absent and all dependency columns present. Verified
+  afterwards: both tables RLS on; SELECT policies use `can_manage_bookings` (manager+,
+  not all tenant members); 8 `patient_email_*` functions owned by `postgres`,
+  `SECURITY DEFINER` with `search_path=''`; all 5 triggers enabled. A behaviour
+  smoke test on the demo tenant ran inside a transaction and was rolled back
+  (0 settings/outbox/appointment/audit rows persisted).
+- Privacy fixes folded into `0044` before first apply (no follow-up cleanup needed):
+  manager-only outbox/settings reads, opt-out re-checked at claim time for every
+  email kind, auto-approval audit row, and cancellation stale-checks.
+- `patient-email-dispatch` Edge Function — **deployed** ACTIVE v1,
+  `verify_jwt=false`, `import_map=true`. Valid `x-flowsuite-secret` call returns
+  `{"ok":false,"reason":"email_not_configured","claimed":0}`; wrong secret 401.
+- Secrets set on hosted (names only, values never printed):
+  `PATIENT_EMAIL_CRON_SECRET` (random 64-hex), `APP_PUBLIC_URL` (Vercel origin).
+- Still NOT done: real email provider secrets (`EMAIL_PROVIDER`,
+  `EMAIL_PROVIDER_API_KEY`, `EMAIL_FROM_ADDRESS`) and the `pg_cron`/`pg_net` job.
+  With the console adapter active nothing is claimed or sent, so this is safe to
+  leave idle until explicitly approved. See [PATIENT_EMAILS.md](PATIENT_EMAILS.md).
