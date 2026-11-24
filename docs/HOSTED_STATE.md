@@ -188,6 +188,15 @@ recorded here, and no function redeploy was needed for the secret change. This
 rotation was good hygiene but was not the cause of the `rate_limited` webhook
 replies, which came from the demo agent's monthly token cap.
 
+**Completed by the owner on 2026-11-24:** the exposed Google OAuth client secret
+was rotated at Google Cloud Console (APIs & Services → Credentials → OAuth 2.0
+Client IDs → Client secrets → Add secret) and the new value was set directly as
+the hosted `GOOGLE_CLIENT_SECRET`. The hosted update time changed from
+23 Nov 2026 18:34:40 UTC to 24 Nov 2026 08:18:43 UTC; no value was displayed or
+recorded here. `GOOGLE_CLIENT_ID` and `GOOGLE_REDIRECT_URI` were unchanged and no
+function redeploy was needed. The owner still needs to delete the old Google
+client secret, and existing calendar connections may require re-consent.
+
 ## Backup status
 
 A schema-only dump via `supabase db dump --remote --schema public` was attempted
