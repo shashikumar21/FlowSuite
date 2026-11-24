@@ -168,8 +168,9 @@ The frontend was moved to Vercel with explicit approval. The GitHub repo
   and terms pages, booking calendar route, and public booking page with
   Asia/Kolkata slots all render. The deployed `ContactsPage` chunk contains the
   Patient files scanner strings.
-- Supabase Auth redirect URLs now include all three Vercel origins with `/**`.
-  The Site URL was deliberately left on the old Netlify origin.
+- Supabase Auth redirect URLs now include all three Vercel origins with `/**`,
+  and the Site URL was changed from the old Netlify origin to
+  `https://flow-suite-two.vercel.app/` on 2026-11-24 with explicit approval.
 - `AI_CHAT_ALLOWED_ORIGINS` was updated with the three Vercel origins; no
   `ai-chat` function redeploy was needed.
 - The older Netlify sites are left alone. `flowsuite-tbyz` has the scanner code
