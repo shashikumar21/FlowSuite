@@ -18,8 +18,15 @@ import { Avatar, EmptyState, ErrorState, Skeleton } from '@/components/ui/Feedba
 import { requireSupabase } from '@/integrations/supabase/client'
 import { formatCurrency, formatNumber } from '@/lib/format'
 import { getErrorMessage } from '@/lib/errors'
-import { EMPTY_METRICS } from '@/modules/crm/utils'
-import type { BookingMetrics, ContactRow, InboxMetrics } from '@/types/database'
+import { DashboardCharts } from '../components/DashboardCharts'
+import {
+  dashboardBookingSnapshotSchema,
+  dashboardCrmSnapshotSchema,
+  dashboardInboxSnapshotSchema,
+  type DashboardLeadSource,
+  type DashboardPipelineStage,
+} from '../schemas'
+import type { ContactRow } from '@/types/database'
 
 type DashboardData = {
   contacts: number
@@ -32,11 +39,14 @@ type DashboardData = {
   planName: string | null
   subscriptionStatus: string | null
   planFeatures: Record<string, boolean>
+  leadSources: DashboardLeadSource[]
+  pipelineStages: DashboardPipelineStage[]
 }
 
 export function DashboardPage() {
   const { activeTenant, activeRole } = useTenant()
   const tenantId = activeTenant?.tenant_id
+  const currency = activeTenant?.businesses?.currency ?? 'INR'
 
   const query = useQuery({
     queryKey: ['dashboard', tenantId],
@@ -65,35 +75,43 @@ export function DashboardPage() {
       )?.error
       if (firstError) throw firstError
 
-      const crm = metrics.data ?? EMPTY_METRICS
-      const bookings: BookingMetrics = bookingMetrics.data ?? {
-        today_count: 0,
-        upcoming_count: 0,
-        pending_count: 0,
-        completed_count: 0,
-        cancelled_count: 0,
-        no_show_count: 0,
-        week_count: 0,
-      }
-      const inbox: InboxMetrics = inboxMetrics.data ?? {
-        open_count: 0,
-        pending_count: 0,
-        closed_count: 0,
-        unassigned_count: 0,
-      }
+      const crm = dashboardCrmSnapshotSchema.parse({
+        total_contacts: metrics.data?.total_contacts ?? 0,
+        open_deals: metrics.data?.open_deals ?? 0,
+        open_pipeline_value: metrics.data?.open_pipeline_value ?? 0,
+        leads_by_source: metrics.data?.leads_by_source ?? [],
+        deals_by_stage: metrics.data?.deals_by_stage ?? [],
+      })
+      const booking = dashboardBookingSnapshotSchema.parse({
+        today_count: bookingMetrics.data?.today_count ?? 0,
+        week_count: bookingMetrics.data?.week_count ?? 0,
+        upcoming_count: bookingMetrics.data?.upcoming_count ?? 0,
+        pending_count: bookingMetrics.data?.pending_count ?? 0,
+        completed_count: bookingMetrics.data?.completed_count ?? 0,
+        cancelled_count: bookingMetrics.data?.cancelled_count ?? 0,
+        no_show_count: bookingMetrics.data?.no_show_count ?? 0,
+      })
+      const inbox = dashboardInboxSnapshotSchema.parse({
+        open_count: inboxMetrics.data?.open_count ?? 0,
+        pending_count: inboxMetrics.data?.pending_count ?? 0,
+        closed_count: inboxMetrics.data?.closed_count ?? 0,
+        unassigned_count: inboxMetrics.data?.unassigned_count ?? 0,
+      })
       const plan = subscription.data?.[0]
 
       return {
-        contacts: Number(crm.total_contacts),
-        upcomingAppointments: Number(bookings.upcoming_count),
-        openConversations: Number(inbox.open_count),
-        openDeals: Number(crm.open_deals),
-        dealValue: Number(crm.open_pipeline_value),
+        contacts: crm.total_contacts,
+        upcomingAppointments: booking.upcoming_count,
+        openConversations: inbox.open_count,
+        openDeals: crm.open_deals,
+        dealValue: crm.open_pipeline_value,
         teamSize: members.count ?? 0,
         recentContacts: recent.data ?? [],
         planName: plan?.plans?.name ?? null,
         subscriptionStatus: plan?.status ?? null,
         planFeatures: (plan?.plans?.features as Record<string, boolean>) ?? {},
+        leadSources: crm.leads_by_source,
+        pipelineStages: crm.deals_by_stage,
       }
     },
   })
@@ -103,7 +121,7 @@ export function DashboardPage() {
     { label: 'Total contacts', value: data ? formatNumber(data.contacts) : null, icon: Users, tone: 'bg-brand-50 text-brand-600' },
     { label: 'Upcoming appointments', value: data ? formatNumber(data.upcomingAppointments) : null, icon: CalendarClock, tone: 'bg-blue-50 text-blue-600' },
     { label: 'Open conversations', value: data ? formatNumber(data.openConversations) : null, icon: MessageSquare, tone: 'bg-amber-50 text-amber-600' },
-    { label: 'Open deal value', value: data ? formatCurrency(data.dealValue) : null, icon: CircleDollarSign, tone: 'bg-emerald-50 text-emerald-600' },
+    { label: 'Open deal value', value: data ? formatCurrency(data.dealValue, currency) : null, icon: CircleDollarSign, tone: 'bg-emerald-50 text-emerald-600' },
   ]
 
   const checklist = [
@@ -147,6 +165,13 @@ export function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <DashboardCharts
+        leadSources={data?.leadSources ?? []}
+        pipelineStages={data?.pipelineStages ?? []}
+        loading={query.isLoading}
+        currency={currency}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
