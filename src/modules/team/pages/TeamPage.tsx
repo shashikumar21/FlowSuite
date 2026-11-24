@@ -29,7 +29,7 @@ type MemberRow = {
 
 const inviteSchema = z.object({
   email: z.string().email('Enter a valid email address'),
-  role: z.enum(['admin', 'manager', 'employee']),
+  role: z.enum(['admin', 'manager', 'doctor', 'employee']),
 })
 type InviteValues = z.infer<typeof inviteSchema>
 

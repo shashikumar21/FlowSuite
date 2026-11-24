@@ -13,6 +13,8 @@ import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
 import { activityLabel } from '../utils'
 import { activitySchema, type ActivityFormValues } from '../schemas'
+import { MedicalHistoryPanel } from './MedicalHistoryPanel'
+import { PatientFilesPanel } from './PatientFilesPanel'
 import {
   addActivity,
   archiveContact,
@@ -38,6 +40,7 @@ type Props = {
   onConvert: (contactId: string) => void
   onChanged: () => void
   isDental?: boolean
+  canViewMedicalHistory?: boolean
 }
 
 export function ContactDetailModal({
@@ -52,11 +55,13 @@ export function ContactDetailModal({
   onConvert,
   onChanged,
   isDental = false,
+  canViewMedicalHistory = false,
 }: Props) {
   const { toast } = useToast()
   const [assignTarget, setAssignTarget] = useState('')
   const [tagTarget, setTagTarget] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'medical' | 'files'>('overview')
 
   const detailQuery = useQuery({
     queryKey: ['crm', tenantId, 'contact', contactId],
@@ -74,6 +79,7 @@ export function ContactDetailModal({
     setAssignTarget('')
     setTagTarget('')
     setActionError(null)
+    setActiveTab('overview')
     activityForm.reset({ type: 'note', subject: '', body: '' })
   }, [open, contactId, activityForm])
 
@@ -126,10 +132,51 @@ export function ContactDetailModal({
         <EmptyState title="Contact unavailable" description="It may have been removed or is no longer visible to you." />
       ) : (
         <div className="space-y-5">
+          {isDental && canViewMedicalHistory ? (
+            <div className="flex gap-2 border-b border-ink-200 pb-2">
+              <Button
+                variant={activeTab === 'overview' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('overview')}
+              >
+                Overview
+              </Button>
+              <Button
+                variant={activeTab === 'medical' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('medical')}
+              >
+                Medical history
+              </Button>
+              <Button
+                variant={activeTab === 'files' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('files')}
+              >
+                Patient files
+              </Button>
+            </div>
+          ) : null}
+
           {actionError ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>
           ) : null}
 
+          {activeTab === 'medical' && isDental && canViewMedicalHistory ? (
+            <MedicalHistoryPanel
+              tenantId={tenantId}
+              contactId={contactId as string}
+              options={options}
+              onChanged={onChanged}
+            />
+          ) : activeTab === 'files' && isDental && canViewMedicalHistory ? (
+            <PatientFilesPanel
+              tenantId={tenantId}
+              contactId={contactId as string}
+              onChanged={onChanged}
+            />
+          ) : (
+            <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             <ContactStatusBadge status={contact.status} />
             <LeadStatusBadge status={contact.lead_status} />
@@ -347,6 +394,8 @@ export function ContactDetailModal({
               <EmptyState title="No activity yet" description="Log a call, email or note to build this history." />
             )}
           </div>
+            </div>
+          )}
         </div>
       )}
     </Modal>

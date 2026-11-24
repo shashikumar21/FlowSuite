@@ -11,6 +11,29 @@ calendar and finalised the Google Calendar OAuth runtime. The Netlify
 auto-deploy for `rococo-florentine-8dbe2c` was still showing the previous
 bundle, so a follow-up documentation-only commit is used to retrigger it.
 
+Applied 2026-11-24: `0043_patient_medical_history.sql` adds a `doctor` tenant
+role, append-only consented medical-history entries, RPC-only access and
+metadata-only audits. It was smoke-tested in a rolled-back transaction, then
+applied to hosted Supabase with explicit approval. Verified: table, RLS, audit
+trigger, role checks, RPCs and grants are present; zero patient rows. The
+privacy policy was updated to describe sensitive health data. **Do not
+re-apply.**
+
+Applied 2026-11-24: `0045_patient_documents_storage.sql` adds a private
+`patient-documents` Storage bucket, service-role-only authorization/audit
+helpers, and metadata-only audit logs. It was smoke-tested in a rolled-back
+transaction, then applied to hosted Supabase with explicit approval. Verified:
+bucket is private with a 10 MB limit and four allowed MIME types; helpers are
+executable only by `service_role`; no `storage.objects` policies exist because
+the CLI role is not the table owner; zero patient-document audit rows. **Do not
+re-apply.** The `patient-documents` signer function was deployed to hosted
+2026-11-24 with explicit approval (`ACTIVE`, v1, `verify_jwt=true`). A controlled
+demo-tenant test exercised sign-upload → upload → list → signed open → delete
+through the local UI with a clearly labelled dummy file; the file was removed,
+cross-tenant access returned HTTP 403, and 16 metadata-only audit rows were
+written across all controlled tests. Final hosted check: 0 objects in the
+bucket. The scanner UI remains local-only.
+
 ## Project
 
 | Field | Value |
@@ -20,7 +43,7 @@ bundle, so a follow-up documentation-only commit is used to retrigger it.
 | URL | `https://grkzontnyjnhijmphypo.supabase.co` |
 | Primary tenant | `06a77082-53a2-4e9c-9c35-3214a76c9ba6` (Abhishek Dental Care and Poly Clinic) |
 | Demo tenant | `09902c67-e585-427c-98be-df91c211e864` (`Demo Dental Clinic`), demo user `ce68894b-0ae5-44d8-9d75-f1fa10bf2cba` |
-| Catalog inventory | 64 public tables, all with RLS enabled; 115 `SECURITY DEFINER` functions; 12 `sales_*`/`can_manage_sales_agent` RPCs |
+| Catalog inventory | 64 public tables at the 2026-11-22 snapshot, all with RLS enabled; 115 `SECURITY DEFINER` functions; 12 `sales_*`/`can_manage_sales_agent` RPCs. `0043` added one RLS-enabled table on 2026-11-24. |
 
 ## Migrations already applied to hosted
 
@@ -33,6 +56,7 @@ query endpoint / dashboard. **Do not re-apply any of these.**
 - `0016_milestone4_ai_qualification_rpcs.sql`
 - `0017_ai_sales_agent.sql` — hosted variant of two statements was corrected first (commit `ccddd6c`)
 - `0018_sales_prospect_contact_conversion.sql` — conversion RPC plus a forward-only fix for the misordered `prospects.converted_contact_id` foreign key from `0017` (commit `1e3ff75`)
+- `0043_patient_medical_history.sql` — applied 2026-11-24 after a rollback smoke test; adds the `doctor` role and consented medical-history table/RPCs. **Do not re-apply.**
 
 `0014_milestone4_ai_communication.sql` exists in the repo and is part of the
 migration sequence; verify before assuming it is absent from hosted. No
@@ -57,12 +81,13 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | `integrations-vault-save` | `ACTIVE` | `3` | `true` | `true` | `2239aa34b5c3197936218af8cd65d1bd105803a2cad07ca01b61ec703fe3d38b` |
 | `calendar-sync-appointment` | `ACTIVE` | `3` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
 | `review-request-send-whatsapp` | `ACTIVE` | `3` | `true` | `true` | `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242` |
+| `patient-documents` | `ACTIVE` | `1` | `true` | `true` | `3783a83fa32f60bc30b762ff1ee4d00ccad9cba7542f2d81df0f4e55836ce77c` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
 function folders in the repo (`whatsapp-webhook`, `whatsapp-send`,
-`ai-follow-up-worker`, `telephony-webhook`) are
-**not** deployed. No scheduler is configured.
+`ai-follow-up-worker`, `telephony-webhook`) are **not** deployed. No scheduler
+is configured.
 
 ## Server-side secrets (names only — never values)
 
@@ -462,3 +487,11 @@ on PATH, and port 54322 is closed. The Vite dev server at `localhost:5173` uses
 the hosted project via `.env.local`, so local UI work still runs against real
 Supabase data. `supabase/tests/ai_sales_agent.sql` therefore remains unexecuted
 and is tracked as an outstanding task.
+
+## Local only — patient emails (2026-11-24)
+
+- `supabase/migrations/0044_patient_email_outbox.sql` — **not applied to hosted.**
+- `patient-email-dispatch` Edge Function — **not deployed**; no cron job created.
+- Required secrets (names only, none set): `EMAIL_PROVIDER`, `EMAIL_PROVIDER_API_KEY`,
+  `EMAIL_FROM_ADDRESS`, `PATIENT_EMAIL_CRON_SECRET`, `APP_PUBLIC_URL`.
+- See [PATIENT_EMAILS.md](PATIENT_EMAILS.md) for the approval-gated go-live steps.

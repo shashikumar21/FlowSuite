@@ -39,6 +39,17 @@ describe('tenant permissions (UX layer only)', () => {
       expect(hasPermission(role, 'manage_contacts')).toBe(true)
       expect(hasPermission(role, 'manage_deals')).toBe(true)
     }
+    expect(hasPermission('doctor', 'view_crm')).toBe(true)
+    expect(hasPermission('doctor', 'manage_contacts')).toBe(true)
+    expect(hasPermission('doctor', 'manage_deals')).toBe(false)
+  })
+
+  it('restricts medical history to clinicians and workspace admins', () => {
+    expect(hasPermission('owner', 'view_medical_history')).toBe(true)
+    expect(hasPermission('admin', 'view_medical_history')).toBe(true)
+    expect(hasPermission('doctor', 'view_medical_history')).toBe(true)
+    expect(hasPermission('manager', 'view_medical_history')).toBe(false)
+    expect(hasPermission('employee', 'view_medical_history')).toBe(false)
   })
 
   it('reserves pipeline configuration, assignment and archiving for managers and above', () => {

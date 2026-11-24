@@ -20,20 +20,21 @@ export type Permission =
   | 'view_audit_log'
   | 'use_sales_agent'
   | 'manage_sales_agent'
+  | 'view_medical_history'
 
-const ALL: TenantRole[] = ['owner', 'admin', 'manager', 'employee']
+const ALL: TenantRole[] = ['owner', 'admin', 'manager', 'doctor', 'employee']
 
 const MATRIX: Record<Permission, TenantRole[]> = {
   manage_business: ['owner', 'admin'],
   manage_team: ['owner', 'admin'],
   view_team: ALL,
-  manage_contacts: ['owner', 'admin', 'manager', 'employee'],
+  manage_contacts: ['owner', 'admin', 'manager', 'doctor', 'employee'],
   view_crm: ALL,
   manage_deals: ['owner', 'admin', 'manager', 'employee'],
   // Pipeline configuration, assignment and archiving are manager+ in the DB
   // (public.can_manage_crm). Employees only work on their own records.
   manage_pipeline: ['owner', 'admin', 'manager'],
-  manage_appointments: ['owner', 'admin', 'manager', 'employee'],
+  manage_appointments: ['owner', 'admin', 'manager', 'doctor', 'employee'],
   // Mirrors public.can_manage_bookings(): employees can work appointments but
   // cannot change services, availability, resources or the booking page.
   manage_booking_config: ['owner', 'admin', 'manager'],
@@ -45,12 +46,16 @@ const MATRIX: Record<Permission, TenantRole[]> = {
   // destructive actions require public.can_manage_sales_agent (owner/admin).
   use_sales_agent: ALL,
   manage_sales_agent: ['owner', 'admin'],
+  // Mirrors public.can_manage_medical_history(): sensitive health data is
+  // restricted to owners, admins and clinicians, never managers/receptionists.
+  view_medical_history: ['owner', 'admin', 'doctor'],
 }
 
 export const ROLE_LABELS: Record<TenantRole, string> = {
   owner: 'Owner',
   admin: 'Admin',
   manager: 'Manager',
+  doctor: 'Doctor',
   employee: 'Employee',
 }
 

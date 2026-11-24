@@ -4,6 +4,48 @@
  */
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
+/* Patient emails — local-only 0044. Written only by triggers / service-role RPCs. */
+export type PatientEmailKind =
+  | 'booking_confirmation'
+  | 'booking_rescheduled'
+  | 'booking_cancelled'
+  | 'appointment_reminder'
+  | 'review_request'
+export type PatientEmailStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'skipped' | 'cancelled'
+
+export type PatientEmailSettingsRow = {
+  tenant_id: string
+  confirmations_enabled: boolean
+  reminders_enabled: boolean
+  reminder_hours_before: number
+  review_emails_auto_approve: boolean
+  reply_to_email: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type PatientEmailOutboxRow = {
+  id: string
+  tenant_id: string
+  kind: PatientEmailKind
+  appointment_id: string | null
+  review_request_id: string | null
+  appointment_start_at: string | null
+  to_email: string
+  status: PatientEmailStatus
+  send_after: string
+  attempts: number
+  claimed_at: string | null
+  sent_at: string | null
+  provider: string | null
+  provider_message_id: string | null
+  last_error: string | null
+  dedupe_key: string
+  created_at: string
+  updated_at: string
+}
+
 type Table<Row, Insert, Update> = {
   Row: Row
   Insert: Insert
@@ -11,7 +53,7 @@ type Table<Row, Insert, Update> = {
   Relationships: []
 }
 
-export type TenantRole = 'owner' | 'admin' | 'manager' | 'employee'
+export type TenantRole = 'owner' | 'admin' | 'manager' | 'doctor' | 'employee'
 export type MemberStatus = 'invited' | 'active' | 'suspended'
 
 export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'unqualified' | 'converted'
@@ -339,6 +381,25 @@ export type AppointmentRow = {
   metadata: Json
   created_at: string
   updated_at: string
+}
+
+/** Append-only, consented medical history entry for a patient contact. */
+export type PatientMedicalHistoryEntryRow = {
+  id: string
+  tenant_id: string
+  contact_id: string
+  recorded_at: string
+  recorded_by: string
+  allergies: string | null
+  conditions: string | null
+  medications: string | null
+  past_treatments: string | null
+  family_history: string | null
+  notes: string | null
+  consent_given: boolean
+  consent_version: string
+  consent_given_at: string
+  created_at: string
 }
 
 export type ConversationStatus = 'open' | 'closed' | 'pending'
@@ -1566,6 +1627,12 @@ export interface Database {
         Pick<ContactRow, 'tenant_id' | 'first_name'> & Partial<ContactRow>,
         Partial<ContactRow>
       >
+      patient_medical_history_entries: Table<
+        PatientMedicalHistoryEntryRow,
+        Pick<PatientMedicalHistoryEntryRow, 'tenant_id' | 'contact_id' | 'recorded_by'> &
+          Partial<PatientMedicalHistoryEntryRow>,
+        never
+      >
       pipelines: Table<
         PipelineRow,
         Pick<PipelineRow, 'tenant_id' | 'name'> & Partial<PipelineRow>,
@@ -1840,9 +1907,22 @@ export interface Database {
       call_transcripts: Table<CallTranscriptRow, Partial<CallTranscriptRow>, Partial<CallTranscriptRow>>
       call_events: Table<CallEventRow, Partial<CallEventRow>, Partial<CallEventRow>>
       call_handoffs: Table<CallHandoffRow, Partial<CallHandoffRow>, Partial<CallHandoffRow>>
+      patient_email_settings: Table<PatientEmailSettingsRow, Partial<PatientEmailSettingsRow>, Partial<PatientEmailSettingsRow>>
+      patient_email_outbox: Table<PatientEmailOutboxRow, Partial<PatientEmailOutboxRow>, Partial<PatientEmailOutboxRow>>
     }
     Views: Record<string, never>
     Functions: {
+      patient_email_update_settings: {
+        Args: {
+          p_tenant: string
+          p_confirmations_enabled: boolean
+          p_reminders_enabled: boolean
+          p_reminder_hours_before: number
+          p_review_emails_auto_approve: boolean
+          p_reply_to_email?: string | null
+        }
+        Returns: undefined
+      }
       create_business: {
         Args: {
           p_name: string
@@ -1863,6 +1943,39 @@ export interface Database {
       apply_industry_template: { Args: { p_tenant_id: string; p_template_slug: string }; Returns: undefined }
       has_tenant_access: { Args: { target_tenant: string }; Returns: boolean }
       has_tenant_role: { Args: { target_tenant: string; allowed_roles: string[] }; Returns: boolean }
+      can_manage_medical_history: { Args: { p_tenant: string }; Returns: boolean }
+      patient_medical_history_list: {
+        Args: { p_tenant: string; p_contact: string }
+        Returns: Array<{
+          id: string
+          contact_id: string
+          recorded_at: string
+          recorded_by: string
+          allergies: string | null
+          conditions: string | null
+          medications: string | null
+          past_treatments: string | null
+          family_history: string | null
+          notes: string | null
+          consent_version: string
+          consent_given_at: string
+        }>
+      }
+      patient_medical_history_add: {
+        Args: {
+          p_tenant: string
+          p_contact: string
+          p_allergies: string | null
+          p_conditions: string | null
+          p_medications: string | null
+          p_past_treatments: string | null
+          p_family_history: string | null
+          p_notes: string | null
+          p_consent_given: boolean
+          p_consent_version?: string
+        }
+        Returns: string
+      }
       is_platform_admin: { Args: { allowed_roles?: string[] }; Returns: boolean }
 
       /* Milestone 2 — trusted CRM RPCs. RLS remains authoritative for direct

@@ -38,6 +38,7 @@ export function ContactsPage() {
   const isDental = isDentalIndustry(activeTenant?.businesses?.industry)
   const invalidate = useCrmInvalidate(tenantId)
   const canManagePipeline = can('manage_pipeline')
+  const canViewMedicalHistory = can('view_medical_history')
   const currentUserId = user?.id ?? ''
 
   const [searchInput, setSearchInput] = useState('')
@@ -445,6 +446,7 @@ export function ContactsPage() {
         onConvert={(id) => { setDetailId(null); setConvertId(id) }}
         onChanged={invalidate}
         isDental={isDental}
+        canViewMedicalHistory={canViewMedicalHistory}
       />
 
       <DealFormModal

@@ -1,5 +1,11 @@
 import { requireSupabase } from '@/integrations/supabase/client'
 import type { ActivityFormValues, ContactFormValues, DealFormValues, DealValueValues } from './schemas'
+import {
+  CONSENT_VERSION,
+  medicalHistoryEntriesSchema,
+  type MedicalHistoryEntry,
+  type MedicalHistoryFormValues,
+} from './medicalHistorySchemas'
 import { EMPTY_METRICS } from './utils'
 import type {
   ContactActivityRow,
@@ -506,4 +512,44 @@ export async function createCustomField(
 export async function deleteCustomField(tenantId: string, id: string): Promise<void> {
   const { error } = await requireSupabase().from('custom_fields').delete().eq('tenant_id', tenantId).eq('id', id)
   if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Sensitive patient medical history — trusted RPCs only, never direct table
+// access. The RPC rechecks tenant membership and doctor/owner/admin roles;
+// responses are validated because the data is high-risk.
+// ---------------------------------------------------------------------------
+
+export async function fetchMedicalHistory(tenantId: string, contactId: string): Promise<MedicalHistoryEntry[]> {
+  const values = { tenantId, contactId }
+  if (!values.tenantId || !values.contactId) throw new Error('Tenant and contact are required')
+  const { data, error } = await requireSupabase().rpc('patient_medical_history_list', {
+    p_tenant: tenantId,
+    p_contact: contactId,
+  })
+  if (error) throw error
+  return medicalHistoryEntriesSchema.parse(data ?? [])
+}
+
+export async function addMedicalHistory(
+  tenantId: string,
+  contactId: string,
+  values: MedicalHistoryFormValues,
+): Promise<string> {
+  if (!tenantId || !contactId) throw new Error('Tenant and contact are required')
+  const { data, error } = await requireSupabase().rpc('patient_medical_history_add', {
+    p_tenant: tenantId,
+    p_contact: contactId,
+    p_allergies: values.allergies || null,
+    p_conditions: values.conditions || null,
+    p_medications: values.medications || null,
+    p_past_treatments: values.past_treatments || null,
+    p_family_history: values.family_history || null,
+    p_notes: values.notes || null,
+    p_consent_given: values.consent_given,
+    p_consent_version: CONSENT_VERSION,
+  })
+  if (error) throw error
+  if (typeof data !== 'string') throw new Error('Invalid medical history response')
+  return data
 }

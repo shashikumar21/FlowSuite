@@ -3,7 +3,7 @@ import { SUPPORT_EMAIL } from '@/integrations/supabase/client'
 
 export function PrivacyPage() {
   return (
-    <LegalLayout title="Privacy Policy" updated="23 November 2026">
+    <LegalLayout title="Privacy Policy" updated="24 November 2026">
       <section className="space-y-3">
         <h2 className="text-lg font-bold text-ink-900">1. About this policy</h2>
         <p>
@@ -22,6 +22,7 @@ export function PrivacyPage() {
         <ul className="ml-5 list-disc space-y-2">
           <li><strong>Account and workspace:</strong> name, email address, phone number, business name, role and preferences.</li>
           <li><strong>Business data you enter:</strong> contacts and leads, appointments, tasks, notes, messages, review requests, invoices and usage logs.</li>
+          <li><strong>Sensitive health data:</strong> where a clinic enables it, patient medical history such as allergies, conditions, medications and past treatments, plus patient documents you scan or upload. It is stored only with recorded patient consent, restricted to authorised clinical and workspace roles, and never used for advertising, AI chat or automated messaging.</li>
           <li><strong>Integration data:</strong> account identifiers and connection credentials for channels you choose to connect. Provider secrets are kept server-side and are never exposed in the browser bundle.</li>
           <li><strong>Payment data:</strong> plan, order, payment and subscription identifiers and statuses. Card, UPI and bank details are handled by the payment provider, not stored by FlowSuite.</li>
           <li><strong>Technical data:</strong> IP address, browser and device information, timestamps and error logs needed to operate and secure the service.</li>
@@ -69,8 +70,11 @@ export function PrivacyPage() {
         </p>
         <p>
           Access is controlled through tenant-scoped database policies, role checks and server-side authorization.
-          Secrets are stored server-side. No system can be made perfectly secure, so please use strong credentials and
-          tell us promptly about suspected unauthorized access.
+          Medical history records and patient documents are access-controlled separately from ordinary CRM notes,
+          logged for access and changes, opened only through short-lived signed links, and never included in AI
+          prompts, marketing campaigns or public booking pages. Secrets are stored
+          server-side. No system can be made perfectly secure, so please use strong credentials and tell us promptly
+          about suspected unauthorized access.
         </p>
       </section>
 
