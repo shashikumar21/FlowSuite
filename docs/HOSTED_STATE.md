@@ -95,9 +95,9 @@ is configured.
 - `OPENAI_BASE_URL` — currently the Groq OpenAI-compatible endpoint
 - `OPENAI_MODEL` — currently `openai/gpt-oss-120b`
 - `OPENAI_API_KEY` — currently a Groq key
-- `AI_CHAT_ALLOWED_ORIGINS` — localhost, `testingdemo45.netlify.app`,
-  `rococo-florentine-8dbe2c.netlify.app`, plus the three Vercel origins listed
-  below (updated 2026-11-24 with explicit approval; no function redeploy needed).
+- `AI_CHAT_ALLOWED_ORIGINS` — localhost plus the three Vercel origins listed
+  below. Netlify origins were removed on 2026-11-24 with explicit approval; no
+  `ai-chat` function redeploy was needed.
 - `CREDENTIALS_ENCRYPTION_KEY` — required by `integrations-vault-save` and
   `review-request-send-whatsapp` for server-side vault encryption/decryption.
   **Set on hosted 2026-11-23** with explicit user approval; a random 32-byte
@@ -168,14 +168,17 @@ The frontend was moved to Vercel with explicit approval. The GitHub repo
   and terms pages, booking calendar route, and public booking page with
   Asia/Kolkata slots all render. The deployed `ContactsPage` chunk contains the
   Patient files scanner strings.
-- Supabase Auth redirect URLs now include all three Vercel origins with `/**`,
-  and the Site URL was changed from the old Netlify origin to
-  `https://flow-suite-two.vercel.app/` on 2026-11-24 with explicit approval.
-- `AI_CHAT_ALLOWED_ORIGINS` was updated with the three Vercel origins; no
-  `ai-chat` function redeploy was needed.
-- The older Netlify sites are left alone. `flowsuite-tbyz` has the scanner code
-  but no Supabase env vars, so it shows the setup screen;
-  `rococo-florentine-8dbe2c` has env vars but a stale pre-scanner bundle.
+- Supabase Auth redirect URLs now contain only localhost and the three Vercel
+  origins with `/**`; the old Netlify redirect was removed. The Site URL was
+  changed to `https://flow-suite-two.vercel.app/` on 2026-11-24 with explicit
+  approval.
+- `AI_CHAT_ALLOWED_ORIGINS` now contains only localhost and the three Vercel
+  origins; all Netlify origins were removed. No `ai-chat` function redeploy was
+  needed.
+- The older Netlify sites are retired from the auth/CORS configuration. The
+  sites themselves still exist in Netlify: `flowsuite-tbyz` has scanner code but
+  no Supabase env vars; `rococo-florentine-8dbe2c` has env vars but a stale
+  pre-scanner bundle. They should not be used.
 
 ## Demo account and write-path validation (2026-11-22)
 
