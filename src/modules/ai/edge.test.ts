@@ -213,6 +213,7 @@ function makeWhatsAppStore(overrides: Partial<WhatsAppInboundStore> = {}): Whats
     recordWebhookEvent: vi.fn(async () => ({ id: 'event-1', is_duplicate: false })),
     getMessagingState: vi.fn(async () => ({ sessionOpen: true, optedOut: false, consented: false })),
     getCredentialSecretRef: vi.fn(async () => 'WHATSAPP_ACCESS_TOKEN'),
+    markMessageDelivered: vi.fn(async () => true),
     findContactId: vi.fn(async () => 'contact-1'),
     recordAssessment: vi.fn(async () => 'assessment-1'),
     getActiveFollowUpSequence: vi.fn(async () => 'sequence-1'),
@@ -282,16 +283,46 @@ describe('WhatsApp inbound processing', () => {
     expect(outcomes[0]).toMatchObject({
       status: 'replied',
       providerMessageId: 'wamid.out.1',
+      deliveryStatusUpdated: true,
       // The generic fake provider returns chat-shaped output, so qualification
       // fails validation, but the delivered reply remains a success.
       classification: null,
     })
     expect(outcomes[0]?.qualificationError).toBeDefined()
     expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(store.markMessageDelivered).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      messageId: 'message-1',
+      providerMessageId: 'wamid.out.1',
+    })
     expect(store.appendMessage).toHaveBeenCalledWith(expect.objectContaining({
       externalId: 'wamid.in.1',
       direction: 'inbound',
     }))
+  })
+
+  it('keeps a delivered reply successful when delivery bookkeeping fails', async () => {
+    const store = makeWhatsAppStore({
+      markMessageDelivered: vi.fn(async () => { throw new Error('database unavailable') }),
+    })
+    const fetchImpl = vi.fn(async (_url: URL | RequestInfo, _init?: RequestInit) => new Response(
+      JSON.stringify({ messages: [{ id: 'wamid.out.1' }] }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ))
+    const outcomes = await processWhatsAppInbound({
+      messages: [inboundMessage()],
+      store,
+      provider: fakeProvider(),
+      resolveAccessToken: () => 'token',
+      fetchImpl,
+    })
+
+    expect(outcomes[0]).toMatchObject({
+      status: 'replied',
+      providerMessageId: 'wamid.out.1',
+      deliveryStatusUpdated: false,
+      deliveryUpdateError: 'database unavailable',
+    })
   })
 
   it('qualifies the lead after a successful reply without blocking delivery', async () => {

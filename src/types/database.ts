@@ -2632,6 +2632,14 @@ export interface Database {
         }
         Returns: string
       }
+      ai_service_mark_message_delivered: {
+        Args: {
+          p_tenant: string
+          p_message: string
+          p_provider_message_id: string
+        }
+        Returns: boolean
+      }
       ai_record_usage: {
         Args: {
           p_tenant: string

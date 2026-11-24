@@ -17,6 +17,12 @@ export interface WhatsAppInboundStore extends ChatStore, QualificationStore {
   }): Promise<AiWebhookEventResult>;
   getMessagingState(tenantId: string, contactId: string): Promise<WhatsAppMessagingState>;
   getCredentialSecretRef(tenantId: string, phoneNumberId: string): Promise<string | null>;
+  /** Persists the provider message id on the exact outbound row after a successful send. */
+  markMessageDelivered(input: {
+    tenantId: string;
+    messageId: string;
+    providerMessageId: string;
+  }): Promise<boolean>;
   findContactId?(tenantId: string, phone: string): Promise<string | null>;
 }
 
@@ -39,6 +45,8 @@ export interface WhatsAppInboundOutcome {
   providerMessageId?: string | null;
   classification?: Classification | null;
   qualificationError?: string;
+  deliveryStatusUpdated?: boolean;
+  deliveryUpdateError?: string;
 }
 
 function reasonFor(error: unknown): string {
@@ -177,9 +185,27 @@ export async function processWhatsAppInbound(
         fetchImpl,
       });
 
-      // Qualification is a best-effort enrichment after the customer already
-      // received their reply. A provider/schema/store failure must never turn
-      // a delivered reply into a reported failure or trigger a Meta retry.
+      // Delivery bookkeeping and qualification are best-effort enrichment after
+      // the customer already received their reply. A store/AI failure must
+      // never turn a delivered reply into a reported failure or Meta retry.
+      let deliveryStatusUpdated = false;
+      let deliveryUpdateError: string | undefined;
+      try {
+        if (sent.providerMessageId) {
+          deliveryStatusUpdated = await store.markMessageDelivered({
+            tenantId: message.tenantId,
+            messageId: reply.outboundMessageId,
+            providerMessageId: sent.providerMessageId,
+          });
+        }
+      } catch (error) {
+        deliveryUpdateError = reasonFor(error);
+        console.warn('whatsapp-webhook: delivery status update failed; keeping the delivered reply', {
+          externalMessageId: externalId,
+          reason: deliveryUpdateError,
+        });
+      }
+
       let classification: Classification | null = null;
       let qualificationError: string | undefined;
       try {
@@ -209,6 +235,8 @@ export async function processWhatsAppInbound(
         conversationId: reply.conversationId,
         providerMessageId: sent.providerMessageId,
         classification,
+        deliveryStatusUpdated,
+        ...(deliveryUpdateError ? { deliveryUpdateError } : {}),
         ...(qualificationError ? { qualificationError } : {}),
       });
     } catch (error) {

@@ -93,20 +93,47 @@ function folders in the repo (`whatsapp-send`, `ai-follow-up-worker`,
 `supabase functions deploy whatsapp-webhook --project-ref grkzontnyjnhijmphypo --no-verify-jwt --yes`.
 Meta's Step 2 webhook verification succeeded and auto-subscribed `messages`,
 `account_update`, `account_alerts`, `account_review_update`, template-status and
-phone-number-quality fields. Inbound processing still needs an active
-`channel_credentials` row mapping the Meta Phone Number ID to a tenant; a POST
-with a bad signature correctly returns `401`. No real message has been sent.
+phone-number-quality fields. A POST with a bad signature correctly returns
+`401`.
 
 On 2026-11-24, with explicit user approval, a safe demo-only mapping was added:
-demo tenant `09902c67-e585-427c-98be-df91c211e864`, channel
-`a9715b1f-ecaf-4bab-8601-4a5db0f171b4`, Meta test Phone Number ID
+demo tenant `09902c67-e585-427c-98be-df91c211e864`, Meta test Phone Number ID
 `1384108791460221`, `secret_ref = WHATSAPP_ACCESS_TOKEN_DEMO`, active status.
 An active demo agent named `Demo WhatsApp Webhook Agent` was also created for
 that tenant. Two metadata-only `audit_logs` rows recorded the changes. The
 matching Edge Function secret `WHATSAPP_ACCESS_TOKEN_DEMO` was set directly by
 the owner in the hosted dashboard; its value is never displayed or recorded
-here. This is test-number-only: no patient data and no real message has been
-sent.
+here. This is test-number-only: no patient data has been used.
+
+The first inbound tests failed because the credential pointed at the `internal`
+channel. With explicit approval, an active `whatsapp` channel named
+`WhatsApp Test` was added and the credential re-pointed to it; two more
+metadata-only audit rows were written. The Internal channel was left untouched.
+
+On 2026-11-24, with explicit approval, a non-patient Meta-verified recipient
+sent `Test 2`, `Hi`, and `I need to book a appointment` to the Meta test number.
+Webhook events, a WhatsApp conversation, inbound messages, and AI replies were
+stored for the demo tenant; the recipient confirmed receiving
+`Hello! How can I assist you today?` on WhatsApp. This proves signature
+verification, tenant resolution, channel/agent lookup, inbound persistence,
+AI reply generation, and Meta Cloud API delivery end to end.
+
+Two follow-ups were found. First, the stored outbound rows stayed `pending`
+with a null `provider_message_id` even when Meta delivered the reply, because
+the send result was not written back to the `messages` row. With explicit user
+approval, migration `0046_ai_mark_outbound_message_delivered.sql` was applied on
+2026-11-24 and `whatsapp-webhook` was redeployed as ACTIVE v6
+(`verify_jwt=false`, `import_map=true`, hash
+`9bf49974b6159f4f5234484dfbaa28208537a02334cb2dd9c50dc98f4b65532b`). The new
+service-role-only RPC updates only a matching pending outbound message in the
+same tenant; the webhook treats this bookkeeping as best effort so a delivered
+reply is never reported as failed or retried. The three earlier demo rows remain
+`pending`; only new sends are corrected. Local checks passed: typecheck, 385
+tests, build, and diff check.
+
+Second, the `I need to book a appointment` reply was skipped because the AI
+provider returned `rate_limited`; this is tied to the Groq key rotation still
+required by the owner.
 
 ## Server-side secrets (names only — never values)
 

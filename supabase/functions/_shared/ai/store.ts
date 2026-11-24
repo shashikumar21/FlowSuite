@@ -241,6 +241,18 @@ export function createAiStore(client: StoreClient): AiStore {
       return typeof data?.tenant_id === 'string' ? data.tenant_id : null;
     },
 
+    markMessageDelivered: async (input: {
+      tenantId: string;
+      messageId: string;
+      providerMessageId: string;
+    }): Promise<boolean> => {
+      return rpc<boolean>(client, 'ai_service_mark_message_delivered', {
+        p_tenant: input.tenantId,
+        p_message: input.messageId,
+        p_provider_message_id: input.providerMessageId,
+      });
+    },
+
     getCredentialSecretRef: async (tenantId: string, phoneNumberId: string): Promise<string | null> => {
       const { data, error } = await client
         .from('channel_credentials')
