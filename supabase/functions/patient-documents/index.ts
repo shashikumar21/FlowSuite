@@ -81,6 +81,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
   const { data: userData, error: userError } = await userClient.auth.getUser(token);
   if (userError || !userData.user) return errorResponse(401, 'unauthorized');
+  const userId = userData.user.id;
 
   let raw: unknown;
   try {
@@ -98,7 +99,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: allowed, error: authError } = await admin.rpc('can_manage_patient_document_for_user', {
     p_tenant: body.tenant_id,
     p_contact: body.contact_id,
-    p_user: userData.user.id,
+    p_user: userId,
   });
   if (authError) {
     console.error('patient-document authorization failed', authError);
@@ -110,7 +111,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { error: auditError } = await admin.rpc('patient_document_audit_record', {
       p_tenant: body.tenant_id,
       p_contact: body.contact_id,
-      p_user: userData.user.id,
+      p_user: userId,
       p_object_path: objectPath,
       p_action: action,
       p_content_type: contentType,

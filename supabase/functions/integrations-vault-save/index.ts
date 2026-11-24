@@ -13,7 +13,7 @@ const ENC_KEY = Deno.env.get('CREDENTIALS_ENCRYPTION_KEY') ?? '';
 
 const schema = z.object({
   tenant_id: z.string().uuid(),
-  provider: z.enum(['openai', 'whatsapp', 'resend', 'exotel', 'netlify', 'vercel', 'other']),
+  provider: z.enum(['openai', 'whatsapp', 'resend', 'exotel', 'netlify', 'vercel', 'razorpay', 'other']),
   secret_name: z.string().regex(/^[A-Z][A-Z0-9_]{2,199}$/),
   secret_value: z.string().min(1).max(8000),
 });

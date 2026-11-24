@@ -57,6 +57,7 @@ query endpoint / dashboard. **Do not re-apply any of these.**
 - `0017_ai_sales_agent.sql` — hosted variant of two statements was corrected first (commit `ccddd6c`)
 - `0018_sales_prospect_contact_conversion.sql` — conversion RPC plus a forward-only fix for the misordered `prospects.converted_contact_id` foreign key from `0017` (commit `1e3ff75`)
 - `0043_patient_medical_history.sql` — applied 2026-11-24 after a rollback smoke test; adds the `doctor` role and consented medical-history table/RPCs. **Do not re-apply.**
+- `0048_payments_razorpay_invoice_collection.sql` — applied 2026-11-24 with explicit approval. **Do not re-apply.**
 
 `0014_milestone4_ai_communication.sql` exists in the repo and is part of the
 migration sequence; verify before assuming it is absent from hosted. No
@@ -78,11 +79,14 @@ Verified read-only via `supabase functions list --project-ref grkzontnyjnhijmphy
 | `calendar-oauth-start` | `ACTIVE` | `7` | `true` | `true` | `c34fc431a7e6c6fa9d4088ed556ce09756e848bdebb06c72eab5fe036c0ceeba` |
 | `calendar-oauth-callback` | `ACTIVE` | `6` | `false` | `true` | `1fb133a9e0848f140370cefab2ff603ab2d3aed5b884ecc6f30ef8d7584bd908` |
 | `review-suggest` | `ACTIVE` | `3` | `false` | `true` | `0068222d600b79e76b7fd0ae6c72c316f1122792450aeda35e15e8e706e6515f` |
-| `integrations-vault-save` | `ACTIVE` | `3` | `true` | `true` | `2239aa34b5c3197936218af8cd65d1bd105803a2cad07ca01b61ec703fe3d38b` |
+| `integrations-vault-save` | `ACTIVE` | `28` | `true` | `true` | `39f4c1563f6fdc9e903bc3b37571136cc7204480a8b281a2738a3f5bd5b273b4` |
 | `calendar-sync-appointment` | `ACTIVE` | `3` | `false` | `true` | `04fde743224913dabb72a210657afe63c44f1f34ac0dfb9a968b2557fd2cc1be` |
 | `review-request-send-whatsapp` | `ACTIVE` | `3` | `true` | `true` | `7c9a20c309b630ed1efdcac85b41c264ee47668795869ada044cb69f8fb24242` |
 | `patient-documents` | `ACTIVE` | `1` | `true` | `true` | `3783a83fa32f60bc30b762ff1ee4d00ccad9cba7542f2d81df0f4e55836ce77c` |
 | `whatsapp-webhook` | `ACTIVE` | `15` | `false` | `true` | `2849de84caf7fd8d3d5956169d7368f3d9bdbd0027726b3b0479b999de7c5517` |
+| `invoice-payment-create` | `ACTIVE` | `1` | `true` | `true` | `d767b635877e62ae03b537b33ef8c71ace78bb81c9d27b2835bbf31b553b261a` |
+| `invoice-payment-verify` | `ACTIVE` | `1` | `true` | `true` | `2ec91cac9625a7eaa0852285ef580fa79eb88e01da3d59a0d5bd8575123211c5` |
+| `invoice-payment-webhook` | `ACTIVE` | `1` | `false` | `true` | `e2fded3afdba88e39664692e725e498c5a8231b4b0faaa4c21e5b53731967232` |
 
 **Do not re-deploy deployed functions without explicit approval.** Compare hashes
 with `supabase functions list` before considering any future change. Other
@@ -634,6 +638,44 @@ RPCs (from `0024`, applied 2026-11-22), 1 calendar connection table and 2
 `calendar_*` RPCs (from `0025`, applied 2026-11-22), plus Phase 2 sync mapping/RPC groundwork (from `0026`, applied 2026-11-23; `calendar-sync-appointment` deployed; `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REDIRECT_URI` are now set server-side by the user, and the callback smoke check moved from `not_configured` to `missing_params`),
 4 workflow/review tables (`workflows`, `workflow_runs`, `workflow_run_steps`, `review_requests`) and 4 `workflows_*` RPCs plus review token/runner/approval RPCs (from `0027`-`0030`,`0032`, applied 2026-11-22/23; runner creates pending-approval records only; approval-gated WhatsApp send function deployed but no auto-send/dispatch/scheduler), and 1 `integration_secrets` vault table + 2 `integrations_*` RPCs (from `0033`, applied 2026-11-23; ciphertext only, `integrations-vault-save` deployed), and 1 `crm_delete_deal` RPC (from `0034`, applied 2026-11-23),
 and 4 `tasks_*` RPCs (from `0022`, applied 2026-11-23), plus 2 billing tables and 8 `billing_*` RPCs (from `0037`, applied 2026-11-23; entitlements advisory only, no keys set, three functions deployed but inert), 0038 admin billing gating (six RPCs, default enforcement off), 0039 review-request approval audit, and 0040 local workflow runners (four functions, two triggers, dedupe index), and 0041 public-rating internal follow-up (task/notice/audit only, no external send), and 0042 provider connection runtime (status/audit/OAuth state; no deployed function uses it yet). Phase 3/4 DB/RPCs are applied; `sales-email-draft` remains undeployed and no provider is configured, so nothing sends.
+
+## Tenant-owned Razorpay invoice collection (APPLIED 2026-11-24)
+
+Implemented per the owner's choice of tenant-owned keys, then promoted to hosted
+with explicit approval for the migration, function deployments and redeploy.
+**No Razorpay keys, webhook, secrets or live/test payment have been configured
+or performed.** The feature fails closed until the tenant saves its keys.
+
+- `0048_payments_razorpay_invoice_collection.sql` was applied through
+  `supabase db query --remote --file ... --yes`. Post-apply read-only checks
+  confirmed: `invoice_payment_orders` and `invoice_payment_webhook_events`
+  exist with RLS on and no `anon`/`authenticated` table grants; five
+  `payments_service_*` RPCs exist; `payments_gateway_status` is executable by
+  `authenticated` but not `anon`; `payments_service_record_online_payment` is
+  executable only by `service_role`; and both `integration_secrets.provider`
+  and `invoice_payments.method` now include `razorpay` (old constraints were
+  replaced, not stacked). Existing invoice/payment counts were unchanged.
+- Deployed with `--import-map supabase/functions/import_map.json`:
+  `invoice-payment-create` v1 (`verify_jwt=true`, hash
+  `d767b635877e62ae03b537b33ef8c71ace78bb81c9d27b2835bbf31b553b261a`),
+  `invoice-payment-verify` v1 (`verify_jwt=true`, hash
+  `2ec91cac9625a7eaa0852285ef580fa79eb88e01da3d59a0d5bd8575123211c5`),
+  `invoice-payment-webhook` v1 (`--no-verify-jwt`, hash
+  `e2fded3afdba88e39664692e725e498c5a8231b4b0faaa4c21e5b53731967232`), and a
+  redeploy of `integrations-vault-save` v28 (`verify_jwt=true`, hash
+  `39f4c1563f6fdc9e903bc3b37571136cc7204480a8b281a2738a3f5bd5b273b4`) for the
+  `razorpay` provider enum.
+- Unauthenticated smoke probes: create/verify return `401` with no bearer
+  token, webhook POST with no signature returns `401 invalid_signature`, and
+  webhook GET returns `405`. No order, payment, provider call or secret was
+  involved.
+- Remaining owner-side steps (not performed here): save the three tenant keys
+  through Payments → Connect Razorpay, configure a Razorpay webhook to
+  `https://grkzontnyjnhijmphypo.supabase.co/functions/v1/invoice-payment-webhook`
+  for `payment.captured`, `payment.failed` and `order.paid`, then run a test-mode
+  payment. Raw keys must never be pasted into chat or committed.
+- Refunds/partial captures/disputes are still intentionally ignored and only
+  recorded in the webhook ledger.
 
 ## Read-only verification commands
 

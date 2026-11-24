@@ -404,7 +404,7 @@ export async function enqueueFollowUp(input: {
 
 const integrationSecretMetaSchema = z.object({
   id: z.string().uuid(),
-  provider: z.enum(['openai', 'whatsapp', 'resend', 'exotel', 'netlify', 'vercel', 'other']),
+  provider: z.enum(['openai', 'whatsapp', 'resend', 'exotel', 'netlify', 'vercel', 'razorpay', 'other']),
   secret_name: z.string().regex(/^[A-Z][A-Z0-9_]{2,199}$/),
   status: z.enum(['connected', 'disconnected', 'error']),
   last_verified_at: z.string().nullable(),

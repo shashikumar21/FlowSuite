@@ -42,3 +42,50 @@ export async function getVaultSecret(
   if (!data || data.status !== 'connected' || !data.ciphertext || !data.iv) return null
   return decryptVaultSecret(data.ciphertext, data.iv, encKey)
 }
+
+export type VaultSecretGroup = {
+  tenantId: string
+  values: Record<string, string>
+}
+
+/**
+ * Decrypts all connected secrets for one provider, grouped by tenant. Omitting
+ * tenantId is only safe in a signature-verified webhook: it is used to find the
+ * tenant whose webhook secret matches an incoming provider signature. Rows that
+ * cannot be decrypted are skipped; secret values are never logged.
+ */
+export async function listVaultSecrets(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  provider: string,
+  encKey: string,
+  tenantId?: string,
+): Promise<VaultSecretGroup[]> {
+  const admin = createServiceClient(supabaseUrl, serviceRoleKey)
+  let query = admin
+    .from('integration_secrets')
+    .select('tenant_id, secret_name, ciphertext, iv, status')
+    .eq('provider', provider)
+    .eq('status', 'connected')
+  if (tenantId) query = query.eq('tenant_id', tenantId)
+
+  const { data, error } = await query
+  if (error) throw error
+
+  type Row = { tenant_id: string; secret_name: string; ciphertext: string; iv: string };
+  const groups = new Map<string, Record<string, string>>()
+  for (const row of (data ?? []) as Row[]) {
+    if (!row.ciphertext || !row.iv || !row.secret_name) continue
+    let value: string
+    try {
+      value = await decryptVaultSecret(row.ciphertext, row.iv, encKey)
+    } catch {
+      continue
+    }
+    if (!value) continue
+    const values = groups.get(row.tenant_id) ?? {}
+    values[row.secret_name] = value
+    groups.set(row.tenant_id, values)
+  }
+  return Array.from(groups, ([groupTenantId, values]) => ({ tenantId: groupTenantId, values }))
+}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Eye, IndianRupee, Plus, Printer, Receipt, ShieldAlert, Trash2 } from 'lucide-react'
+import { CreditCard, Eye, IndianRupee, Plus, Printer, Receipt, ShieldAlert, Trash2 } from 'lucide-react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTenant } from '@/app/providers/TenantProvider'
@@ -12,7 +12,10 @@ import { FieldError, Input, Label, Select, Textarea } from '@/components/ui/Inpu
 import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { useInvoiceContacts, useInvoicePayments, useInvoices, usePaymentMutations } from '../hooks'
+import { loadRazorpayCheckout, openRazorpayCheckout } from '@/modules/billing/checkout'
+import { verifyInvoicePayment } from '../gatewayApi'
+import { razorpayCredentialSchema, type CreateInvoicePaymentResult, type RazorpayCredentials } from '../gateway'
+import { useGatewayStatus, useInvoiceContacts, useInvoicePayments, useInvoices, usePaymentMutations } from '../hooks'
 import { computeTotals, invoiceFormSchema, invoicePaymentMethods, paymentFormSchema, type InvoiceFormValues, type PaymentFormValues } from '../schemas'
 import type { InvoiceRow } from '../types'
 
@@ -34,8 +37,11 @@ export function PaymentsPage() {
   const payments = useInvoicePayments(tenantId)
   const contacts = useInvoiceContacts(tenantId)
   const mutations = usePaymentMutations(tenantId)
+  const gateway = useGatewayStatus(tenantId)
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const [gatewayOpen, setGatewayOpen] = useState(false)
+  const [busyInvoiceId, setBusyInvoiceId] = useState<string | null>(null)
   const [editing, setEditing] = useState<InvoiceRow | null>(null)
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceRow | null>(null)
   const [previewInvoice, setPreviewInvoice] = useState<InvoiceRow | null>(null)
@@ -54,6 +60,11 @@ export function PaymentsPage() {
   const paymentForm = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema) as any,
     defaultValues: { amount: 0, method: 'upi', reference: '', paid_at: '', notes: '' },
+  })
+
+  const gatewayForm = useForm<RazorpayCredentials>({
+    resolver: zodResolver(razorpayCredentialSchema) as any,
+    defaultValues: { keyId: '', keySecret: '', webhookSecret: '' },
   })
 
   const openCreate = () => {
@@ -97,6 +108,64 @@ export function PaymentsPage() {
     } catch (e) { paymentForm.setError('root', { message: getErrorMessage(e) }) }
   })
 
+  const confirmOnlinePayment = async (order: CreateInvoicePaymentResult, response: { razorpay_payment_id?: string; razorpay_order_id?: string; razorpay_signature?: string }) => {
+    const paymentId = response.razorpay_payment_id
+    const signature = response.razorpay_signature
+    if (!paymentId || !signature) {
+      toast({ title: 'Payment details incomplete', description: 'Contact support with your payment reference.', variant: 'error' })
+      return
+    }
+    try {
+      await verifyInvoicePayment({
+        tenantId: tenantId!,
+        orderId: response.razorpay_order_id || order.order_id,
+        paymentId,
+        signature,
+      })
+      toast({ title: 'Payment received', description: 'The invoice has been updated.' })
+      void invoices.refetch()
+      void payments.refetch()
+    } catch (e) {
+      toast({ title: 'Payment received, confirmation pending', description: getErrorMessage(e), variant: 'error' })
+    }
+  }
+
+  const startOnlinePayment = async (inv: InvoiceRow) => {
+    if (!tenantId) return
+    setBusyInvoiceId(inv.id)
+    try {
+      const order = await mutations.createInvoicePayment.mutateAsync(inv.id)
+      const loaded = await loadRazorpayCheckout()
+      if (!loaded) throw new Error('Could not load Razorpay Checkout. Check your connection and try again.')
+      const opened = openRazorpayCheckout({
+        keyId: order.key_id,
+        amountPaise: order.amount_paise,
+        currency: order.currency,
+        orderId: order.order_id,
+        name: activeTenant?.businesses?.name ?? 'FlowSuite',
+        description: `${inv.invoice_number} · online payment`,
+        handler: (response) => { void confirmOnlinePayment(order, response) },
+        onDismiss: () => toast({ title: 'Checkout closed', description: 'No payment was completed.', variant: 'info' }),
+      })
+      if (!opened) throw new Error('Razorpay Checkout could not be opened.')
+    } catch (e) {
+      toast({ title: 'Could not start online payment', description: getErrorMessage(e), variant: 'error' })
+    } finally {
+      setBusyInvoiceId(null)
+    }
+  }
+
+  const submitGateway = gatewayForm.handleSubmit(async (values) => {
+    if (!tenantId) return
+    try {
+      await mutations.saveRazorpayCredentials.mutateAsync(values)
+      gatewayForm.reset({ keyId: '', keySecret: '', webhookSecret: '' })
+      void gateway.refetch()
+      toast({ title: 'Razorpay connected', description: 'Keys are encrypted and stored for this business only.' })
+      setGatewayOpen(false)
+    } catch (e) { gatewayForm.setError('root', { message: getErrorMessage(e) }) }
+  })
+
   const contactName = (id: string | null) => contacts.data?.find(c => c.id === id)?.full_name ?? '—'
   const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c))
   const printInvoice = (inv: InvoiceRow, template: 'classic' | 'modern' | 'minimal' = invoiceTemplate) => {
@@ -132,20 +201,35 @@ export function PaymentsPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-brand-600">Operations</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">Payments</h1>
-          <p className="mt-1 text-sm text-ink-500">Manual invoice shell. Create invoices and record payments. No payment provider connected.</p>
+          <p className="mt-1 text-sm text-ink-500">Create invoices, record payments manually, or collect online with this business's own Razorpay account.</p>
         </div>
-        <Button onClick={openCreate}><Plus className="size-4" /> Create invoice</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { gatewayForm.reset(); setGatewayOpen(true) }}><CreditCard className="size-4" /> Connect Razorpay</Button>
+          <Button onClick={openCreate}><Plus className="size-4" /> Create invoice</Button>
+        </div>
       </div>
 
-      <Card className="border-amber-200 bg-amber-50/60">
-        <CardContent className="flex items-start gap-3 py-4">
-          <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
-          <div className="text-sm text-amber-900">
-            <p className="font-semibold">Manual mode - no provider connected</p>
-            <p className="mt-1 text-amber-800">Invoices and manual payment records are stored in FlowSuite. Online collection (Razorpay/payment links/UPI gateway/webhooks) is not connected yet.</p>
-          </div>
-        </CardContent>
-      </Card>
+      {gateway.data?.configured ? (
+        <Card className="border-emerald-200 bg-emerald-50/60">
+          <CardContent className="flex items-start gap-3 py-4">
+            <CreditCard className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+            <div className="text-sm text-emerald-900">
+              <p className="font-semibold">Razorpay connected for this business</p>
+              <p className="mt-1 text-emerald-800">Invoices with a balance can be collected online. Payments are confirmed by a verified signature or signed webhook before the invoice is updated.</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-amber-200 bg-amber-50/60">
+          <CardContent className="flex items-start gap-3 py-4">
+            <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600" />
+            <div className="text-sm text-amber-900">
+              <p className="font-semibold">Manual mode - online collection not ready</p>
+              <p className="mt-1 text-amber-800">Add this business's Razorpay Key ID, Key secret and webhook secret to enable online invoice payment. Keys stay encrypted on the server; manual invoices work without them.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {anyLoading ? <div className="space-y-3">{[0,1,2].map(i => <Skeleton key={i} className="h-20" />)}</div>
         : anyError ? <ErrorState message="Couldn't load payments. If 0024 is not applied on hosted, this is expected." onRetry={() => { void invoices.refetch(); void payments.refetch() }} />
@@ -170,7 +254,7 @@ export function PaymentsPage() {
                       <td className="py-2 pr-3">{inr.format(Number(inv.total_amount))}</td>
                       <td className="py-2 pr-3">{inr.format(Number(inv.amount_paid))}</td>
                       <td className="py-2 pr-3 text-xs text-ink-500">{inv.due_date ? formatDate(inv.due_date) : '—'}</td>
-                      <td className="py-2 pr-3"><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setPreviewInvoice(inv)}><Eye className="size-4" /> View</Button>{inv.status !== 'void' && due > 0 ? <Button size="sm" variant="outline" onClick={() => openPayment(inv)}>Record payment</Button> : null}<Button size="sm" variant="ghost" loading={mutations.deleteInvoice.isPending} onClick={() => { if (confirm('Delete this invoice?')) mutations.deleteInvoice.mutate(inv.id) }}><Trash2 className="size-4" /></Button></div></td>
+                      <td className="py-2 pr-3"><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setPreviewInvoice(inv)}><Eye className="size-4" /> View</Button>{inv.status !== 'void' && due > 0 ? <Button size="sm" variant="outline" onClick={() => openPayment(inv)}>Record payment</Button> : null}{inv.status !== 'void' && due > 0 && gateway.data?.configured ? <Button size="sm" variant="outline" loading={busyInvoiceId === inv.id} disabled={Boolean(busyInvoiceId)} onClick={() => void startOnlinePayment(inv)}><CreditCard className="size-4" /> Pay online</Button> : null}<Button size="sm" variant="ghost" loading={mutations.deleteInvoice.isPending} onClick={() => { if (confirm('Delete this invoice?')) mutations.deleteInvoice.mutate(inv.id) }}><Trash2 className="size-4" /></Button></div></td>
                     </tr>
                   })}
                 </tbody></table></div>}
@@ -255,6 +339,32 @@ export function PaymentsPage() {
             <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setPreviewInvoice(null)}>Close</Button><Button onClick={() => printInvoice(inv, invoiceTemplate)}><Printer className="size-4" /> Print / Save PDF</Button></div>
           </div>
         })() : null}
+      </Modal>
+
+      <Modal open={gatewayOpen} onClose={() => setGatewayOpen(false)} title="Connect Razorpay" description="Use this business's own Razorpay account for invoice collection.">
+        <form onSubmit={submitGateway} className="space-y-4" noValidate>
+          {gatewayForm.formState.errors.root?.message ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{gatewayForm.formState.errors.root.message}</p> : null}
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <p className="font-semibold">Server-side only</p>
+            <p className="mt-1">Keys are encrypted before storage and never shown again. Configure a Razorpay webhook pointing to <code className="rounded bg-amber-100 px-1">/functions/v1/invoice-payment-webhook</code> using the webhook secret entered here. Manual settlement mode is not enabled by this integration.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rzp-key-id">Key ID {gateway.data?.keys_configured ? '(saved)' : ''}</Label>
+            <Input id="rzp-key-id" type="password" autoComplete="off" {...gatewayForm.register('keyId')} />
+            <FieldError>{gatewayForm.formState.errors.keyId?.message}</FieldError>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rzp-key-secret">Key secret {gateway.data?.keys_configured ? '(saved)' : ''}</Label>
+            <Input id="rzp-key-secret" type="password" autoComplete="off" {...gatewayForm.register('keySecret')} />
+            <FieldError>{gatewayForm.formState.errors.keySecret?.message}</FieldError>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rzp-webhook-secret">Webhook secret {gateway.data?.webhook_configured ? '(saved)' : ''}</Label>
+            <Input id="rzp-webhook-secret" type="password" autoComplete="off" {...gatewayForm.register('webhookSecret')} />
+            <FieldError>{gatewayForm.formState.errors.webhookSecret?.message}</FieldError>
+          </div>
+          <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setGatewayOpen(false)}>Cancel</Button><Button type="submit" loading={gatewayForm.formState.isSubmitting || mutations.saveRazorpayCredentials.isPending}>Save securely</Button></div>
+        </form>
       </Modal>
     </div>
   )

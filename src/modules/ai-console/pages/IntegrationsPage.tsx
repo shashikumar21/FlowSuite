@@ -95,7 +95,7 @@ export function IntegrationsPage() {
 
   const onVaultProviderChange = (provider: string) => {
     setVaultProvider(provider)
-    const defaults: Record<string, string> = { netlify: 'NETLIFY_DEPLOY_TOKEN', vercel: 'VERCEL_DEPLOY_TOKEN', openai: 'OPENAI_API_KEY', whatsapp: 'WHATSAPP_ACCESS_TOKEN', resend: 'EMAIL_PROVIDER_API_KEY', exotel: 'VOICE_WEBHOOK_SECRET' }
+    const defaults: Record<string, string> = { netlify: 'NETLIFY_DEPLOY_TOKEN', vercel: 'VERCEL_DEPLOY_TOKEN', openai: 'OPENAI_API_KEY', whatsapp: 'WHATSAPP_ACCESS_TOKEN', resend: 'EMAIL_PROVIDER_API_KEY', exotel: 'VOICE_WEBHOOK_SECRET', razorpay: 'RAZORPAY_KEY_ID' }
     setVaultSecretName(defaults[provider] ?? '')
   }
 
@@ -399,6 +399,7 @@ export function IntegrationsPage() {
               <option value="whatsapp">WhatsApp</option>
               <option value="resend">Resend</option>
               <option value="exotel">Exotel</option>
+              <option value="razorpay">Razorpay (invoice collection)</option>
               <option value="other">Other</option>
             </select>
           </label>

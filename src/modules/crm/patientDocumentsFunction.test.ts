@@ -18,7 +18,8 @@ describe('patient-documents signer function contract', () => {
     expect(functionSource).toContain("admin.rpc('can_manage_patient_document_for_user'")
     expect(functionSource).toContain('p_tenant: body.tenant_id')
     expect(functionSource).toContain('p_contact: body.contact_id')
-    expect(functionSource).toContain('p_user: userData.user.id')
+    expect(functionSource).toContain('const userId = userData.user.id;')
+    expect(functionSource).toContain('p_user: userId')
     expect(functionSource).toContain("if (allowed !== true) return errorResponse(403, 'forbidden')")
   })
 

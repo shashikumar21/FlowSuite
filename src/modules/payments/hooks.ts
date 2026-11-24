@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createInvoice, deleteInvoice, fetchInvoiceContacts, fetchInvoicePayments, fetchInvoices, recordInvoicePayment, updateInvoice } from './api'
+import { createInvoicePayment, fetchGatewayStatus, saveRazorpayCredentials, verifyInvoicePayment } from './gatewayApi'
+import type { RazorpayCredentials } from './gateway'
 import type { InvoiceFormValues, PaymentFormValues } from './schemas'
 
 export const paymentKeys = {
@@ -7,6 +9,7 @@ export const paymentKeys = {
   invoices: (tenantId: string) => [...paymentKeys.all(tenantId), 'invoices'] as const,
   payments: (tenantId: string) => [...paymentKeys.all(tenantId), 'invoice-payments'] as const,
   contacts: (tenantId: string) => [...paymentKeys.all(tenantId), 'contacts'] as const,
+  gateway: (tenantId: string) => [...paymentKeys.all(tenantId), 'gateway'] as const,
 }
 
 export function useInvoices(tenantId: string | undefined) {
@@ -19,6 +22,14 @@ export function useInvoiceContacts(tenantId: string | undefined) {
   return useQuery({ queryKey: paymentKeys.contacts(tenantId ?? ''), enabled: Boolean(tenantId), queryFn: () => fetchInvoiceContacts(tenantId!) })
 }
 
+export function useGatewayStatus(tenantId: string | undefined) {
+  return useQuery({
+    queryKey: paymentKeys.gateway(tenantId ?? ''),
+    enabled: Boolean(tenantId),
+    queryFn: () => fetchGatewayStatus(tenantId!),
+  })
+}
+
 export function usePaymentMutations(tenantId: string | undefined) {
   const qc = useQueryClient()
   const invalidate = () => { if (tenantId) void qc.invalidateQueries({ queryKey: paymentKeys.all(tenantId) }) }
@@ -27,5 +38,17 @@ export function usePaymentMutations(tenantId: string | undefined) {
     updateInvoice: useMutation({ mutationFn: ({ id, values }: { id: string; values: InvoiceFormValues }) => updateInvoice(tenantId!, id, values), onSuccess: invalidate }),
     recordPayment: useMutation({ mutationFn: ({ invoiceId, values }: { invoiceId: string; values: PaymentFormValues }) => recordInvoicePayment(tenantId!, invoiceId, values), onSuccess: invalidate }),
     deleteInvoice: useMutation({ mutationFn: (id: string) => deleteInvoice(tenantId!, id), onSuccess: invalidate }),
+    createInvoicePayment: useMutation({
+      mutationFn: (invoiceId: string) => createInvoicePayment({ tenantId: tenantId!, invoiceId }),
+    }),
+    verifyInvoicePayment: useMutation({
+      mutationFn: (input: { orderId: string; paymentId: string; signature: string }) =>
+        verifyInvoicePayment({ tenantId: tenantId!, ...input }),
+      onSuccess: invalidate,
+    }),
+    saveRazorpayCredentials: useMutation({
+      mutationFn: (values: RazorpayCredentials) => saveRazorpayCredentials({ tenantId: tenantId!, ...values }),
+      onSuccess: () => { if (tenantId) void qc.invalidateQueries({ queryKey: paymentKeys.gateway(tenantId) }) },
+    }),
   }
 }
