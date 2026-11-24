@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { requireSupabase } from '@/integrations/supabase/client'
+import { PLATFORM_ADMIN_ROLES } from '@/app/providers/platformAdmin'
 import type { ProfileRow } from '@/types/database'
 
 type AuthContextValue = {
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = requireSupabase()
     const [profileResult, adminResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-      supabase.rpc('is_platform_admin', { allowed_roles: ['super_admin', 'support'] }),
+      supabase.rpc('is_platform_admin', { allowed_roles: [...PLATFORM_ADMIN_ROLES] }),
     ])
     setProfile(profileResult.data ?? null)
     setIsPlatformAdmin(adminResult.data === true)
