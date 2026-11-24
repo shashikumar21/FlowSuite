@@ -97,6 +97,17 @@ phone-number-quality fields. Inbound processing still needs an active
 `channel_credentials` row mapping the Meta Phone Number ID to a tenant; a POST
 with a bad signature correctly returns `401`. No real message has been sent.
 
+On 2026-11-24, with explicit user approval, a safe demo-only mapping was added:
+demo tenant `09902c67-e585-427c-98be-df91c211e864`, channel
+`a9715b1f-ecaf-4bab-8601-4a5db0f171b4`, Meta test Phone Number ID
+`1384108791460221`, `secret_ref = WHATSAPP_ACCESS_TOKEN_DEMO`, active status.
+An active demo agent named `Demo WhatsApp Webhook Agent` was also created for
+that tenant. Two metadata-only `audit_logs` rows recorded the changes. The
+matching Edge Function secret `WHATSAPP_ACCESS_TOKEN_DEMO` was set directly by
+the owner in the hosted dashboard; its value is never displayed or recorded
+here. This is test-number-only: no patient data and no real message has been
+sent.
+
 ## Server-side secrets (names only — never values)
 
 - `AI_PROVIDER=openai` (selects the OpenAI-compatible adapter)
@@ -122,6 +133,9 @@ with a bad signature correctly returns `401`. No real message has been sent.
 - `WHATSAPP_APP_SECRET` — **set on hosted 2026-11-24** by the owner directly in
   the Supabase dashboard. Used to verify `x-hub-signature-256` on inbound
   webhook POSTs; value is never displayed or recorded here.
+- `WHATSAPP_ACCESS_TOKEN_DEMO` — **set on hosted 2026-11-24** by the owner
+  directly in the Supabase dashboard. Used only by the test-number webhook
+  mapping; value is never displayed or recorded here.
 - Tenant vault secret names (stored encrypted in `integration_secrets`, provider
   `whatsapp`, never in client code/chat): `WHATSAPP_ACCESS_TOKEN`,
   `WHATSAPP_PHONE_NUMBER_ID`.
