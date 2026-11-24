@@ -9,10 +9,17 @@ export const leadStatuses = ['new', 'contacted', 'qualified', 'unqualified', 'co
 export const contactStatuses = ['lead', 'customer', 'inactive'] as const
 export const activityKinds = ['note', 'call', 'email', 'meeting', 'task'] as const
 
-export const contactSchema = z.object({
+const optionalEmail = z.union([z.string().trim().email('Enter a valid email address'), z.literal('')])
+const optionalMobile = z
+  .string()
+  .trim()
+  .max(30)
+  .regex(/^[+\d\s()-]*$/, 'Use digits, spaces, +, - or parentheses only')
+
+const contactBaseSchema = z.object({
   first_name: z.string().trim().min(1, 'First name is required').max(100),
   last_name: z.string().trim().max(100),
-  email: z.union([z.string().trim().email('Enter a valid email address'), z.literal('')]),
+  email: optionalEmail,
   phone: z.string().trim().max(30),
   company: z.string().trim().max(150),
   source_id: z.string(),
@@ -23,7 +30,7 @@ export const contactSchema = z.object({
   follow_up_at: z.string(),
   clinic: z.string().trim().max(200),
   area: z.string().trim().max(200),
-  mobile: z.string().trim().max(30).regex(/^[+\d\s()-]*$/, 'Use digits, spaces, +, - or parentheses only'),
+  mobile: optionalMobile,
   rating: z
     .string()
     .trim()
@@ -34,7 +41,42 @@ export const contactSchema = z.object({
   sent: z.boolean(),
   reply_1: z.string().trim().max(4000),
 })
+
+/** Generic schema retained for non-form callers and baseline validation tests. */
+export const contactSchema = contactBaseSchema
 export type ContactFormValues = z.infer<typeof contactSchema>
+
+/**
+ * Industry-specific requirements for the Contacts & leads form. The hosted
+ * RPCs remain authoritative for tenant isolation; this controls what the local
+ * form and import preview ask for:
+ * - clinics: first name + mobile + area
+ * - other businesses: first name + company + at least one of email/phone
+ */
+export function makeContactSchema({ isClinic = false }: { isClinic?: boolean } = {}) {
+  if (isClinic) {
+    return contactBaseSchema.extend({
+      mobile: z
+        .string()
+        .trim()
+        .min(1, 'Mobile is required')
+        .max(30)
+        .regex(/^[+\d\s()-]*$/, 'Use digits, spaces, +, - or parentheses only'),
+      area: z.string().trim().min(1, 'Area is required').max(200),
+    })
+  }
+
+  return contactBaseSchema
+    .extend({
+      company: z.string().trim().min(1, 'Company is required').max(150),
+    })
+    .superRefine((values, context) => {
+      if (!values.email && !values.phone) {
+        context.addIssue({ code: 'custom', path: ['email'], message: 'Email or phone is required' })
+        context.addIssue({ code: 'custom', path: ['phone'], message: 'Email or phone is required' })
+      }
+    })
+}
 
 export const dealSchema = z.object({
   title: z.string().trim().min(1, 'Deal title is required').max(160),

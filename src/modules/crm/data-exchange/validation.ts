@@ -142,7 +142,9 @@ export function validateImportRow(
   row: ImportRow,
   customFields: CustomFieldRow[],
   kind: ImportKind,
+  rules: { isClinic?: boolean } = {},
 ): string[] {
+  const isClinic = rules.isClinic ?? false
   const errors: string[] = []
   if (!row.first_name) errors.push('First name is required')
   if (row.first_name.length > 100) errors.push('First name is too long')
@@ -163,6 +165,15 @@ export function validateImportRow(
   const mobile = normalizeMobile(row.mobile)
   row.mobile = mobile
   if (mobile && !CANONICAL_MOBILE_RE.test(mobile)) errors.push('Invalid mobile number')
+
+  // Industry-specific required fields mirror the Contacts & leads form.
+  if (isClinic) {
+    if (!mobile) errors.push('Mobile is required')
+    if (!row.area) errors.push('Area is required')
+  } else {
+    if (!row.company) errors.push('Company is required')
+    if (!email && !phone) errors.push('Email or phone is required')
+  }
 
   if (row.rating && !isValidRating(row.rating)) errors.push('Invalid rating')
   if (row.reviews && !isValidReviews(row.reviews)) errors.push('Invalid reviews')

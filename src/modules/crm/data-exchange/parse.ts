@@ -66,7 +66,12 @@ export async function parseWorkbook(file: File): Promise<ParsedWorkbook> {
 }
 
 /** A downloadable .xlsx template with example rows and a field guide. */
-export async function downloadSampleTemplate(customFields: CustomFieldRow[]): Promise<void> {
+export async function downloadSampleTemplate(
+  customFields: CustomFieldRow[],
+  rules: { isClinic?: boolean } = {},
+): Promise<void> {
+  const isClinic = rules.isClinic ?? false
+  const contactMethodRequired = isClinic ? 'No' : 'One of email/phone'
   const { utils, writeFileXLSX } = await import('./sheet')
   const workbook = utils.book_new()
   const fields = customFields
@@ -126,9 +131,9 @@ export async function downloadSampleTemplate(customFields: CustomFieldRow[]): Pr
     ['Column', 'CRM field', 'Required', 'Notes'],
     ['First name', 'first_name', 'Yes', `Maximum ${MAX_CELL_LENGTH} characters.`],
     ['Last name', 'last_name', 'No', 'Optional.'],
-    ['Email', 'email', 'No', 'Must be a valid email address.'],
-    ['Phone', 'phone', 'No', '7-15 digits. +91 and leading zeroes are accepted.'],
-    ['Company', 'company', 'No', 'Optional.'],
+    ['Email', 'email', contactMethodRequired, 'Must be a valid email address. Required when phone is blank for non-clinics.'],
+    ['Phone', 'phone', contactMethodRequired, '7-15 digits. +91 and leading zeroes are accepted. Required when email is blank for non-clinics.'],
+    ['Company', 'company', isClinic ? 'No' : 'Yes', isClinic ? 'Not used for clinics.' : 'Required for non-clinic businesses.'],
     ['Status', 'status', 'No', 'lead, customer or inactive. Defaults to lead.'],
     ['Lead status', 'lead_status', 'No', 'new, contacted, qualified, unqualified or converted.'],
     ['Source', 'source_id', 'No', 'Exact name of an active lead source, or its id.'],
@@ -136,8 +141,8 @@ export async function downloadSampleTemplate(customFields: CustomFieldRow[]): Pr
     ['Tags', 'tag_ids', 'No', 'Comma-separated names of existing tags.'],
     ['Notes', 'notes', 'No', 'Optional free text.'],
     ['Clinic', 'clinic', 'No', `Optional. Maximum ${MAX_CLINIC_LENGTH} characters.`],
-    ['Area', 'area', 'No', `Optional. Maximum ${MAX_AREA_LENGTH} characters.`],
-    ['Mobile (+91)', 'mobile', 'No', 'Indian mobile in +91 format, e.g. +919876543210. A 10-digit number gets +91 added.'],
+    ['Area', 'area', isClinic ? 'Yes' : 'No', `${isClinic ? 'Required' : 'Optional'}. Maximum ${MAX_AREA_LENGTH} characters.`],
+    ['Mobile (+91)', 'mobile', isClinic ? 'Yes' : 'No', `Indian mobile in +91 format, e.g. +919876543210. A 10-digit number gets +91 added. ${isClinic ? 'Required for clinics.' : 'Optional.'}`],
     ['Rating', 'rating', 'No', 'Decimal from 0 to 5 with at most one decimal place.'],
     ['Reviews', 'reviews', 'No', 'Non-negative whole number.'],
     ['Why included', 'why_included', 'No', `Optional. Maximum ${MAX_WHY_INCLUDED_LENGTH} characters.`],

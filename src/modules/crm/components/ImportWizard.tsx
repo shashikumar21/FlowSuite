@@ -51,12 +51,14 @@ export function ImportWizard({
   onClose,
   tenantId,
   kind,
+  isClinic = false,
   onComplete,
 }: {
   open: boolean
   onClose: () => void
   tenantId: string
   kind: ImportKind
+  isClinic?: boolean
   onComplete: () => void
 }) {
   const { toast } = useToast()
@@ -89,10 +91,10 @@ export function ImportWizard({
     return rows.map((values) => ({
       rowNumber: values.rowNumber,
       values,
-      errors: validateImportRow(values, options.customFields, kind),
+      errors: validateImportRow(values, options.customFields, kind, { isClinic }),
       duplicate: null,
     }))
-  }, [sheet, options, mapping, kind])
+  }, [sheet, options, mapping, kind, isClinic])
 
   const validRows = validations.filter((row) => row.errors.length === 0)
   const invalidRows = validations.filter((row) => row.errors.length > 0)
@@ -285,7 +287,7 @@ export function ImportWizard({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => { void downloadSampleTemplate(options?.customFields ?? []) }}
+                onClick={() => { void downloadSampleTemplate(options?.customFields ?? [], { isClinic }) }}
               >
                 <Download className="size-4" /> Download sample Excel template
               </Button>

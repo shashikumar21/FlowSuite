@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activitySchema, contactSchema, dealSchema, stageSchema } from './schemas'
+import { activitySchema, contactSchema, dealSchema, makeContactSchema, stageSchema } from './schemas'
 
 const validContact = {
   first_name: 'Asha',
@@ -91,5 +91,31 @@ describe('CRM form schemas', () => {
   it('keeps stage probability within 0-100 and enforces closed/won flags', () => {
     expect(stageSchema.parse({ name: 'Won', probability: '100', is_closed: true, is_won: true, color: '' }).probability).toBe(100)
     expect(stageSchema.safeParse({ name: 'Bad', probability: '101', is_closed: false, is_won: false, color: '' }).success).toBe(false)
+  })
+})
+
+describe('industry-specific contact requirements', () => {
+  it('requires mobile and area for clinics but not company or contact method', () => {
+    const clinicSchema = makeContactSchema({ isClinic: true })
+    const base = {
+      ...validContact,
+      company: '',
+      email: '',
+      phone: '',
+      mobile: '+919876543210',
+      area: 'Andheri West',
+    }
+    expect(clinicSchema.safeParse(base).success).toBe(true)
+    expect(clinicSchema.safeParse({ ...base, mobile: '' }).success).toBe(false)
+    expect(clinicSchema.safeParse({ ...base, area: '   ' }).success).toBe(false)
+  })
+
+  it('requires company and at least one of email or phone for other businesses', () => {
+    const businessSchema = makeContactSchema()
+    const base = { ...validContact, company: 'Acme Traders' }
+    expect(businessSchema.safeParse({ ...base, phone: '' }).success).toBe(true)
+    expect(businessSchema.safeParse({ ...base, email: '' }).success).toBe(true)
+    expect(businessSchema.safeParse({ ...base, email: '', phone: '' }).success).toBe(false)
+    expect(businessSchema.safeParse({ ...base, company: '' }).success).toBe(false)
   })
 })

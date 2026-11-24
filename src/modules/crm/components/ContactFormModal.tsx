@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useToast } from '@/app/providers/ToastProvider'
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { FieldError, Input, Label, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { getErrorMessage } from '@/lib/errors'
-import { contactSchema, contactStatuses, leadStatuses, type ContactFormValues } from '../schemas'
+import { contactStatuses, leadStatuses, makeContactSchema, type ContactFormValues } from '../schemas'
 import { createContact, updateContact, type MemberOption } from '../api'
 import type { ContactRow, LeadSourceRow } from '@/types/database'
 
@@ -15,6 +15,10 @@ function toDateTimeLocal(value: string | null): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
+function Required() {
+  return <span className="ml-0.5 text-red-500">*</span>
 }
 
 type Props = {
@@ -27,8 +31,8 @@ type Props = {
   canAssign: boolean
   contact: ContactRow | null
   onSaved: () => void
-  /** Dental clinics track patients/enquiries, not B2B companies. */
-  isDental?: boolean
+  /** Clinics track patients/enquiries and need different required fields. */
+  isClinic?: boolean
 }
 
 export function ContactFormModal({
@@ -41,11 +45,12 @@ export function ContactFormModal({
   canAssign,
   contact,
   onSaved,
-  isDental = false,
+  isClinic = false,
 }: Props) {
   const { toast } = useToast()
+  const schema = useMemo(() => makeContactSchema({ isClinic }), [isClinic])
   const form = useForm<ContactFormValues>({
-    resolver: zodResolver(contactSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       first_name: '',
       last_name: '',
@@ -154,7 +159,7 @@ export function ContactFormModal({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="contact-first">First name</Label>
+            <Label htmlFor="contact-first">First name<Required /></Label>
             <Input id="contact-first" autoFocus {...form.register('first_name')} />
             <FieldError>{form.formState.errors.first_name?.message}</FieldError>
           </div>
@@ -163,12 +168,12 @@ export function ContactFormModal({
             <Input id="contact-last" {...form.register('last_name')} />
             <FieldError>{form.formState.errors.last_name?.message}</FieldError>
           </div>
-          {isDental ? (
+          {isClinic ? (
             <>
               {/* Keep the existing value on edit even though Company is hidden. */}
               <input type="hidden" {...form.register('company')} />
               <div>
-                <Label htmlFor="contact-mobile">Mobile (+91)</Label>
+                <Label htmlFor="contact-mobile">Mobile (+91)<Required /></Label>
                 <Input id="contact-mobile" type="tel" placeholder="+919876543210" {...form.register('mobile')} />
                 <FieldError>{form.formState.errors.mobile?.message}</FieldError>
               </div>
@@ -183,7 +188,7 @@ export function ContactFormModal({
                 <FieldError>{form.formState.errors.clinic?.message}</FieldError>
               </div>
               <div>
-                <Label htmlFor="contact-area">Area</Label>
+                <Label htmlFor="contact-area">Area<Required /></Label>
                 <Input id="contact-area" placeholder="Locality or area" {...form.register('area')} />
                 <FieldError>{form.formState.errors.area?.message}</FieldError>
               </div>
@@ -204,10 +209,12 @@ export function ContactFormModal({
                 <Label htmlFor="contact-phone">Phone</Label>
                 <Input id="contact-phone" type="tel" {...form.register('phone')} />
                 <FieldError>{form.formState.errors.phone?.message}</FieldError>
+                <p className="mt-1 text-xs text-ink-500">At least one of email or phone is required.</p>
               </div>
               <div>
-                <Label htmlFor="contact-company">Company</Label>
+                <Label htmlFor="contact-company">Company<Required /></Label>
                 <Input id="contact-company" {...form.register('company')} />
+                <FieldError>{form.formState.errors.company?.message}</FieldError>
               </div>
             </>
           )}
@@ -261,9 +268,9 @@ export function ContactFormModal({
         </div>
 
         <div className="space-y-3 rounded-lg border border-ink-200 p-4">
-          <h4 className="text-sm font-semibold text-ink-900">{isDental ? 'Patient details' : 'Lead enrichment'}</h4>
+          <h4 className="text-sm font-semibold text-ink-900">{isClinic ? 'Patient details' : 'Lead enrichment'}</h4>
           <div className="grid gap-4 sm:grid-cols-2">
-            {!isDental ? (
+            {!isClinic ? (
               <>
                 <div>
                   <Label htmlFor="contact-clinic">Clinic</Label>

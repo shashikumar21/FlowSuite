@@ -18,7 +18,7 @@ import { ContactFormModal } from '../components/ContactFormModal'
 import { ContactDetailModal } from '../components/ContactDetailModal'
 import { DealFormModal } from '../components/DealFormModal'
 import { contactStatuses, leadStatuses } from '../schemas'
-import { isDentalIndustry } from '../niche'
+import { isClinicIndustry, isDentalIndustry } from '../niche'
 import { ImportWizard } from '../components/ImportWizard'
 import { exportRows, fetchImportOptions } from '../data-exchange/api'
 import { downloadCsv } from '../data-exchange/csv'
@@ -35,7 +35,9 @@ export function ContactsPage() {
   const { toast } = useToast()
   const tenantId = activeTenant?.tenant_id
   const currency = activeTenant?.businesses?.currency ?? 'INR'
-  const isDental = isDentalIndustry(activeTenant?.businesses?.industry)
+  const industry = activeTenant?.businesses?.industry
+  const isDental = isDentalIndustry(industry)
+  const isClinic = isClinicIndustry(industry)
   const invalidate = useCrmInvalidate(tenantId)
   const canManagePipeline = can('manage_pipeline')
   const canViewMedicalHistory = can('view_medical_history')
@@ -105,7 +107,7 @@ export function ContactsPage() {
     if (!tenantId) return
     try {
       const importOptions = await fetchImportOptions(tenantId)
-      await downloadSampleTemplate(importOptions.customFields)
+      await downloadSampleTemplate(importOptions.customFields, { isClinic })
     } catch (cause) {
       toast({
         title: 'Template unavailable',
@@ -431,7 +433,7 @@ export function ContactsPage() {
         canAssign={canManagePipeline}
         contact={editing}
         onSaved={invalidate}
-        isDental={isDental}
+        isClinic={isClinic}
       />
 
       <ContactDetailModal
@@ -468,6 +470,7 @@ export function ContactsPage() {
         onClose={() => setWizardKind(null)}
         tenantId={tenantId ?? ''}
         kind={wizardKind ?? 'contacts'}
+        isClinic={isClinic}
         onComplete={invalidate}
       />
     </div>

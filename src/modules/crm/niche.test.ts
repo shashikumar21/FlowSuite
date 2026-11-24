@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isDentalIndustry } from './niche'
+import { isClinicIndustry, isDentalIndustry } from './niche'
 
 describe('isDentalIndustry', () => {
   it('recognizes the seeded dental clinic slug', () => {
@@ -18,5 +18,20 @@ describe('isDentalIndustry', () => {
     expect(isDentalIndustry('')).toBe(false)
     expect(isDentalIndustry(null)).toBe(false)
     expect(isDentalIndustry(undefined)).toBe(false)
+  })
+})
+
+describe('isClinicIndustry', () => {
+  it('recognises dental and medical clinic slugs', () => {
+    expect(isClinicIndustry('dental-clinic')).toBe(true)
+    expect(isClinicIndustry('medical-clinic')).toBe(true)
+    expect(isClinicIndustry('  Medical Clinic ')).toBe(true)
+    expect(isClinicIndustry('HEALTHCARE')).toBe(true)
+  })
+
+  it('does not treat ordinary businesses as clinics', () => {
+    expect(isClinicIndustry('real-estate')).toBe(false)
+    expect(isClinicIndustry('general-business')).toBe(false)
+    expect(isClinicIndustry(null)).toBe(false)
   })
 })

@@ -143,6 +143,50 @@ describe('row validation', () => {
   })
 })
 
+describe('industry-specific import requirements', () => {
+  it('requires mobile and area for clinics', () => {
+    const clinicRow = row({
+      company: '',
+      email: '',
+      phone: '',
+      mobile: '9876543210',
+      area: 'Andheri West',
+    })
+    expect(validateImportRow(clinicRow, customFields, 'contacts', { isClinic: true })).toEqual([])
+
+    const errors = validateImportRow(
+      row({ company: '', email: '', phone: '', mobile: '', area: '' }),
+      customFields,
+      'contacts',
+      { isClinic: true },
+    )
+    expect(errors).toContain('Mobile is required')
+    expect(errors).toContain('Area is required')
+    expect(errors).not.toContain('Company is required')
+    expect(errors).not.toContain('Email or phone is required')
+  })
+
+  it('requires company and at least one contact method for other businesses', () => {
+    expect(
+      validateImportRow(
+        row({ company: 'Acme Traders', phone: '' }),
+        customFields,
+        'contacts',
+        { isClinic: false },
+      ),
+    ).toEqual([])
+
+    const errors = validateImportRow(
+      row({ company: '', email: '', phone: '' }),
+      customFields,
+      'contacts',
+      { isClinic: false },
+    )
+    expect(errors).toContain('Company is required')
+    expect(errors).toContain('Email or phone is required')
+  })
+})
+
 describe('lead enrichment validation', () => {
   it('bounds rating to 0-5 with at most one decimal place', () => {
     expect(isValidRating('4.5')).toBe(true)
