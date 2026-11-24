@@ -34,15 +34,28 @@ cross-tenant access returned HTTP 403, and 16 metadata-only audit rows were
 written across all controlled tests. Final hosted check: 0 objects in the
 bucket. The scanner UI is deployed to Vercel (see below).
 
-Local-only forward migrations `0049_review_flow_upgrade.sql`,
+Forward migrations `0049_review_flow_upgrade.sql`,
 `0050_service_only_acl_hardening.sql`,
 `0051_view_reports_server_enforcement.sql`,
-`0052_sales_email_approval_decision_fix.sql` and
+`0052_sales_email_approval_decision_fix.sql`,
 `0053_sales_email_queue_idempotency_fix.sql` and
-`0054_review_reply_approval_gate.sql` were applied and tested against the local
-stack only. **They are not applied to hosted and must not be treated as hosted
-state.** Hosted rollout requires renewed explicit approval. The new
-`review-reply-suggest` Edge Function also exists locally only and is not deployed.
+`0054_review_reply_approval_gate.sql` were applied to hosted Supabase on
+2026-11-24 with explicit owner approval to restore the CRM dashboard. The
+deployed frontend required `businesses.google_review_url`; hosted did not have
+that column, so tenant loading failed with PostgREST `42703` and the app fell
+back to onboarding.
+
+Hosted object-level verification after application: `google_review_url` present,
+five `owner_reply_*` columns present, all review-flow RPCs present, 94/94 public
+tables RLS-enabled, 230 `SECURITY DEFINER` functions with 229 empty
+`search_path` and one `pg_catalog`, and 0 null ACLs. Data counts were unchanged:
+9 businesses, 31 contacts, 6 appointments, 4 review requests and 2 invoices.
+The hosted CRM overview loaded with no console errors.
+
+The new `review-reply-suggest` Edge Function still exists locally only and is
+not deployed. No hosted setting, auth config, secret, real message, email or
+payment was changed. The hosted backup/restore drill remains incomplete and is
+still a Milestone 0 launch blocker.
 
 ## Project
 

@@ -1,12 +1,15 @@
 # Milestone 0 — verification and data safety report
 
 Date: 2026-11-24
-Scope: read-only hosted verification plus local implementation and hardening.
+Scope: hosted verification, local implementation and hardening, plus the
+owner-approved hosted application of migrations `0049`–`0054` on 2026-11-24.
 
-No hosted SQL writes, migrations, function deploys, hosted setting saves,
-payment configuration, real messages or emails were performed. Local code was
-verified, committed and pushed separately from hosted rollout. Hosted state is
-unchanged and still requires explicit deployment approval.
+No hosted function deploy, setting save, auth/config change, payment
+configuration, real message or email was performed. Local code was verified,
+committed and pushed separately. The hosted migrations were applied only after
+explicit approval to restore the CRM dashboard, which had broken because the
+deployed frontend requested `businesses.google_review_url` before the hosted
+database had the column.
 
 ## 1. Hosted verification results
 
@@ -14,10 +17,10 @@ unchanged and still requires explicit deployment approval.
 | --- | --- |
 | Public tables | 94 |
 | Tables with RLS enabled | 94 / 94 |
-| `SECURITY DEFINER` functions | 224 |
-| Empty `search_path` | 223; the remaining one is `rls_auto_enable` with `pg_catalog` |
-| `EXECUTE` granted to `anon` | 124 DEFINER functions |
-| `EXECUTE` granted to `authenticated` | 205 DEFINER functions |
+| `SECURITY DEFINER` functions | 230 after `0049`–`0054` |
+| Empty `search_path` | 229; the remaining one is `rls_auto_enable` with `pg_catalog` |
+| `EXECUTE` granted to `anon` | 112 after `0050` |
+| `EXECUTE` granted to `authenticated` | 198 after `0050` and review-flow grants |
 | Null ACL / implicit public execute | 0 |
 | Migration history | `supabase_migrations.schema_migrations` is not visible to the CLI login role; object-level checks remain the source of truth |
 
@@ -26,10 +29,11 @@ unchanged and still requires explicit deployment approval.
 Patient-document, patient-email and payments service RPCs grant `EXECUTE` only
 to `postgres`/`service_role`, which is the expected fail-closed shape.
 
-However, most `ai_service_*` functions and all `billing_service_*` functions
-still grant `EXECUTE` to `anon` and `authenticated` on hosted. The local
-forward migration `0050_service_only_acl_hardening.sql` revokes those browser
-roles and has been applied and tested locally only. Hosted ACLs were not changed.
+Most `ai_service_*` functions and all `billing_service_*` functions previously
+granted `EXECUTE` to `anon` and `authenticated` on hosted. The forward migration
+`0050_service_only_acl_hardening.sql` revokes those browser roles and was
+applied to hosted with the 2026-11-24 approval. Post-application hosted counts
+are 112 `anon` grants and 198 `authenticated` grants, with 0 null ACLs.
 
 ### Dashboard/report enforcement finding on hosted
 
@@ -39,10 +43,9 @@ The hosted dashboard metric RPCs (`crm_dashboard_metrics`,
 contain no `has_tenant_role` check. `ReportsPage` uses `can('view_reports')` as
 a UI-only gate.
 
-The local forward migration `0051_view_reports_server_enforcement.sql` adds
-the same role check inside the trusted server functions and preserves platform
-admin access to usage. It has been applied and tested locally only. Hosted
-RPCs were not changed.
+The forward migration `0051_view_reports_server_enforcement.sql` adds the same
+role check inside the trusted server functions and preserves platform admin
+access to usage. It was applied to hosted with the 2026-11-24 approval.
 
 ### Platform admin role finding
 
@@ -73,13 +76,33 @@ Stale version numbers in `docs/HOSTED_STATE.md` were corrected from the live
 `review-reply-suggest` function exists locally and passes Deno checks, but is
 not deployed.
 
+### Hosted CRM restoration
+
+On 2026-11-24 the deployed Vercel frontend sent a tenant query selecting
+`businesses.google_review_url`. Hosted did not have that column, so PostgREST
+returned `42703 column businesses_1.google_review_url does not exist`. Tenant
+loading failed and the hosted app redirected to `/onboarding/business`.
+
+The owner explicitly approved applying `0049`–`0054` to hosted. After
+application, hosted has `google_review_url`, all five `owner_reply_*` columns
+and the review-flow RPCs. Data counts were unchanged. The hosted browser session
+was refreshed and `/app` plus `/app/crm` loaded with no console errors. The CRM
+overview for the active tenant showed 22 contacts, 20 new leads, 2 open deals
+and ₹1,000 open pipeline value.
+
+The displayed tenant is the active owner account's workspace, **Abhishek Dental
+Care and Poly Clinic**. Demo Dental Clinic data remains under the separate
+`demo@flowsuite.app` account; it was not deleted or moved.
+
 ### Backup status
 
 A schema-only dump was attempted twice (2026-11-22 and 2026-11-24) and failed
 both times with `DockerRunError`. No backup file was produced. A real backup
 **and restore drill into a non-production project** remain launch blockers.
 Local Docker was later restored and local Supabase now starts successfully;
-this does not replace the hosted backup/restore drill.
+this does not replace the hosted backup/restore drill. The owner-approved
+`0049`–`0054` application proceeded on explicit instruction, but the missing
+drill is still not closed.
 
 ### Production origin
 
@@ -196,23 +219,26 @@ Before public selling or closing Milestone 0, the owner must:
 1. Confirm the canonical production origin and verify Auth Site URL/redirects.
 2. Take a hosted backup and complete a restore drill into a non-production project.
 3. Decide the `support` role policy: no admin UI, or limited read-only admin UI.
-4. Explicitly approve applying local forward migrations `0049`–`0054` to hosted.
-5. Explicitly approve deploying `review-reply-suggest`.
-6. Confirm the AI provider secret names used by `ai-chat` may be reused. Never
+4. Explicitly approve deploying `review-reply-suggest`.
+5. Confirm the AI provider secret names used by `ai-chat` may be reused. Never
    paste secret values into chat.
-7. Configure tenant-owned Razorpay keys, webhook and a test payment.
-8. Approve legal/commercial documents: Terms, Privacy, refund, DPDP consent and
+6. Configure tenant-owned Razorpay keys, webhook and a test payment.
+7. Approve legal/commercial documents: Terms, Privacy, refund, DPDP consent and
    retention/deletion policy.
-9. Approve any real WhatsApp send after the migration is live.
+8. Approve any real WhatsApp send now that the migrations are live.
 
-No hosted change should be made until explicit deployment approval is given.
+Forward migrations `0049`–`0054` were applied to hosted with explicit approval
+on 2026-11-24. Further hosted deploys, sends and payments still require
+explicit approval.
 
 ## 5. Production-verified vs local-only
 
 ### Production-verified
 
-- Hosted tables and RLS catalog state.
-- Hosted Edge Function inventory and versions.
+- Hosted tables and RLS catalog state before and after `0049`–`0054`.
+- Hosted application of forward migrations `0049`–`0054`.
+- Hosted CRM restoration: `/app` and `/app/crm` load with no console errors.
+- Hosted Edge Function inventory and versions; no bundle was redeployed.
 - Reports and dashboard browser smoke tests from earlier work.
 - Payments gateway status is fail-closed until tenant keys/webhook are configured.
 - Patient email dispatch remains fail-closed; no scheduler is configured.
@@ -223,18 +249,19 @@ No hosted change should be made until explicit deployment approval is given.
 - `super_admin`-only admin UI narrowing.
 - Vercel fallback URL changes in two Edge Function sources.
 - Generated types reference snapshot.
-- Review flow upgrade, including Google URL, owner-side AI draft, enforced
-  approval before copy, prompt screening and AI usage logging.
-- Service-only RPC ACL hardening.
-- Server-side report-role enforcement.
-- Sales-email approval/idempotency fixes.
+- Review flow frontend code (deployed to Vercel), including Google URL,
+  owner-side AI draft, enforced approval before copy and prompt screening. The
+  `review-reply-suggest` Edge Function is not deployed.
+- Service-only RPC ACL hardening (migration applied to hosted).
+- Server-side report-role enforcement (migration applied to hosted).
+- Sales-email approval/idempotency fixes (applied to hosted).
 - Commercial and Milestone 0 documentation.
 
 ### Not verified / blocked
 
 - Hosted backup and restore.
-- Hosted acceptance of local migrations `0049`–`0054`.
 - Hosted deployment of `review-reply-suggest`.
+- AI usage-log verification for the new review-reply function on hosted.
 - Real Razorpay payment and webhook delivery.
 - WhatsApp patient-data flows.
 - Real patient email dispatch.
@@ -246,10 +273,9 @@ Milestone 0 can be closed once the owner answers:
 
 1. Is Vercel the final canonical login/production origin?
 2. Should `support` have no admin UI access, or limited read-only access?
-3. Should the local `view_reports` enforcement be applied to hosted now?
-4. Should the local service-only RPC ACL hardening be applied to hosted now?
-5. Has a backup and restore drill been completed?
-6. Are the review-flow migrations and Edge Function approved for hosted rollout?
+3. Has a backup and restore drill been completed?
+4. Is `review-reply-suggest` approved for hosted deployment?
+5. Are the AI provider secret names used by `ai-chat` approved for reuse?
 
-No hosted change should be made until those answers and explicit deployment
-approval are given.
+Forward migrations `0049`–`0054` are no longer pending. Further hosted deploys,
+sends and payments require explicit approval.

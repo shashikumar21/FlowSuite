@@ -1,10 +1,11 @@
 # Review Flow Upgrade — forward-only implementation plan
 
 Date: 2026-11-24
-Status: **LOCAL IMPLEMENTATION COMPLETE — AWAITING HOSTED APPROVAL** (owner
-approved all six design decisions on 2026-11-24). No hosted migration has been
-applied, no function deployed, no hosted write and no hosted setting saved.
-Local code was verified and committed separately from hosted rollout.
+Status: **MIGRATIONS APPLIED TO HOSTED — EDGE FUNCTION PENDING** (owner approved
+all six design decisions on 2026-11-24 and explicitly approved applying
+`0049`–`0054` on 2026-11-24 to restore the hosted CRM dashboard). No function
+was deployed and no hosted setting, secret, auth config, message or payment was
+changed. Local code was verified and committed separately from hosted rollout.
 
 ## 1. Goal
 
@@ -247,17 +248,17 @@ Manual browser checks in demo tenant only:
 
 No real WhatsApp send, no real Google post and no patient data during tests.
 
-## 7. Deployment requirements — owner approval needed
+## 7. Deployment requirements — status
 
-1. Approve forward migrations `0049_review_flow_upgrade.sql` and
-   `0054_review_reply_approval_gate.sql` for hosted application, in that order.
-   They must never be edited after application.
-2. Approve deployment of `review-reply-suggest`.
+1. Forward migrations `0049`–`0054` were approved and applied to hosted in order
+   on 2026-11-24. They must never be edited after application.
+2. Deployment of `review-reply-suggest` is still pending explicit approval.
 3. Confirm the AI provider secrets already used by `ai-chat` may be reused.
    Only secret names may be discussed; values must never be pasted in chat.
 4. Provide the official Google review link through the tenant UI, not chat.
-5. Approve any real WhatsApp send after the migration is live.
-6. Accept that Google posting stays manual for this milestone.
+5. Any real WhatsApp send still requires separate approval now that the
+   migrations are live.
+6. Google posting stays manual for this milestone.
 
 ## 8. Owner decisions
 
@@ -288,7 +289,8 @@ checked after local Docker/Supabase and Deno became available:
 
 | Check | Result |
 | --- | --- |
-| `0049` and `0054` applied locally with `supabase migration up` | Pass |
+| `0049`–`0054` applied locally with `supabase migration up` | Pass |
+| `0049`–`0054` applied to hosted with explicit approval | Pass; CRM dashboard restored |
 | `supabase/tests/review_flow_upgrade.sql` | Pass; rolled back; includes copy-before-approval denial |
 | Other 13 local SQL test files | Pass; all rolled back |
 | `deno check` on all Edge Functions, including `review-reply-suggest` | Pass |
@@ -301,6 +303,9 @@ exposure. Its four findings were fixed locally: server-side approval before
 copy, rejection state handling, prompt screening for contact/clinical text and
 AI usage logging for the new function.
 
-Nothing has been applied to hosted, deployed, or saved through the hosted UI.
+The migrations are now applied to hosted. Hosted object-level checks confirmed
+`google_review_url`, the five `owner_reply_*` columns and the review-flow RPCs;
+data counts were unchanged and `/app` plus `/app/crm` loaded with no console
+errors. The Edge Function is not deployed and no hosted setting was saved.
 Local code was committed and pushed separately from hosted rollout. Verification
 results are reported in `docs/MILESTONE_0_REPORT.md`.
